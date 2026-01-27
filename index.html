@@ -17,7 +17,9 @@
             font-family: 'Courier New', monospace;
             margin: 0; padding: 20px;
             display: flex; flex-direction: column; align-items: center;
+            justify-content: center;
             min-height: 100vh;
+            overflow: hidden;
         }
         body::before {
             content: " "; display: block; position: fixed;
@@ -63,7 +65,7 @@
             border: 1px solid var(--kaspa-teal); padding: 2px 8px;
         }
         .log-area {
-            height: 180px; overflow-y: auto; border: 1px solid #333;
+            height: 220px; overflow-y: auto; border: 1px solid #333;
             background: #000; padding: 10px; margin-top: 20px;
             color: var(--kaspa-bright); font-size: 0.85rem;
         }
@@ -81,8 +83,13 @@
             background: #000; color: #fff; border: 1px solid var(--kaspa-teal);
             padding: 8px; font-family: 'Courier New', monospace; width: 180px;
         }
-        footer { margin-top: auto; padding: 20px; z-index: 20; font-size: 0.8rem; }
-        footer a { color: var(--kaspa-bright); text-decoration: none; border: 1px solid var(--kaspa-teal); padding: 5px 10px; }
+        /* New Integrated Footer */
+        .internal-footer {
+            margin-top: 15px; border-top: 1px solid #333;
+            padding-top: 10px; text-align: center; font-size: 0.75rem;
+        }
+        .internal-footer a { color: var(--kaspa-bright); text-decoration: none; letter-spacing: 2px; }
+        .internal-footer a:hover { text-shadow: 0 0 5px var(--kaspa-bright); }
     </style>
 </head>
 <body>
@@ -91,8 +98,7 @@
     <div class="toggle-container">
         <span>TESTNET</span>
         <label class="switch">
-            <input type="checkbox" id="netToggle">
-            <span class="slider"></span>
+            <input type="checkbox" id="netToggle" checked> <span class="slider"></span>
         </label>
         <span>MAINNET</span>
     </div>
@@ -114,7 +120,7 @@
     <div class="stats-box">
         <div>
             <label>OPERATOR_LOGIN:</label><br>
-            <input type="text" id="targetId" placeholder="yri.kas">
+            <input type="text" id="targetId" placeholder="grandpayri.kas">
             <button id="initBtn">BOOT</button>
         </div>
         <div>
@@ -127,9 +133,11 @@
     </div>
 
     <div class="log-area" id="log">> AWAITING_HANDSHAKE...<br></div>
-</div>
 
-<footer>[ <a href="README.html">READ_PROTOCOL_DOCUMENTATION</a> ]</footer>
+    <div class="internal-footer">
+        [ <a href="README.html">READ_PROTOCOL_DOCUMENTATION</a> ]
+    </div>
+</div>
 
 <script type="module">
     import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
@@ -139,7 +147,8 @@
     const netToggle = document.getElementById('netToggle');
     const initBtn = document.getElementById('initBtn');
     
-    let targetNetwork = "testnet-11";
+    // Set network based on toggle state
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
     const FALLBACK_TN_NODE = "wss://tn11-rpc-1.kaspa.org/ws";
 
     const logMsg = (m) => {
@@ -175,9 +184,9 @@
             logMsg(`DIALING: ${url}`);
             await rpc.connect();
             
-            const info = await rpc.getInfo();
+            const info = await rpc.getServerInfo(); // Updated to get correct server info object
             logMsg(`SUCCESS: LINK_ESTABLISHED.`);
-            logMsg(`BLUE_SCORE: ${info.blueScore}`);
+            logMsg(`BLUE_SCORE: ${info.serverVersion || "SYNCED"}`); // Catching server sync status
             
             netStatus.style.color = "#00ff00";
             netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
@@ -198,6 +207,7 @@
                 targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
                 logMsg(`MODE_SWITCH: ${targetNetwork.toUpperCase()}`);
                 netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
+                netStatus.style.color = "var(--kaspa-teal)";
             };
 
             initBtn.addEventListener('click', startWar);

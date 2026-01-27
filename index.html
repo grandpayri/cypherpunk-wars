@@ -20,28 +20,111 @@
             display: flex; justify-content: center; align-items: center;
             height: 100vh; width: 100vw; overflow: hidden;
         }
+        /* Scanline Overlay */
         body::before {
             content: " "; display: block; position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px; z-index: 100; pointer-events: none;
+            background-size: 100% 4px; z-index: 1000; pointer-events: none;
         }
+
         .bunker-frame {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            grid-template-rows: 50px 1fr;
+            display: flex;
+            flex-direction: column;
             width: 98vw; height: 96vh;
             border: 2px solid var(--kaspa-teal);
-            background: rgba(10, 10, 10, 0.95);
+            background: #000;
             box-shadow: 0 0 20px var(--kaspa-glow);
             z-index: 5;
         }
+
+        /* Top Header */
         .header {
-            grid-column: 1 / span 2;
+            height: 50px;
             border-bottom: 1px solid var(--kaspa-teal);
             padding: 0 20px;
             display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0;
         }
+
+        /* Main Interaction Area */
+        .main-container {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            border-right: 1px solid var(--kaspa-teal);
+            padding: 15px;
+            display: flex; flex-direction: column;
+            flex-shrink: 0;
+            background: rgba(112, 199, 186, 0.05);
+        }
+
+        /* Viewport */
+        .viewport {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* ASCII Banner Space */
+        .ascii-banner {
+            font-size: 5px; line-height: 6px; white-space: pre;
+            color: var(--kaspa-bright); text-align: center; 
+            margin-bottom: 20px; flex-shrink: 0;
+            text-shadow: 0 0 5px var(--kaspa-bright);
+        }
+
+        /* Page Content Area */
+        .content-area {
+            flex-grow: 1;
+            border: 1px solid #333;
+            padding: 20px;
+            background: #050505;
+            overflow-y: auto;
+        }
+
+        /* Unified Terminal Log */
+        .terminal-log {
+            height: 150px;
+            border-top: 1px solid var(--kaspa-teal);
+            background: #000;
+            padding: 10px;
+            color: var(--kaspa-teal);
+            font-size: 0.8rem;
+            overflow-y: auto;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+
+        /* Sidebar Widgets */
+        .nav-menu { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+        .nav-btn {
+            background: transparent; border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
+            text-align: left; font-family: inherit; font-size: 0.75rem;
+        }
+        .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
+
+        .stat-group { border-top: 1px solid #333; padding-top: 10px; }
+        .stat-item { margin-bottom: 8px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .btn-execute {
+            background: var(--kaspa-bright); color: #000;
+            padding: 10px 20px; border: none; cursor: pointer;
+            font-family: inherit; font-weight: bold; margin-top: 10px;
+        }
+
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -50,49 +133,9 @@
             background-color: #222; border: 1px solid var(--kaspa-teal); transition: .4s;
         }
         .slider:before {
-            position: absolute; content: ""; height: 10px; width: 10px;
-            left: 3px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
+            position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
         }
         input:checked + .slider:before { transform: translateX(16px); }
-
-        .sidebar {
-            border-right: 1px solid var(--kaspa-teal);
-            padding: 15px;
-            display: flex; flex-direction: column;
-            overflow-y: auto;
-        }
-        .nav-menu { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
-        .nav-btn {
-            background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
-            text-align: left; font-family: inherit; font-size: 0.7rem;
-        }
-        .nav-btn:hover, .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
-
-        .stat-group { border-top: 1px solid #333; padding-top: 10px; }
-        .stat-item { margin-bottom: 8px; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.6rem; display: block; letter-spacing: 1px; }
-        .stat-sub { font-size: 0.5rem; color: #666; display: block; }
-        
-        .viewport { padding: 15px; display: flex; flex-direction: column; overflow: hidden; background: #000; }
-        .ascii-banner {
-            font-size: 5px; line-height: 6px; white-space: pre;
-            color: var(--kaspa-bright); text-align: center; 
-            margin: 10px 0; text-shadow: 0 0 5px var(--kaspa-bright);
-        }
-        .content-area { flex-grow: 1; border: 1px solid #222; padding: 20px; position: relative; overflow-y: auto; }
-        .page { display: none; }
-        .page.active { display: block; }
-
-        .terminal-log {
-            height: 140px; border: 1px solid #222; background: #050505;
-            padding: 10px; color: var(--kaspa-teal); font-size: 0.8rem; 
-            overflow-y: auto; margin-top: 10px; line-height: 1.4;
-        }
-
-        .btn-execute { background: var(--kaspa-bright); color: #000; padding: 8px 16px; font-weight: bold; border: none; cursor: pointer; font-family: inherit; text-transform: uppercase; }
-        .readme-footer { margin-top: auto; padding-top: 10px; text-align: center; font-size: 0.7rem; }
-        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
     </style>
 </head>
 <body>
@@ -108,14 +151,120 @@
         <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
     </div>
 
-    <div class="sidebar">
-        <nav class="nav-menu">
-            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
-            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
-            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
-            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
-            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
-            <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
-        </nav>
+    <div class="main-container">
+        <div class="sidebar">
+            <nav class="nav-menu">
+                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+                <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+                <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+                <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+                <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
+            </nav>
 
-        <div class="stat-group">
+            <div class="stat-group">
+                <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
+                <div class="stat-item"><span class="stat-label">FUEL ($KAS)</span><span id="sideKas">0.00</span></div>
+                <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
+                <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
+                <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
+                <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
+            </div>
+
+            <div style="margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333;">
+                <a href="README.html" target="_blank" style="color: var(--kaspa-bright); text-decoration: none;">[ VIEW_README.md ]</a>
+            </div>
+        </div>
+
+        <div class="viewport">
+            <div class="ascii-banner">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                      
+            </div>
+
+            <div class="content-area">
+                <div id="page-boot" class="page active">
+                    <h3 style="color: var(--kaspa-bright)">INITIATE_HANDSHAKE</h3>
+                    <p>Connect to the Kaspa BlockDAG to sync your Operator State.</p>
+                    <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px; font-family: inherit;">
+                    <button id="initBtn" class="btn-execute">BOOT</button>
+                </div>
+                <div id="page-phish" class="page"><h3>PROTOCOL: PHISH</h3><p>Scan network for fragments...</p></div>
+                <div id="page-build" class="page"><h3>PROTOCOL: BUILD</h3><p>Provision sectors...</p></div>
+            </div>
+
+            <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...<br></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+
+    const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+    const initBtn = document.getElementById('initBtn');
+    
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+    const FALLBACK_TN_NODE = "wss://tn11-rpc-1.kaspa.org/ws";
+
+    const logMsg = (m) => {
+        const t = new Date().toLocaleTimeString([], {hour12: false});
+        log.innerHTML += `> [${t}] ${m}<br>`;
+        log.scrollTop = log.scrollHeight;
+    };
+
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        btn.classList.add('active');
+    };
+
+    netToggle.onchange = () => {
+        targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+        logMsg(`MODE_SWITCH: ${targetNetwork.toUpperCase()}`);
+        netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
+    };
+
+    async function startWar() {
+        const id = document.getElementById('targetId').value || 'grandpayri.kas';
+        logMsg(`INITIATING_RESOLVER: ${id}`);
+        try {
+            const resolver = new Resolver();
+            let url;
+            try {
+                url = await Promise.race([
+                    resolver.getUrl(Encoding.Borsh, targetNetwork),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 6000))
+                ]);
+            } catch { url = targetNetwork === "testnet-11" ? FALLBACK_TN_NODE : "wss://mainnet-rpc.kaspa.org/ws"; }
+            
+            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            await rpc.connect();
+            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
+            document.getElementById('sideId').innerText = id;
+            document.getElementById('sideKas').innerText = "0.00"; 
+            netStatus.style.color = "#00ff00";
+            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
+        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
+    }
+
+    async function run() {
+        try {
+            await init('./kaspa_bg.wasm');
+            logMsg("ENGINE_READY.");
+            if(initBtn) initBtn.onclick = startWar;
+        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
+    }
+    run();
+</script>
+</body>
+</html>

@@ -19,7 +19,6 @@
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
-        /* CRT Overlay */
         body::before {
             content: " "; display: block; position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
@@ -36,12 +35,10 @@
         .title-ascii {
             font-size: 8px; line-height: 9px; white-space: pre;
             color: var(--kaspa-bright); text-align: center; margin: 10px 0;
-            text-shadow: 0 0 8px var(--kaspa-bright);
         }
         .subtitle {
             text-align: center; color: var(--kaspa-teal);
-            font-size: 0.85rem; margin-bottom: 25px; letter-spacing: 3px;
-            font-weight: bold;
+            font-size: 0.85rem; margin-bottom: 25px; letter-spacing: 3px; font-weight: bold;
         }
         .network-indicator {
             position: absolute; top: 10px; right: 20px;
@@ -49,7 +46,7 @@
             border: 1px solid var(--kaspa-teal); padding: 2px 8px;
         }
         .log-area {
-            height: 160px; overflow-y: auto; border: 1px solid #333;
+            height: 180px; overflow-y: auto; border: 1px solid #333;
             background: #000; padding: 10px; margin-top: 20px;
             color: var(--kaspa-bright); font-size: 0.85rem;
         }
@@ -118,9 +115,8 @@
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netStatus');
     
-    // --- NETWORK CONFIG ---
+    // Switch to "mainnet" if testnet-11 resolver is timing out
     let targetNetwork = "testnet-11"; 
-    // ----------------------
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -141,33 +137,42 @@
                 
                 try {
                     const resolver = new Resolver();
-                    logMsg(`LOCATING_${targetNetwork.toUpperCase()}_NODE...`);
+                    logMsg(`SEARCHING_FOR_NODE...`);
                     
-                    const url = await resolver.getUrl(Encoding.Borsh, targetNetwork);
+                    // Added a safety timeout for the resolver
+                    const url = await Promise.race([
+                        resolver.getUrl(Encoding.Borsh, targetNetwork),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 8000))
+                    ]);
+
                     const rpc = new RpcClient({ 
                         url, 
                         encoding: Encoding.Borsh, 
                         networkId: targetNetwork 
                     });
                     
+                    logMsg(`NODE_FOUND: ${url}`);
+                    logMsg("ATTEMPTING_RPC_HANDSHAKE...");
+                    
                     await rpc.connect();
                     logMsg(`SUCCESS: CONNECTED_TO_${targetNetwork.toUpperCase()}`);
                     
                     const info = await rpc.getInfo();
-                    logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
+                    logMsg(`BLUE_SCORE: ${info.blueScore}`);
                     logMsg(`WELCOME_BACK_OPERATOR.`);
                     
                     netStatus.style.color = "#00ff00";
                     netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
 
                 } catch (e) {
-                    logMsg(`CONN_ERROR: ${e.message}`);
+                    logMsg(`BOOT_ERROR: ${e.message}`);
+                    logMsg(`TIP: If timeout, check if Testnet-11 is active or switch to Mainnet.`);
                     netStatus.style.color = "#ff0000";
                     netStatus.innerText = "NET: ERROR";
                 }
             };
         } catch (e) {
-            logMsg("CRITICAL_BOOT_FAILURE.");
+            logMsg(`CRITICAL_FAILURE: ${e.message}`);
         }
     }
     run();

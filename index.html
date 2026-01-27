@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYPHERPUNK WARS | Kaspa</title>
+    <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -15,11 +15,9 @@
             background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
             font-family: 'Courier New', monospace;
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
         }
         body::before {
             content: " "; display: block; position: fixed;
@@ -27,194 +25,194 @@
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
             background-size: 100% 4px; z-index: 10; pointer-events: none;
         }
-        .terminal-container {
+        .bunker-frame {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            grid-template-rows: auto 1fr auto;
+            width: 95vw; height: 90vh;
             border: 2px solid var(--kaspa-teal);
-            background: rgba(112, 199, 186, 0.05);
+            background: rgba(112, 199, 186, 0.02);
             box-shadow: 0 0 20px var(--kaspa-glow);
-            width: 95%; max-width: 900px; padding: 20px;
-            z-index: 5; position: relative;
+            z-index: 5;
         }
-        .title-ascii {
-            font-size: 8px; line-height: 9px; white-space: pre;
-            color: var(--kaspa-bright); text-align: center; margin: 10px 0;
-            text-shadow: 0 0 8px var(--kaspa-bright);
+        /* Top Bar */
+        .header {
+            grid-column: 1 / span 2;
+            border-bottom: 1px solid var(--kaspa-teal);
+            padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .subtitle {
-            text-align: center; color: var(--kaspa-teal);
-            font-size: 0.85rem; margin-bottom: 25px; letter-spacing: 3px; font-weight: bold;
+        /* Sidebar: Setup Summary */
+        .sidebar {
+            border-right: 1px solid var(--kaspa-teal);
+            padding: 15px;
+            font-size: 0.85rem;
+            background: rgba(0,0,0,0.3);
         }
-        .toggle-container {
-            position: absolute; top: 10px; left: 20px;
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.7rem; color: var(--kaspa-bright); z-index: 100;
+        .stat-item { margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.7rem; display: block; }
+        
+        /* Main Viewport: The "Pages" */
+        .viewport {
+            padding: 30px;
+            position: relative;
+            overflow-y: auto;
         }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #333; border: 1px solid var(--kaspa-teal); transition: .4s;
+        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Navigation Buttons */
+        .nav-menu {
+            display: flex; flex-direction: column; gap: 10px; margin-top: 20px;
         }
-        .slider:before {
-            position: absolute; content: ""; height: 12px; width: 12px;
-            left: 4px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
-        }
-        input:checked + .slider:before { transform: translateX(18px); }
-        .network-indicator {
-            position: absolute; top: 10px; right: 20px;
-            font-size: 0.7rem; color: var(--kaspa-bright);
-            border: 1px solid var(--kaspa-teal); padding: 2px 8px;
-        }
-        .log-area {
-            height: 220px; overflow-y: auto; border: 1px solid #333;
-            background: #000; padding: 10px; margin-top: 20px;
-            color: var(--kaspa-bright); font-size: 0.85rem;
-        }
-        .stats-box {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 20px; border-top: 1px solid #333; padding-top: 15px;
-        }
-        button {
+        .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 8px 15px; cursor: pointer;
-            font-family: 'Courier New', monospace; text-transform: uppercase;
+            color: var(--kaspa-teal); padding: 10px; cursor: pointer;
+            text-align: left; transition: 0.2s;
         }
-        button:hover { background: var(--kaspa-teal); color: #000; }
-        input[type="text"] {
-            background: #000; color: #fff; border: 1px solid var(--kaspa-teal);
-            padding: 8px; font-family: 'Courier New', monospace; width: 180px;
+        .nav-btn:hover, .nav-btn.active {
+            background: var(--kaspa-teal); color: #000; box-shadow: 0 0 10px var(--kaspa-bright);
         }
-        /* New Integrated Footer */
-        .internal-footer {
-            margin-top: 15px; border-top: 1px solid #333;
-            padding-top: 10px; text-align: center; font-size: 0.75rem;
+
+        /* Action UI */
+        .action-card {
+            border: 1px solid var(--kaspa-teal);
+            padding: 20px; background: rgba(0,0,0,0.5);
+            max-width: 500px; margin-bottom: 20px;
         }
-        .internal-footer a { color: var(--kaspa-bright); text-decoration: none; letter-spacing: 2px; }
-        .internal-footer a:hover { text-shadow: 0 0 5px var(--kaspa-bright); }
+        .btn-execute {
+            background: var(--kaspa-bright); color: #000;
+            padding: 12px 24px; font-weight: bold; border: none; cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
-<div class="terminal-container">
-    <div class="toggle-container">
-        <span>TESTNET</span>
-        <label class="switch">
-            <input type="checkbox" id="netToggle" checked> <span class="slider"></span>
-        </label>
-        <span>MAINNET</span>
+<div class="bunker-frame">
+    <div class="header">
+        <div style="font-weight: bold; letter-spacing: 2px;">CYPHERPUNK WARS v1.0</div>
+        <div id="netStatus" style="font-size: 0.7rem;">NET: STANDBY</div>
     </div>
 
-    <div id="netStatus" class="network-indicator">NET: STANDBY</div>
-    
-    <div class="title-ascii">
-   _____            _               _____             _     __          __            
-  / ____|          | |             |  __ \           | |    \ \        / /            
- | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
- | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
- | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
-  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
-         __/ | |                                                                      
-        |___/|_|                                                                      
-    </div>
-    <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
-
-    <div class="stats-box">
-        <div>
-            <label>OPERATOR_LOGIN:</label><br>
-            <input type="text" id="targetId" placeholder="grandpayri.kas">
-            <button id="initBtn">BOOT</button>
+    <div class="sidebar">
+        <div class="stat-item">
+            <span class="stat-label">OPERATOR</span>
+            <span id="displayId">NOT_LOGGED_IN</span>
         </div>
-        <div>
-            <label>NODE_RESOURCES:</label>
-            <div id="resourceDisplay">
-                ENTROPY: 10/10<br>
-                SECTORS: 0 | DAEMONS: 0
+        <div class="stat-item">
+            <span class="stat-label">ENTROPY</span>
+            <span id="entropyCount">10/10</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">MEME_STASH ($NACHO)</span>
+            <span id="memeCount">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">INFRASTRUCTURE</span>
+            SECTORS: <span id="sectorCount">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">SWARM</span>
+            DAEMONS: <span id="daemonCount">0</span>
+        </div>
+
+        <nav class="nav-menu">
+            <button class="nav-btn active" onclick="showPage('boot')">00_BOOT_SEQUENCE</button>
+            <button class="nav-btn" onclick="showPage('phish')">01_PHISH</button>
+            <button class="nav-btn" onclick="showPage('build')">02_BUILD</button>
+            <button class="nav-btn" onclick="showPage('attack')">03_ATTACK</button>
+            <button class="nav-btn" onclick="showPage('research')">04_R&D</button>
+            <button class="nav-btn" onclick="showPage('hack')">05_HACK</button>
+        </nav>
+    </div>
+
+    <div class="viewport" id="mainViewport">
+        
+        <div id="page-boot" class="page active">
+            <h2>INITIATE_HANDSHAKE</h2>
+            <p>Connect to the Kaspa BlockDAG to retrieve your Operator State.</p>
+            <input type="text" id="targetId" placeholder="yri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px;">
+            <button id="initBtn" class="btn-execute">INITIALIZE_VAULT</button>
+            <div id="log" style="margin-top: 20px; font-size: 0.8rem; color: #888;">> AWAITING_INPUT...</div>
+        </div>
+
+        <div id="page-phish" class="page">
+            <h2>PROTOCOL: PHISH</h2>
+            <div class="action-card">
+                <p>Scan unsecured network nodes for meme-coin fragments.</p>
+                <ul>
+                    <li>Cost: 1 Entropy</li>
+                    <li>Success: 5-50 $NACHO</li>
+                    <li>Risk: Trace detection (Loss of 1 Daemon)</li>
+                </ul>
+                <button class="btn-execute" onclick="executeAction('PHISH')">BROADCAST_PHISH</button>
             </div>
         </div>
-    </div>
 
-    <div class="log-area" id="log">> AWAITING_HANDSHAKE...<br></div>
+        <div id="page-build" class="page">
+            <h2>PROTOCOL: BUILD</h2>
+            <div class="action-card">
+                <p>Provision new Data Centers to increase Swarm capacity.</p>
+                <ul>
+                    <li>Cost: 1 Entropy + 100 $NACHO</li>
+                    <li>Effect: +1 Sector</li>
+                </ul>
+                <button class="btn-execute" onclick="executeAction('BUILD')">BROADCAST_BUILD</button>
+            </div>
+        </div>
 
-    <div class="internal-footer">
-        [ <a href="README.html">READ_PROTOCOL_DOCUMENTATION</a> ]
+        <div id="page-attack" class="page">
+            <h2>PROTOCOL: ATTACK</h2>
+            <div class="action-card">
+                <p>Launch Daemons against a rival node to seize Sectors.</p>
+                <input type="text" placeholder="TARGET_ADDRESS" style="width: 80%; background: #000; color: #fff; border: 1px solid var(--kaspa-teal); margin-bottom: 10px; padding: 5px;">
+                <button class="btn-execute" onclick="executeAction('ATTACK')">INITIATE_SIEGE</button>
+            </div>
+        </div>
+
+        <div id="page-research" class="page">
+            <h2>PROTOCOL: R&D</h2>
+            <div class="action-card">
+                <p>Allocate CPU cycles to discovering new exploits.</p>
+                <p>Progress to Next Hack: [|||||-----] 50%</p>
+                <button class="btn-execute" onclick="executeAction('RESEARCH')">ALLOCATE_CYCLES</button>
+            </div>
+        </div>
+
+        <div id="page-hack" class="page">
+            <h2>PROTOCOL: HACK</h2>
+            <div class="action-card">
+                <p>Execute specialized code to disrupt enemy operations.</p>
+                <select style="width: 80%; background: #000; color: #fff; border: 1px solid var(--kaspa-teal); margin-bottom: 10px; padding: 5px;">
+                    <option>PING_FLOOD (Slows Target)</option>
+                    <option>PHANTOM_NODE (Cloaks your Swarm)</option>
+                </select>
+                <button class="btn-execute" onclick="executeAction('HACK')">EXECUTE_HACK</button>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script type="module">
     import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
 
-    const log = document.getElementById('log');
-    const netStatus = document.getElementById('netStatus');
-    const netToggle = document.getElementById('netToggle');
-    const initBtn = document.getElementById('initBtn');
-    
-    // Set network based on toggle state
-    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
-    const FALLBACK_TN_NODE = "wss://tn11-rpc-1.kaspa.org/ws";
-
-    const logMsg = (m) => {
-        const t = new Date().toLocaleTimeString([], {hour12: false});
-        log.innerHTML += `> [${t}] ${m}<br>`;
-        log.scrollTop = log.scrollHeight;
+    // UI Routing
+    window.showPage = (pageId) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${pageId}`).classList.add('active');
+        event.target.classList.add('active');
     };
 
-    async function startWar() {
-        const id = document.getElementById('targetId').value || 'grandpayri.kas';
-        logMsg(`RESOLVING_OPERATOR: ${id}`);
-        netStatus.style.color = "var(--kaspa-bright)";
-        netStatus.innerText = `NET: SYNCING...`;
-        
-        try {
-            const resolver = new Resolver();
-            logMsg(`SEARCHING_FOR_${targetNetwork.toUpperCase()}_NODE...`);
-            
-            let url;
-            try {
-                url = await Promise.race([
-                    resolver.getUrl(Encoding.Borsh, targetNetwork),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 6000))
-                ]);
-            } catch (e) {
-                if(targetNetwork === "testnet-11") {
-                    logMsg("RESOLVER_FAILED. TRYING_FALLBACK_TN11_NODE...");
-                    url = FALLBACK_TN_NODE;
-                } else { throw e; }
-            }
+    // Action Mockups
+    window.executeAction = (type) => {
+        alert(`${type} protocol requires a signed transaction. Vault not yet unlocked.`);
+    };
 
-            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
-            logMsg(`DIALING: ${url}`);
-            await rpc.connect();
-            
-            const info = await rpc.getServerInfo(); // Updated to get correct server info object
-            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
-            logMsg(`BLUE_SCORE: ${info.serverVersion || "SYNCED"}`); // Catching server sync status
-            
-            netStatus.style.color = "#00ff00";
-            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
-
-        } catch (e) {
-            logMsg(`BOOT_ERROR: ${e.message || "NETWORK_REJECTED"}`);
-            netStatus.style.color = "#ff0000";
-            netStatus.innerText = "NET: ERROR";
-        }
-    }
-
+    // Existing WASM Boot Logic...
     async function run() {
         try {
-            await init('./kaspa_bg.wasm');
-            logMsg("ENGINE_READY.");
-            
-            netToggle.onchange = () => {
-                targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
-                logMsg(`MODE_SWITCH: ${targetNetwork.toUpperCase()}`);
-                netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
-                netStatus.style.color = "var(--kaspa-teal)";
-            };
-
-            initBtn.addEventListener('click', startWar);
-            
-        } catch (e) { logMsg(`CRITICAL_FAILURE: ${e.message}`); }
-    }
-    run();
-</script>
-</body>
-</html>
+            await

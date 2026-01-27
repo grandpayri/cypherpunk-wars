@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-4.9">
+    <meta name="version" content="Iteration-5.0">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -222,7 +222,8 @@
     async function run() {
         try {
             logMsg("LOADING_KASPA_WASM...");
-            await init('./kaspa.js');
+            // Corrected: Pointing init specifically to the binary .wasm file
+            await init('./kaspa_bg.wasm'); 
             logMsg("ENGINE_READY.");
             
             const bootBtn = document.getElementById('initBtn');

@@ -27,192 +27,115 @@
         }
         .bunker-frame {
             display: grid;
-            grid-template-columns: 250px 1fr;
-            grid-template-rows: auto 1fr auto;
-            width: 95vw; height: 90vh;
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: 60px 1fr;
+            width: 95vw; height: 92vh;
             border: 2px solid var(--kaspa-teal);
             background: rgba(112, 199, 186, 0.02);
             box-shadow: 0 0 20px var(--kaspa-glow);
             z-index: 5;
         }
-        /* Top Bar */
+        /* Header */
         .header {
             grid-column: 1 / span 2;
             border-bottom: 1px solid var(--kaspa-teal);
-            padding: 10px 20px;
+            padding: 0 20px;
             display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.5);
         }
-        /* Sidebar: Setup Summary */
+        /* Network Toggle */
+        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--kaspa-bright); }
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #222; border: 1px solid var(--kaspa-teal); transition: .4s;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 10px; width: 10px;
+            left: 3px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
+        }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        /* Sidebar */
         .sidebar {
             border-right: 1px solid var(--kaspa-teal);
-            padding: 15px;
+            padding: 20px;
             font-size: 0.85rem;
-            background: rgba(0,0,0,0.3);
+            display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.4);
         }
-        .stat-item { margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 5px; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.7rem; display: block; }
+        .stat-item { margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
         
-        /* Main Viewport: The "Pages" */
-        .viewport {
-            padding: 30px;
-            position: relative;
-            overflow-y: auto;
-        }
-        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .page.active { display: block; }
+        /* Viewport */
+        .viewport { padding: 40px; overflow-y: auto; position: relative; }
+        .page { display: none; }
+        .page.active { display: block; animation: scanlineIn 0.4s ease-out; }
+        @keyframes scanlineIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* Navigation Buttons */
-        .nav-menu {
-            display: flex; flex-direction: column; gap: 10px; margin-top: 20px;
-        }
+        /* Navigation */
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 20px; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
             color: var(--kaspa-teal); padding: 10px; cursor: pointer;
-            text-align: left; transition: 0.2s;
+            text-align: left; font-family: inherit; font-size: 0.75rem;
         }
-        .nav-btn:hover, .nav-btn.active {
-            background: var(--kaspa-teal); color: #000; box-shadow: 0 0 10px var(--kaspa-bright);
-        }
+        .nav-btn:hover, .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
 
-        /* Action UI */
-        .action-card {
-            border: 1px solid var(--kaspa-teal);
-            padding: 20px; background: rgba(0,0,0,0.5);
-            max-width: 500px; margin-bottom: 20px;
-        }
+        .readme-link { margin-top: 20px; text-align: center; font-size: 0.7rem; border-top: 1px solid #333; padding-top: 15px; }
+        .readme-link a { color: var(--kaspa-bright); text-decoration: none; border: 1px dashed; }
+
         .btn-execute {
             background: var(--kaspa-bright); color: #000;
             padding: 12px 24px; font-weight: bold; border: none; cursor: pointer;
+            font-family: inherit; margin-top: 10px;
         }
+        .action-card { border: 1px solid #333; padding: 20px; background: rgba(0,0,0,0.6); max-width: 600px; }
     </style>
 </head>
 <body>
 
 <div class="bunker-frame">
     <div class="header">
-        <div style="font-weight: bold; letter-spacing: 2px;">CYPHERPUNK WARS v1.0</div>
-        <div id="netStatus" style="font-size: 0.7rem;">NET: STANDBY</div>
+        <div class="toggle-box">
+            <span>TN11</span>
+            <label class="switch">
+                <input type="checkbox" id="netToggle" checked>
+                <span class="slider"></span>
+            </label>
+            <span>MAINNET</span>
+        </div>
+        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
+        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
     </div>
 
     <div class="sidebar">
         <div class="stat-item">
-            <span class="stat-label">OPERATOR</span>
-            <span id="displayId">NOT_LOGGED_IN</span>
+            <span class="stat-label">OPERATOR_ID</span>
+            <span id="sideId">NONE</span>
         </div>
         <div class="stat-item">
-            <span class="stat-label">ENTROPY</span>
-            <span id="entropyCount">10/10</span>
+            <span class="stat-label">ENTROPY_RESERVE</span>
+            <span id="sideEntropy">10/10</span>
         </div>
         <div class="stat-item">
-            <span class="stat-label">MEME_STASH ($NACHO)</span>
-            <span id="memeCount">0</span>
+            <span class="stat-label">$NACHO_STASH</span>
+            <span id="sideMeme">0</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">INFRASTRUCTURE</span>
-            SECTORS: <span id="sectorCount">0</span>
+            SECTORS: <span id="sideSectors">0</span>
         </div>
         <div class="stat-item">
-            <span class="stat-label">SWARM</span>
-            DAEMONS: <span id="daemonCount">0</span>
+            <span class="stat-label">DAEMON_SWARM</span>
+            COUNT: <span id="sideDaemons">0</span>
         </div>
 
         <nav class="nav-menu">
-            <button class="nav-btn active" onclick="showPage('boot')">00_BOOT_SEQUENCE</button>
-            <button class="nav-btn" onclick="showPage('phish')">01_PHISH</button>
-            <button class="nav-btn" onclick="showPage('build')">02_BUILD</button>
-            <button class="nav-btn" onclick="showPage('attack')">03_ATTACK</button>
-            <button class="nav-btn" onclick="showPage('research')">04_R&D</button>
-            <button class="nav-btn" onclick="showPage('hack')">05_HACK</button>
-        </nav>
-    </div>
-
-    <div class="viewport" id="mainViewport">
-        
-        <div id="page-boot" class="page active">
-            <h2>INITIATE_HANDSHAKE</h2>
-            <p>Connect to the Kaspa BlockDAG to retrieve your Operator State.</p>
-            <input type="text" id="targetId" placeholder="yri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px;">
-            <button id="initBtn" class="btn-execute">INITIALIZE_VAULT</button>
-            <div id="log" style="margin-top: 20px; font-size: 0.8rem; color: #888;">> AWAITING_INPUT...</div>
-        </div>
-
-        <div id="page-phish" class="page">
-            <h2>PROTOCOL: PHISH</h2>
-            <div class="action-card">
-                <p>Scan unsecured network nodes for meme-coin fragments.</p>
-                <ul>
-                    <li>Cost: 1 Entropy</li>
-                    <li>Success: 5-50 $NACHO</li>
-                    <li>Risk: Trace detection (Loss of 1 Daemon)</li>
-                </ul>
-                <button class="btn-execute" onclick="executeAction('PHISH')">BROADCAST_PHISH</button>
-            </div>
-        </div>
-
-        <div id="page-build" class="page">
-            <h2>PROTOCOL: BUILD</h2>
-            <div class="action-card">
-                <p>Provision new Data Centers to increase Swarm capacity.</p>
-                <ul>
-                    <li>Cost: 1 Entropy + 100 $NACHO</li>
-                    <li>Effect: +1 Sector</li>
-                </ul>
-                <button class="btn-execute" onclick="executeAction('BUILD')">BROADCAST_BUILD</button>
-            </div>
-        </div>
-
-        <div id="page-attack" class="page">
-            <h2>PROTOCOL: ATTACK</h2>
-            <div class="action-card">
-                <p>Launch Daemons against a rival node to seize Sectors.</p>
-                <input type="text" placeholder="TARGET_ADDRESS" style="width: 80%; background: #000; color: #fff; border: 1px solid var(--kaspa-teal); margin-bottom: 10px; padding: 5px;">
-                <button class="btn-execute" onclick="executeAction('ATTACK')">INITIATE_SIEGE</button>
-            </div>
-        </div>
-
-        <div id="page-research" class="page">
-            <h2>PROTOCOL: R&D</h2>
-            <div class="action-card">
-                <p>Allocate CPU cycles to discovering new exploits.</p>
-                <p>Progress to Next Hack: [|||||-----] 50%</p>
-                <button class="btn-execute" onclick="executeAction('RESEARCH')">ALLOCATE_CYCLES</button>
-            </div>
-        </div>
-
-        <div id="page-hack" class="page">
-            <h2>PROTOCOL: HACK</h2>
-            <div class="action-card">
-                <p>Execute specialized code to disrupt enemy operations.</p>
-                <select style="width: 80%; background: #000; color: #fff; border: 1px solid var(--kaspa-teal); margin-bottom: 10px; padding: 5px;">
-                    <option>PING_FLOOD (Slows Target)</option>
-                    <option>PHANTOM_NODE (Cloaks your Swarm)</option>
-                </select>
-                <button class="btn-execute" onclick="executeAction('HACK')">EXECUTE_HACK</button>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<script type="module">
-    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
-
-    // UI Routing
-    window.showPage = (pageId) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${pageId}`).classList.add('active');
-        event.target.classList.add('active');
-    };
-
-    // Action Mockups
-    window.executeAction = (type) => {
-        alert(`${type} protocol requires a signed transaction. Vault not yet unlocked.`);
-    };
-
-    // Existing WASM Boot Logic...
-    async function run() {
-        try {
-            await
+            <button class="nav-btn active" onclick="showPage('boot', this)">00_BOOT_SEQUENCE</button>
+            <button class="nav-btn" onclick="showPage('phish', this)">01_PHISH_NET</button>
+            <button class="nav-btn" onclick="showPage('build', this)">02_PROVISION_INFRA</button>
+            <button class="nav-btn" onclick="showPage('attack', this)">03_TACTICAL_SIEGE</button>
+            <button class="nav-btn" onclick="showPage('research', this)">04_PROTOCOL_R&D</button>
+            <button class="nav

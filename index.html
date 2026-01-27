@@ -153,7 +153,7 @@
 </div>
 
 <script type="module">
-    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+    import init, { RpcClient, Resolver, Encoding, Address } from './kaspa.js';
 
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netIndicator');
@@ -181,62 +181,8 @@
     };
 
     async function startWar() {
-        const id = document.getElementById('targetId').value || 'grandpayri.kas';
-        logMsg(`INITIATING_RESOLVER: ${id}`);
+        const input = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
+        logMsg(`INITIATING_IDENTITY_RESOLVER: ${input}`);
+        
         try {
-            const resolver = new Resolver();
-            let url;
-            
-            // Try automatic node resolution first
-            try {
-                url = await Promise.race([
-                    resolver.getUrl(Encoding.Borsh, targetNetwork),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 6000))
-                ]);
-            } catch { 
-                // Enhanced Fallback Logic
-                url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws";
-                logMsg(`RESOLVER_TIMEOUT. TRYING_FALLBACK_NODE...`);
-            }
-            
-            logMsg(`DIALING_NODE: ${url}`);
-            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
-            await rpc.connect();
-            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
-            
-            // RESOLVE IDENTITY (Bypass broken resolver function)
-            logMsg(`RESOLVING_IDENTITY: ${id}`);
-            let resolvedAddress = (id === 'grandpayri.kas') 
-                ? "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l" 
-                : id; // Support direct address input
-
-            // FETCH ACTUAL BALANCE
-            logMsg(`SYNCING_LEDGER_FUEL...`);
-            const balanceData = await rpc.getBalanceByAddress({ address: resolvedAddress });
-            
-            // Format Sompi to KAS
-            const totalKas = (Number(balanceData.balance) / 100000000).toFixed(2);
-            
-            document.getElementById('sideId').innerText = id;
-            document.getElementById('sideKas').innerText = totalKas; 
-            netStatus.style.color = "#00ff00";
-            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
-            logMsg(`LEDGER_SYNC_COMPLETE. BALANCE: ${totalKas} KAS`);
-            
-        } catch (e) { 
-            logMsg(`BOOT_ERROR: ${e.message}`); 
-            console.error(e);
-        }
-    }
-
-    async function run() {
-        try {
-            await init('./kaspa_bg.wasm');
-            logMsg("ENGINE_READY.");
-            if(initBtn) initBtn.onclick = startWar;
-        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
-    }
-    run();
-</script>
-</body>
-</html>
+            const resolver = new Resolver

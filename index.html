@@ -19,6 +19,7 @@
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
+        /* CRT Overlay */
         body::before {
             content: " "; display: block; position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
@@ -31,7 +32,6 @@
             box-shadow: 0 0 20px var(--kaspa-glow);
             width: 95%; max-width: 900px; padding: 20px;
             z-index: 5; position: relative;
-            margin-bottom: 40px;
         }
         .title-ascii {
             font-size: 8px; line-height: 9px; white-space: pre;
@@ -42,6 +42,11 @@
             text-align: center; color: var(--kaspa-teal);
             font-size: 0.85rem; margin-bottom: 25px; letter-spacing: 3px;
             font-weight: bold;
+        }
+        .network-indicator {
+            position: absolute; top: 10px; right: 20px;
+            font-size: 0.7rem; color: var(--kaspa-bright);
+            border: 1px solid var(--kaspa-teal); padding: 2px 8px;
         }
         .log-area {
             height: 160px; overflow-y: auto; border: 1px solid #333;
@@ -62,30 +67,15 @@
             background: #000; color: #fff; border: 1px solid var(--kaspa-teal);
             padding: 8px; font-family: 'Courier New', monospace; width: 180px;
         }
-        /* Footer Styling */
-        footer {
-            margin-top: auto;
-            padding: 20px;
-            z-index: 20;
-            font-size: 0.8rem;
-            letter-spacing: 1px;
-        }
-        footer a {
-            color: var(--kaspa-bright);
-            text-decoration: none;
-            border: 1px solid var(--kaspa-teal);
-            padding: 5px 10px;
-            transition: 0.3s;
-        }
-        footer a:hover {
-            background: var(--kaspa-glow);
-            box-shadow: 0 0 10px var(--kaspa-bright);
-        }
+        footer { margin-top: auto; padding: 20px; z-index: 20; font-size: 0.8rem; }
+        footer a { color: var(--kaspa-bright); text-decoration: none; border: 1px solid var(--kaspa-teal); padding: 5px 10px; }
     </style>
 </head>
 <body>
 
 <div class="terminal-container">
+    <div id="netStatus" class="network-indicator">NET: STANDBY</div>
+    
     <div class="title-ascii">
    _____            _               _____             _     __          __            
   / ____|          | |             |  __ \           | |    \ \        / /            
@@ -126,6 +116,12 @@
     import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
 
     const log = document.getElementById('log');
+    const netStatus = document.getElementById('netStatus');
+    
+    // --- NETWORK CONFIG ---
+    let targetNetwork = "testnet-11"; 
+    // ----------------------
+
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
         log.innerHTML += `> [${t}] ${m}<br>`;
@@ -136,34 +132,40 @@
         try {
             logMsg("INITIALIZING_WASM...");
             await init('./kaspa_bg.wasm');
-            logMsg("CORE_ONLINE.");
+            logMsg(`CORE_ONLINE. MODE: ${targetNetwork.toUpperCase()}`);
+            netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
 
             document.getElementById('initBtn').onclick = async () => {
                 const id = document.getElementById('targetId').value || 'yri.kas';
                 logMsg(`RESOLVING_OPERATOR: ${id}`);
-    
+                
                 try {
                     const resolver = new Resolver();
-                // Change "mainnet" to "testnet-11"
-                const url = await resolver.getUrl(Encoding.Borsh, "testnet-11");
-        
-                const rpc = new RpcClient({ 
-                    url, 
-                    encoding: Encoding.Borsh, 
-                    networkId: "testnet-11" // Sync this with the resolver
-                });
-        
-                await rpc.connect();
-                logMsg("LINK_ESTABLISHED: TESTNET-11");
-        
-                const info = await rpc.getInfo();
-                logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
-                logMsg(`WELCOME_BACK_OPERATOR [DEBUG_MODE].`);
+                    logMsg(`LOCATING_${targetNetwork.toUpperCase()}_NODE...`);
+                    
+                    const url = await resolver.getUrl(Encoding.Borsh, targetNetwork);
+                    const rpc = new RpcClient({ 
+                        url, 
+                        encoding: Encoding.Borsh, 
+                        networkId: targetNetwork 
+                    });
+                    
+                    await rpc.connect();
+                    logMsg(`SUCCESS: CONNECTED_TO_${targetNetwork.toUpperCase()}`);
+                    
+                    const info = await rpc.getInfo();
+                    logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
+                    logMsg(`WELCOME_BACK_OPERATOR.`);
+                    
+                    netStatus.style.color = "#00ff00";
+                    netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
 
-            } catch (e) {
-                logMsg(`CONN_ERROR: ${e.message}`);
-            }
-        };
+                } catch (e) {
+                    logMsg(`CONN_ERROR: ${e.message}`);
+                    netStatus.style.color = "#ff0000";
+                    netStatus.innerText = "NET: ERROR";
+                }
+            };
         } catch (e) {
             logMsg("CRITICAL_BOOT_FAILURE.");
         }

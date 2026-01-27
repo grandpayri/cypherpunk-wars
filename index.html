@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYPHERPUNK WARS | Command</title>
+    <title>CYPHERPUNK WARS | Tactical</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -27,9 +27,9 @@
         }
         .bunker-frame {
             display: grid;
-            grid-template-columns: 260px 1fr;
-            grid-template-rows: 60px 1fr;
-            width: 95vw; height: 92vh;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 50px 1fr;
+            width: 96vw; height: 94vh;
             border: 2px solid var(--kaspa-teal);
             background: rgba(112, 199, 186, 0.02);
             box-shadow: 0 0 20px var(--kaspa-glow);
@@ -41,10 +41,9 @@
             border-bottom: 1px solid var(--kaspa-teal);
             padding: 0 20px;
             display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.8);
         }
-        /* Network Toggle */
-        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--kaspa-bright); }
+        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
@@ -61,37 +60,45 @@
         .sidebar {
             border-right: 1px solid var(--kaspa-teal);
             padding: 20px;
-            font-size: 0.85rem;
-            display: flex; flex-direction: column;
             background: rgba(0,0,0,0.4);
+            display: flex; flex-direction: column;
         }
-        .stat-item { margin-bottom: 12px; border-bottom: 1px solid #222; padding-bottom: 8px; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+        .stat-item { margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; }
         
-        /* Viewport */
-        .viewport { padding: 40px; overflow-y: auto; position: relative; }
-        .page { display: none; }
-        .page.active { display: block; animation: scanlineIn 0.4s ease-out; }
-        @keyframes scanlineIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Navigation */
-        .nav-menu { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 20px; }
+        /* Navigation (Now directly below stats) */
+        .nav-menu { display: flex; flex-direction: column; gap: 6px; margin: 15px 0; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 10px; cursor: pointer;
+            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
             text-align: left; font-family: inherit; font-size: 0.75rem;
         }
         .nav-btn:hover, .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
 
-        .readme-link { margin-top: 20px; text-align: center; font-size: 0.7rem; border-top: 1px solid #333; padding-top: 15px; }
-        .readme-link a { color: var(--kaspa-bright); text-decoration: none; border: 1px dashed; }
+        .readme-link { margin-top: auto; padding-top: 10px; border-top: 1px solid #333; text-align: center; font-size: 0.7rem; }
+        .readme-link a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
+
+        /* Viewport with ASCII and Log */
+        .viewport { padding: 20px; display: flex; flex-direction: column; overflow: hidden; }
+        .ascii-banner {
+            font-size: 6px; line-height: 7px; white-space: pre;
+            color: var(--kaspa-bright); text-align: center; 
+            margin-bottom: 20px; text-shadow: 0 0 5px var(--kaspa-bright);
+        }
+        .content-area { flex-grow: 1; border: 1px solid #333; background: #000; padding: 20px; position: relative; overflow-y: auto; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .terminal-log {
+            height: 120px; border-top: 1px solid #333; background: #050505;
+            padding: 10px; color: var(--kaspa-teal); font-size: 0.8rem; overflow-y: auto; margin-top: 10px;
+        }
 
         .btn-execute {
             background: var(--kaspa-bright); color: #000;
-            padding: 12px 24px; font-weight: bold; border: none; cursor: pointer;
-            font-family: inherit; margin-top: 10px;
+            padding: 10px 20px; font-weight: bold; border: none; cursor: pointer;
+            font-family: inherit;
         }
-        .action-card { border: 1px solid #333; padding: 20px; background: rgba(0,0,0,0.6); max-width: 600px; }
     </style>
 </head>
 <body>
@@ -100,42 +107,74 @@
     <div class="header">
         <div class="toggle-box">
             <span>TN11</span>
-            <label class="switch">
-                <input type="checkbox" id="netToggle" checked>
-                <span class="slider"></span>
-            </label>
+            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
             <span>MAINNET</span>
         </div>
-        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
         <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
     </div>
 
     <div class="sidebar">
-        <div class="stat-item">
-            <span class="stat-label">OPERATOR_ID</span>
-            <span id="sideId">NONE</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">ENTROPY_RESERVE</span>
-            <span id="sideEntropy">10/10</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">$NACHO_STASH</span>
-            <span id="sideMeme">0</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">INFRASTRUCTURE</span>
-            SECTORS: <span id="sideSectors">0</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">DAEMON_SWARM</span>
-            COUNT: <span id="sideDaemons">0</span>
-        </div>
+        <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
+        <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
+        <div class="stat-item"><span class="stat-label">MEME_STASH</span><span id="sideMeme">0</span></div>
+        <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
+        <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
 
         <nav class="nav-menu">
-            <button class="nav-btn active" onclick="showPage('boot', this)">00_BOOT_SEQUENCE</button>
-            <button class="nav-btn" onclick="showPage('phish', this)">01_PHISH_NET</button>
-            <button class="nav-btn" onclick="showPage('build', this)">02_PROVISION_INFRA</button>
-            <button class="nav-btn" onclick="showPage('attack', this)">03_TACTICAL_SIEGE</button>
-            <button class="nav-btn" onclick="showPage('research', this)">04_PROTOCOL_R&D</button>
-            <button class="nav
+            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQ</button>
+            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH</button>
+            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD</button>
+            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK</button>
+            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D</button>
+            <button class="nav-btn" onclick="showPage('hack', this)">[05] HACK</button>
+        </nav>
+
+        <div class="readme-link"><a href="README.html">[ VIEW_PROTOCOL_README ]</a></div>
+    </div>
+
+    <div class="viewport">
+        <div class="ascii-banner">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                      
+        </div>
+
+        <div class="content-area">
+            <div id="page-boot" class="page active">
+                <h3>CORE_HANDSHAKE</h3>
+                <p>Input Operator Identity to begin synchronization.</p>
+                <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:8px; width:200px; font-family:inherit;">
+                <button id="initBtn" class="btn-execute">BOOT</button>
+            </div>
+
+            <div id="page-phish" class="page">
+                <h3>PROTOCOL: PHISH</h3>
+                <p>Scanning peer-nodes for meme-fragments...</p>
+                <button class="btn-execute" onclick="executeAction('PHISH')">EXECUTE</button>
+            </div>
+
+            <div id="page-build" class="page">
+                <h3>PROTOCOL: BUILD</h3>
+                <p>Provisioning Sector hardware...</p>
+                <button class="btn-execute" onclick="executeAction('BUILD')">EXECUTE</button>
+            </div>
+            </div>
+
+        <div id="log" class="terminal-log">> AWAITING_OPERATOR_AUTHENTICATION...<br></div>
+    </div>
+</div>
+
+<script type="module">
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+
+    const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+    
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+    const FALLBACK_TN_NODE = "wss://tn11

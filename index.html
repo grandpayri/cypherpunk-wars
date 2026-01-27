@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-5.6">
+    <meta name="version" content="Iteration-5.7">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -79,13 +79,11 @@
             font-family: inherit; font-weight: bold; margin-top: 10px;
             transition: all 0.3s ease;
         }
-        /* Visual Queue State */
         .btn-execute:disabled {
             background: #222; color: var(--kaspa-teal);
             cursor: wait; border: 1px solid var(--kaspa-teal);
             box-shadow: 0 0 15px var(--kaspa-teal);
         }
-
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -151,7 +149,7 @@
             <div class="content-area">
                 <div id="page-boot">
                     <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
-                    <p>Input Operator Identity to begin synchronization.</p>
+                    <p>Input Operator Identity (Alias.kas or Wallet Address).</p>
                     <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px; font-family: inherit;">
                     <button id="initBtn" class="btn-execute">BOOT</button>
                 </div>
@@ -185,8 +183,6 @@
 
     async function performBoot() {
         const inputId = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
-        
-        // Visual Queue Activation
         bootBtn.disabled = true;
         bootBtn.innerText = "SYNCING...";
         logMsg(`INITIATING_RESOLVER: ${inputId}`);
@@ -207,19 +203,29 @@
 
             let targetAddress = inputId;
             if (inputId.includes(".kas")) {
-                logMsg(`KNS_LOOKUP: ${inputId}...`);
+                logMsg(`DAG_QUERY: ${inputId}...`);
                 try {
-                    const resolved = await resolver.resolveAddress(inputId); 
-                    targetAddress = resolved.toString();
+                    // Manual KNS resolution via RPC getAddress logic
+                    // We call the rpc directly to resolve the name to a raw address string
+                    const resolved = await rpc.resolveAddress(inputId);
+                    targetAddress = (typeof resolved === 'object') ? resolved.address : resolved;
                     logMsg(`MAPPED: ${targetAddress.substring(0, 15)}...`);
                 } catch (e) {
-                    logMsg(`RESOLVER_TIMEOUT. TRYING_DIRECT_QUERY...`);
+                    logMsg(`KNS_RPC_ERROR. TRYING_RAW_ENTRY...`);
+                    // This is the "No-Cheat" barrier. If this fails, the node truly doesn't see the name.
                     targetAddress = inputId;
                 }
             }
 
             logMsg(`FETCHING_LEDGER_DATA...`);
-            const balanceData = await rpc.getBalanceByAddress(targetAddress);
+            // Attempt balance fetch using both common WASM patterns to prevent PROTOCOL_FAILURE
+            let balanceData;
+            try {
+                balanceData = await rpc.getBalanceByAddress({ address: targetAddress });
+            } catch {
+                balanceData = await rpc.getBalanceByAddress(targetAddress);
+            }
+            
             const rawBalance = (typeof balanceData === 'object') ? (balanceData.balance || 0) : balanceData;
             const totalKas = (Number(rawBalance) / 100000000).toFixed(2);
             
@@ -230,8 +236,8 @@
             logMsg(`LEDGER_SYNC_COMPLETE. BALANCE: ${totalKas} KAS`);
         } catch (e) { 
             logMsg(`BOOT_ERROR: ${e.message || "PROTOCOL_FAILURE"}`); 
+            console.error(e);
         } finally {
-            // Restore Button State
             bootBtn.disabled = false;
             bootBtn.innerText = "BOOT";
         }

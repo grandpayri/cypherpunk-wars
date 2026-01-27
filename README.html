@@ -14,69 +14,48 @@
             background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
             font-family: 'Courier New', monospace;
-            line-height: 1.6;
-            padding: 40px;
-            max-width: 1000px;
-            margin: auto;
+            line-height: 1.6; padding: 40px; max-width: 1000px; margin: auto;
         }
         h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px; margin-top: 40px; }
-        .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.85rem; }
+        .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.8rem; }
         .spec-table th, .spec-table td { border: 1px solid var(--kaspa-teal); padding: 10px; text-align: left; }
         .spec-table th { background: rgba(112, 199, 186, 0.1); }
-        .memo-box {
-            background: #000;
-            border: 1px dashed var(--kaspa-bright);
-            padding: 20px;
-            margin: 20px 0;
-            word-break: break-all;
-            color: #ff00ff;
-        }
+        .memo-box { background: #000; border: 1px dashed var(--kaspa-bright); padding: 20px; margin: 20px 0; word-break: break-all; color: #ff00ff; font-size: 0.9rem;}
         .highlight { color: var(--kaspa-bright); font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h1 style="text-align: center;">CPW_PROTOCOL_SPEC v1.3</h1>
-    <p>This document defines the <strong>Sovereign State Persistence</strong> for Cypherpunk Wars. During the Kaspathon phase, state is maintained via self-sent transactions on the Kaspa Mainnet.</p>
-
-    <h2>I. THE MEMO FORMAT</h2>
-    <p>The state is stored as a pipe-delimited string in the transaction Memo. The <span class="highlight">Turns</span> parameter (Index 2) tracks the total actions taken by the Operator in the current Season.</p>
+    <h1 style="text-align: center;">CPW_PROTOCOL_SPEC v1.3 (EXPANDED)</h1>
+    
+    <h2>I. THE EXPANDED MEMO FORMAT</h2>
+    <p>The state string is a pipe-delimited sequence of 14 core data fields. Units are stored as absolute integers representing troop counts.</p>
 
     <div class="memo-box">
-        STRUCTURE: CPW1|Season|Turns|Sectors|PUNKW|Units(7)|Spells(25-bit)|Items(25-bit)
+        CPW1 | Season | Turns | Sectors | PUNKW | U1 | U2 | U3 | U4 | U5 | U6 | U7 | Spells | Items
     </div>
 
-    <h2>II. POSITIONAL INDEX MAPPING</h2>
+    <h2>II. FIELD INDEX DEFINITIONS</h2>
     <table class="spec-table">
         <thead>
-            <tr>
-                <th>Index</th>
-                <th>Field</th>
-                <th>Definition</th>
-            </tr>
+            <tr><th>Index</th><th>Field</th><th>Type</th><th>Description</th></tr>
         </thead>
         <tbody>
-            <tr><td>0</td><td>Protocol ID</td><td><code>CPW1</code> (Constant)</td></tr>
-            <tr><td>1</td><td>Season</td><td>Integer: Increments on World Reset</td></tr>
-            <tr><td><span class="highlight">2</span></td><td><span class="highlight">Turns</span></td><td>Integer: Total actions taken this season</td></tr>
-            <tr><td>3</td><td>Sectors</td><td>Integer: Land/Infrastructure count</td></tr>
-            <tr><td>4</td><td>PUNKW</td><td>Integer: Current War Chest balance</td></tr>
-            <tr><td>5-11</td><td>Units</td><td>7 Integers: Military composition</td></tr>
-            <tr><td>12</td><td>Spells</td><td>25-Bit Mask: Known Arcana</td></tr>
-            <tr><td>37</td><td>Items</td><td>25-Bit Mask: Held Artifacts</td></tr>
+            <tr><td>0</td><td>Protocol</td><td>String</td><td><code>CPW1</code></td></tr>
+            <tr><td>1</td><td>Season</td><td>Int</td><td>The current era ID</td></tr>
+            <tr><td>2</td><td>Turns</td><td>Int</td><td>Total actions taken by Operator</td></tr>
+            <tr><td>3</td><td>Sectors</td><td>Int</td><td>Land/Infrastructure count</td></tr>
+            <tr><td>4</td><td>PUNKW</td><td>Int</td><td>War Chest balance</td></tr>
+            <tr><td>5-11</td><td>Units 1-7</td><td>Int</td><td>Individual counts for 7 troop types</td></tr>
+            <tr><td>12</td><td>Spells</td><td>Mask</td><td>25-bit binary string (0=Locked, 1=Known)</td></tr>
+            <tr><td>13</td><td>Items</td><td>Mask</td><td>25-bit binary string (0=None, 1=Owned)</td></tr>
         </tbody>
     </table>
 
     
 
-    <h2>III. STATE RECONSTRUCTION</h2>
-    <p>On <code>BOOT</code>, the SPA executes the following logic:</p>
-    <ul>
-        <li><strong>Step 1:</strong> Identify the Operator via Wallet Address.</li>
-        <li><strong>Step 2:</strong> Query the BlockDAG for the most recent transaction containing the <code>CPW1|</code> prefix.</li>
-        <li><strong>Step 3:</strong> Parse the string into the local <code>gameState</code> object.</li>
-        <li><strong>Step 4:</strong> Synchronize the UI with the recovered data (Turns, PUNKW, etc.).</li>
-    </ul>
+    <h2>III. ATTACK RESOLUTION (MAINNET CONFLICT)</h2>
+    <p>In the absence of the vProgs VM, attacks are resolved via <strong>Client-Side Enforcement</strong>. The DAG records the <em>intent</em> of an attack; the next time the Defender boots their SPA, the logic calculates losses and updates the next State Transaction.</p>
 
     <p style="text-align:center; margin-top:50px;">
         <a href="index.html" style="color:var(--kaspa-bright);">[ RETURN_TO_BUNKER ]</a>

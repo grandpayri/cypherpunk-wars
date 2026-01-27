@@ -186,28 +186,35 @@
         try {
             const resolver = new Resolver();
             let url;
+            
+            // Try automatic node resolution first
             try {
-                // Check for node URL
                 url = await Promise.race([
                     resolver.getUrl(Encoding.Borsh, targetNetwork),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 6000))
                 ]);
-            } catch { url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws"; }
+            } catch { 
+                // Enhanced Fallback Logic
+                url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws";
+                logMsg(`RESOLVER_TIMEOUT. TRYING_FALLBACK_NODE...`);
+            }
             
+            logMsg(`DIALING_NODE: ${url}`);
             const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
             await rpc.connect();
             logMsg(`SUCCESS: LINK_ESTABLISHED.`);
             
-            // RESOLVE KNS VIA LOOKUP
+            // RESOLVE IDENTITY (Bypass broken resolver function)
             logMsg(`RESOLVING_IDENTITY: ${id}`);
-            
-            // Replaced failing function with internal lookup logic
-            // We use the RPC to find the KNS record directly from the DAG
-            let resolvedAddress = "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l"; // Hardcoded for grandpayri.kas to bypass SDK bug
+            let resolvedAddress = (id === 'grandpayri.kas') 
+                ? "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l" 
+                : id; // Support direct address input
 
             // FETCH ACTUAL BALANCE
             logMsg(`SYNCING_LEDGER_FUEL...`);
             const balanceData = await rpc.getBalanceByAddress({ address: resolvedAddress });
+            
+            // Format Sompi to KAS
             const totalKas = (Number(balanceData.balance) / 100000000).toFixed(2);
             
             document.getElementById('sideId').innerText = id;

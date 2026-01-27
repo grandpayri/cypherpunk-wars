@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="version" content="Iteration-6.0">
-    <title>CPW_PROTOCOL_SPEC | README</title>
+    <meta name="version" content="Iteration-6.2">
+    <title>CYPHERPUNK WARS | Documentation</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -16,71 +16,72 @@
             font-family: 'Courier New', monospace;
             line-height: 1.6;
             padding: 40px;
-            max-width: 900px;
+            max-width: 1000px;
             margin: auto;
         }
-        h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px; }
+        h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px; margin-top: 40px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .section-box { border: 1px solid var(--kaspa-teal); padding: 20px; background: rgba(112, 199, 186, 0.05); }
         code { background: #111; padding: 2px 5px; color: #ff00ff; }
-        .spec-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 0.85rem;
-        }
-        .spec-table th, .spec-table td {
-            border: 1px solid var(--kaspa-teal);
-            padding: 10px;
-            text-align: left;
-        }
+        .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.8rem; }
+        .spec-table th, .spec-table td { border: 1px solid var(--kaspa-teal); padding: 8px; text-align: left; }
         .spec-table th { background: rgba(112, 199, 186, 0.1); }
-        .memo-box {
-            background: #000;
-            border: 1px dashed var(--kaspa-bright);
-            padding: 20px;
-            margin: 20px 0;
-            word-break: break-all;
-        }
     </style>
 </head>
 <body>
 
-    <h1>CYPHERPUNK WARS: STATE PROTOCOL v1.0</h1>
-    <p>This document defines the <strong>On-Chain State Persistence</strong> method for the Cypherpunk Wars SPA. All game progress is stored in the Kaspa BlockDAG via <code>OP_RETURN</code> or Memo fields in a pipe-delimited format.</p>
+    <h1 style="text-align: center;">CYPHERPUNK WARS v1.0 MANIFEST</h1>
 
-    <h2>1. The State String</h2>
-    <p>To reconstruct a session, the SPA scans the Operator's transaction history for the most recent message beginning with the Protocol ID <code>CPW1</code>.</p>
+    <div class="grid">
+        <div class="section-box">
+            <h2>I. THE WARLORD'S GUIDE</h2>
+            <p>To crush your enemies in <em>Cypherpunk Wars</em>, you must master the delicate balance of economy and entropy.</p>
+            
+            <h3>1. Factions & Units</h3>
+            <p>Every Operator commands <strong>7 Unit Slots</strong>. These range from low-tier <strong>Daemons</strong> (cannon fodder) to high-tier <strong>Cypher-Lords</strong>. 
+            Diversity is key—massing a single unit type makes you vulnerable to specific counter-spells.</p>
 
-    <div class="memo-box">
-        <strong>EXAMPLE PAYLOAD:</strong><br>
-        CPW1|1|150|4200|0|0|500|0|0|0|0|0001100000000000000000000|0000010000000000000000000
+            <h3>2. War Mechanics</h3>
+            <ul>
+                <li><strong>PHISH:</strong> Low-risk scavenging for $PUNKW fragments.</li>
+                <li><strong>ATTACK:</strong> High-risk maneuvers to seize opponent <strong>Sectors</strong>.</li>
+                <li><strong>ARMAGEDDON:</strong> The final victory condition. Triggers a server-wide reset and increments the <strong>Season</strong> counter.</li>
+            </ul>
+
+            <h3>3. Spells & Research</h3>
+            <p>Researching the <strong>25 Unique Spells</strong> requires $PUNKW and Entropy. Spells provide passive buffs to units or active debuffs to rival Operators.</p>
+
+            <h3>4. Items & Artifacts</h3>
+            <p>Up to <strong>25 Artifacts</strong> can be found or forged. Unlike spells, items are persistent and often grant unique abilities like <em>Entropy Shielding</em>.</p>
+        </div>
+
+        <div class="section-box">
+            <h2>II. THE ARCHITECT'S PROTOCOL</h2>
+            <p>We leverage the <strong>Kaspa BlockDAG</strong> to create a sovereign, verifiable game state.</p>
+
+            <h3>1. vProgs Philosophy</h3>
+            <p>This SPA operates as a <strong>vProg</strong> (Verifiable Program). Game logic executes off-chain in your browser, but state transitions are committed to the DAG. This provides:</p>
+            <ul>
+                <li><strong>Persistence:</strong> Your "save" is a transaction.</li>
+                <li><strong>Transparency:</strong> No hidden "god-mode" for devs.</li>
+                <li><strong>Composability:</strong> Other vProgs can read your $PUNKW balance.</li>
+            </ul>
+
+            <h3>2. State Schema (CPW1)</h3>
+            <table class="spec-table">
+                <tr><th>Index</th><th>Field</th><th>Data</th></tr>
+                <tr><td>0</td><td>ID</td><td><code>CPW1</code></td></tr>
+                <tr><td>1</td><td>Season</td><td>Int</td></tr>
+                <tr><td>2-3</td><td>Sectors/PUNKW</td><td>Int</td></tr>
+                <tr><td>4-10</td><td>Units (7)</td><td>Int Array</td></tr>
+                <tr><td>11</td><td>Spells</td><td>25-Bit Mask</td></tr>
+                <tr><td>36</td><td>Items</td><td>25-Bit Mask</td></tr>
+            </table>
+
+            <h3>3. State Reconstruction</h3>
+            <p>On <strong>BOOT</strong>, the SPA scans your history for <code>CPW1|</code> prefixes, reconstructing your state via the <strong>State Index</strong>.</p>
+        </div>
     </div>
-
-    <h2>2. Field Mapping (Schema)</h2>
-    <table class="spec-table">
-        <thead>
-            <tr>
-                <th>Index</th>
-                <th>Field</th>
-                <th>Definition</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td>0</td><td>Protocol</td><td>Constant: <code>CPW1</code></td></tr>
-            <tr><td>1</td><td>Season</td><td>Integer: Current era (Increments after Armageddon)</td></tr>
-            <tr><td>2</td><td>Sectors</td><td>Integer: Total Data Centers / Land owned</td></tr>
-            <tr><td>3</td><td>PUNKW</td><td>Integer: Current War Chest balance</td></tr>
-            <tr><td>4-10</td><td>Unit Slots</td><td>7 Integers: Count of specific Daemon/Troop types</td></tr>
-            <tr><td>11</td><td>Spells</td><td>Bitmask (25 chars): Binary flags for known spells</td></tr>
-            <tr><td>36</td><td>Items</td><td>Bitmask (25 chars): Binary flags for owned artifacts</td></tr>
-        </tbody>
-    </table>
-
-    <h2>3. Operation Logic</h2>
-    <ul>
-        <li><strong>Handshake:</strong> On <code>BOOT</code>, the SPA fetches UTXOs and filters for the <code>CPW1</code> prefix.</li>
-        <li><strong>Action Sync:</strong> Actions like <code>PHISH</code> or <code>BUILD</code> trigger a local state update, followed by an on-chain "Save Transaction".</li>
-        <li><strong>Armageddon:</strong> A victory condition that zeroes all indices except <code>Season</code>, which increments by 1.</li>
-    </ul>
 
     <p style="text-align:center; margin-top:50px;">
         <a href="index.html" style="color:var(--kaspa-bright);">[ RETURN_TO_BUNKER ]</a>

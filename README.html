@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CPW // PROTOCOL_DOCUMENTATION</title>
+    <title>CPW // PROTOCOL_README</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -15,7 +15,7 @@
             font-family: 'Courier New', monospace;
             padding: 40px;
             line-height: 1.6;
-            max-width: 800px;
+            max-width: 900px;
             margin: auto;
         }
         .terminal-border {
@@ -23,45 +23,49 @@
             padding: 25px;
             box-shadow: inset 0 0 15px rgba(112, 199, 186, 0.1);
         }
-        h1, h2 { color: var(--kaspa-bright); text-transform: uppercase; }
-        .legal-disclaimer {
-            font-size: 0.8rem;
-            border-top: 1px solid #333;
-            margin-top: 40px;
-            padding-top: 20px;
-            color: #666;
-        }
-        a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
-        .nav { margin-bottom: 20px; }
+        h1, h2 { color: var(--kaspa-bright); text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9rem; }
+        th, td { border: 1px solid #333; padding: 12px; text-align: left; }
+        th { background: rgba(112, 199, 186, 0.1); color: var(--kaspa-bright); }
+        .legal-disclaimer { font-size: 0.8rem; margin-top: 40px; padding-top: 20px; color: #666; }
+        footer { margin-top: 50px; text-align: center; font-size: 0.8rem; }
+        footer a { color: var(--kaspa-bright); text-decoration: none; border: 1px solid var(--kaspa-teal); padding: 5px 10px; }
     </style>
 </head>
 <body>
-    <div class="nav"><a href="index.html"><< RETURN_TO_TERMINAL</a></div>
-    
     <div class="terminal-border">
-        <h1>Protocol: CYPHERPUNK WARS</h1>
-        <p>A decentralized strategy simulation built on the Kaspa BlockDAG.</p>
+        <h1>PROJECT: CYPHERPUNK WARS</h1>
+        <p>A decentralized strategy riff on the classic Archmage, powered by the Kaspa BlockDAG.</p>
 
-        <h2>01. What is Cypherpunk Wars?</h2>
-        <p>It is a competitive "Persistent Browser Game" (PBBG). You take on the role of a rogue Operator trying to dominate the network by managing resources, expanding data centers, and deploying malicious code against rivals.</p>
+        <h2>OPERATOR_PROTOCOLS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Cost</th>
+                    <th>Effect</th>
+                    <th>Intelligence</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>EXPAND</td><td>1 Entropy</td><td>+Sectors</td><td>Increases hosting capacity.</td></tr>
+                <tr><td>SPAWN</td><td>1 Entropy</td><td>+Daemons</td><td>Generates offensive/defensive units.</td></tr>
+                <tr><td>RESEARCH</td><td>1 Entropy</td><td>Unlock Hacks</td><td>Access high-level network exploits.</td></tr>
+                <tr><td>PHISH</td><td>1 Entropy</td><td>+$KAS</td><td>Harvest resources from player nodes.</td></tr>
+                <tr><td>ATTACK</td><td>1 Entropy</td><td>PvP Combat</td><td>Direct assault on rival infrastructure.</td></tr>
+            </tbody>
+        </table>
 
-        <h2>02. How do I play?</h2>
-        <ul>
-            <li><strong>EXPAND:</strong> Use your turns (Entropy) to build Data Centers. More centers mean more room for Daemons.</li>
-            <li><strong>SPAWN:</strong> Convert your $KAS into Daemons—digital soldiers that defend your node and attack others.</li>
-            <li><strong>RESEARCH:</strong> Discover new "Hacks" (Spells) to disrupt enemy networks or shield your own.</li>
-            <li><strong>CYBER-ATTACK:</strong> Launch your Daemons at a rival Operator to steal their data centers or crash their node.</li>
-        </ul>
-
-        <h2>03. Why Kaspa?</h2>
-        <p>Traditional games use centralized servers. Cypherpunk Wars uses Kaspa’s high-speed BlockDAG to store game states and transactions, ensuring that no single entity can "shut down" the war. It is an unstoppable game for an unstoppable network.</p>
-
-        <h2>04. Legacy & Credits</h2>
-        <p>Cypherpunk Wars is a modern reimagining and "riff" on the classic 1990s web game <strong>Archmage</strong>. We stand on the shoulders of giants. While our mechanics are adapted for the blockchain era, we owe our strategic DNA to the original creators of the Archmage system.</p>
+        <h2>LEGACY_CREDITS</h2>
+        <p>Cypherpunk Wars is a non-profit tribute developed for the Kaspa Hackathon 2026. This project is a modern reimagining of <strong>Archmage</strong>, the legendary PBBG from the late 90s. We aim to bring its deep strategic gameplay into the era of proof-of-work decentralization.</p>
 
         <div class="legal-disclaimer">
-            <strong>NOTICE:</strong> Cypherpunk Wars is an independent project and is not affiliated with, endorsed by, or associated with the original creators or current rights holders of Archmage. All original code and assets in this project are new creations. This project is a non-profit tribute developed for the Kaspa Hackathon 2026.
+            <strong>LEGAL_NOTICE:</strong> This work is a transformative homage. All code, assets, and branding are original to Cypherpunk Wars. We are not affiliated with the original Archmage developers.
         </div>
     </div>
+
+    <footer>
+        [ <a href="index.html">RETURN_TO_CORE_TERMINAL</a> ]
+    </footer>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYPHERPUNK WARS | Tactical</title>
+    <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -36,7 +36,7 @@
         .header {
             height: 50px; border-bottom: 1px solid var(--kaspa-teal);
             padding: 0 20px; display: flex; justify-content: space-between; align-items: center;
-            flex-shrink: 0;
+            flex-shrink: 0; background: rgba(0,0,0,0.8);
         }
         .main-container { display: flex; flex-grow: 1; overflow: hidden; }
         .sidebar {
@@ -45,17 +45,27 @@
             flex-shrink: 0; background: rgba(112, 199, 186, 0.05);
         }
         .viewport { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
-        .ascii-banner {
-            font-size: 5px; line-height: 6px; white-space: pre;
+        
+        /* RESTORED VISUALS */
+        .ascii-logo {
+            font-size: 8px; line-height: 9px; white-space: pre;
             color: var(--kaspa-bright); text-align: center; 
-            margin-bottom: 20px; flex-shrink: 0; text-shadow: 0 0 5px var(--kaspa-bright);
+            margin-bottom: 25px; flex-shrink: 0;
+            text-shadow: 0 0 8px var(--kaspa-bright);
         }
-        .content-area { flex-grow: 1; border: 1px solid #333; padding: 20px; background: #050505; overflow-y: auto; }
+        .content-area {
+            flex-grow: 1; border: 1px solid #222;
+            padding: 20px; background: #050505;
+            position: relative; overflow-y: auto;
+        }
         .terminal-log {
             height: 150px; border-top: 1px solid var(--kaspa-teal);
             background: #000; padding: 10px; color: var(--kaspa-teal);
-            font-size: 0.8rem; overflow-y: auto; flex-shrink: 0; line-height: 1.4;
+            font-size: 0.8rem; overflow-y: auto; flex-shrink: 0;
+            line-height: 1.4;
         }
+
+        /* NAVIGATION & STATS */
         .nav-menu { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
@@ -66,6 +76,7 @@
         .stat-group { border-top: 1px solid #333; padding-top: 10px; }
         .stat-item { margin-bottom: 8px; }
         .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+
         .page { display: none; }
         .page.active { display: block; }
         .btn-execute {
@@ -102,7 +113,7 @@
     <div class="main-container">
         <div class="sidebar">
             <nav class="nav-menu">
-                <button class="nav-btn active" id="nav-boot" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
                 <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
                 <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
                 <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
@@ -116,4 +127,79 @@
                 <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
                 <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
                 <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
-                <div class="
+                <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
+            </div>
+
+            <div style="margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333;">
+                <a href="README.html" target="_blank" style="color: var(--kaspa-bright); text-decoration: none;">[ VIEW_PROTOCOL_README ]</a>
+            </div>
+        </div>
+
+        <div class="viewport">
+            <div class="ascii-logo">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                      
+            </div>
+
+            <div class="content-area">
+                <div id="page-boot" class="page active">
+                    <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
+                    <p>Input Operator Identity to begin synchronization with the BlockDAG.</p>
+                    <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px; font-family: inherit;">
+                    <button id="initBtn" class="btn-execute">BOOT</button>
+                </div>
+                <div id="page-phish" class="page"><h3>PROTOCOL: PHISH</h3><p>Scanning network for fragments...</p></div>
+                <div id="page-build" class="page"><h3>PROTOCOL: BUILD</h3><p>Provisioning sectors...</p></div>
+            </div>
+
+            <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...<br></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+
+    const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+    const initBtn = document.getElementById('initBtn');
+    
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+    const logMsg = (m) => {
+        const t = new Date().toLocaleTimeString([], {hour12: false});
+        log.innerHTML += `> [${t}] ${m}<br>`;
+        log.scrollTop = log.scrollHeight;
+    };
+
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        btn.classList.add('active');
+    };
+
+    netToggle.onchange = () => {
+        targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+        logMsg(`NETWORK_LINK_SET: ${targetNetwork.toUpperCase()}`);
+        netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
+    };
+
+    async function performBoot() {
+        const inputId = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
+        logMsg(`INITIATING_RESOLVER: ${inputId}`);
+        try {
+            const resolver = new Resolver();
+            let url;
+            try {
+                url = await Promise.race([
+                    resolver.getUrl(Encoding.Borsh, targetNetwork),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 6000))
+                ]);
+            } catch { url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws"; }

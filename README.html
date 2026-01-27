@@ -3,62 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="version" content="Iteration-6.3">
-    <title>CYPHERPUNK WARS | Protocol Spec</title>
+    <title>CYPHERPUNK WARS | The Manifest</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
             --kaspa-bright: #49EACB;
             --kaspa-dark: #0A0A0A;
+            --kaspa-glow: rgba(112, 199, 186, 0.3);
         }
         body {
             background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
             font-family: 'Courier New', monospace;
-            line-height: 1.6; padding: 40px; max-width: 1000px; margin: auto;
+            line-height: 1.4; padding: 20px; max-width: 1200px; margin: auto;
         }
-        h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px; margin-top: 40px; }
-        .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.8rem; }
-        .spec-table th, .spec-table td { border: 1px solid var(--kaspa-teal); padding: 10px; text-align: left; }
-        .spec-table th { background: rgba(112, 199, 186, 0.1); }
-        .memo-box { background: #000; border: 1px dashed var(--kaspa-bright); padding: 20px; margin: 20px 0; word-break: break-all; color: #ff00ff; font-size: 0.9rem;}
-        .highlight { color: var(--kaspa-bright); font-weight: bold; }
+        h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); text-transform: uppercase; letter-spacing: 2px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+        .column { border: 1px solid var(--kaspa-teal); padding: 15px; background: rgba(112, 199, 186, 0.02); }
+        .memo-box { background: #000; border: 1px dashed var(--kaspa-bright); padding: 10px; margin: 10px 0; word-break: break-all; color: #ff00ff; font-size: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.75rem; }
+        th, td { border: 1px solid #333; padding: 6px; text-align: left; }
+        th { background: rgba(112, 199, 186, 0.1); color: var(--kaspa-bright); }
+        .placeholder { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <h1 style="text-align: center;">CPW_PROTOCOL_SPEC v1.3 (EXPANDED)</h1>
-    
-    <h2>I. THE EXPANDED MEMO FORMAT</h2>
-    <p>The state string is a pipe-delimited sequence of 14 core data fields. Units are stored as absolute integers representing troop counts.</p>
+    <h1 style="text-align: center;">CYPHERPUNK WARS v1.3 : Protocol & Strategy</h1>
 
-    <div class="memo-box">
-        CPW1 | Season | Turns | Sectors | PUNKW | U1 | U2 | U3 | U4 | U5 | U6 | U7 | Spells | Items
+    <div class="grid">
+        <div class="column">
+            <h2>I. THE WARLORD'S INTENT</h2>
+            <p>Master the DAG to dominate the Season. Your goal: accumulate <strong>Sectors</strong> and <strong>$PUNKW</strong> while burning through your enemies' defenses.</p>
+            
+            <h3>1. Unit Classes (U1-U7)</h3>
+            <table>
+                <tr><th>Slot</th><th>Type</th><th>Combat Role</th></tr>
+                <tr><td>U1</td><td>Daemon</td><td>Frontline Swarm / Cannon Fodder</td></tr>
+                <tr><td>U2</td><td>Phantom</td><td>Stealth Phishing / Resource Theft</td></tr>
+                <tr><td>U3</td><td>Cracker</td><td>Defense Penetration / Shield Breaker</td></tr>
+                <tr><td>U4</td><td>Sentinel</td><td>Sector Defense / Hardened Wall</td></tr>
+                <tr><td>U5</td><td>Node-Wrecker</td><td>Siege Engine / Land Grabber</td></tr>
+                <tr><td>U6</td><td>Void-Walker</td><td>Counter-Spell Specialist</td></tr>
+                <tr><td>U7</td><td>Cypher-Lord</td><td>Elite Command / High Entropy DPS</td></tr>
+            </table>
+
+            <h3>2. 25-Bit Arcana (Spells)</h3>
+            <table>
+                <tr><th>Bit</th><th>Codename</th><th>Effect</th></tr>
+                <tr><td>0</td><td>Zero-Day</td><td>Instantly bypass 1 layer of Sentinel defense</td></tr>
+                <tr><td>1</td><td>Dust-Storm</td><td>Obscure your unit counts for 5 turns</td></tr>
+                <tr><td>2</td><td>Mempool-Flood</td><td>Force enemy actions to cost +1 Entropy</td></tr>
+                <tr><td>3-24</td><td class="placeholder">...Restricted...</td><td class="placeholder">Research required to unlock codenames</td></tr>
+            </table>
+
+            <h3>3. 25-Bit Artifacts (Items)</h3>
+            <table>
+                <tr><th>Bit</th><th>Identity</th><th>Passive Buff</th></tr>
+                <tr><td>0</td><td>The Genesis Key</td><td>-5% Gas fees on all game transactions</td></tr>
+                <tr><td>1</td><td>Cold-Storage Shield</td><td>Protect 50% of $PUNKW from Phish attacks</td></tr>
+                <tr><td>2</td><td>ASIC-Overclocker</td><td>+10% $PUNKW yield from PHISH actions</td></tr>
+                <tr><td>3-24</td><td class="placeholder">...Encrypted...</td><td class="placeholder">Found in high-tier Sector raids</td></tr>
+            </table>
+        </div>
+
+        <div class="column">
+            <h2>II. THE ARCHITECT'S PROOF</h2>
+            <p>Built on the <strong>Kaspa BlockDAG</strong> using the <strong>vProgs</strong> philosophy: Off-chain execution with on-chain verification.</p>
+
+            <h3>1. State Schema (14 Indices)</h3>
+            <div class="memo-box">
+                CPW1 | Season | Turns | Sectors | PUNKW | U1 | U2 | U3 | U4 | U5 | U6 | U7 | Spells | Items
+            </div>
+
+            <h3>2. Data Specification</h3>
+            <table>
+                <tr><th>Idx</th><th>Field</th><th>Logic</th></tr>
+                <tr><td>0</td><td>Protocol</td><td>Constant: <code>CPW1</code></td></tr>
+                <tr><td>1</td><td>Season</td><td>Reset trigger: World Armageddon</td></tr>
+                <tr><td>2</td><td>Turns</td><td>Sequence Lock for action verification</td></tr>
+                <tr><td>4</td><td>PUNKW</td><td>Floating point (8-decimal) stored as Int</td></tr>
+                <tr><td>12</td><td>Spells</td><td>25-char Binary String (e.g. <code>10100...</code>)</td></tr>
+                <tr><td>13</td><td>Items</td><td>25-char Binary String (e.g. <code>00010...</code>)</td></tr>
+            </table>
+
+            <h3>3. Conflict Resolution (Attacks)</h3>
+            <p><strong>The Protocol:</strong> Attacks are recorded as public Challenges. The <em>Enforcement Engine</em> (SPA) verifies the attack history during <code>BOOT</code> and applies State-Diffs to the Defender's local memory before their next save.</p>
+            
+            <p><strong>vProgs Transition:</strong> In Phase 2, this will move to <em>Multi-Writer AccessMetadata</em>, where the winner's proof automatically updates the global state root.</p>
+        </div>
     </div>
 
-    <h2>II. FIELD INDEX DEFINITIONS</h2>
-    <table class="spec-table">
-        <thead>
-            <tr><th>Index</th><th>Field</th><th>Type</th><th>Description</th></tr>
-        </thead>
-        <tbody>
-            <tr><td>0</td><td>Protocol</td><td>String</td><td><code>CPW1</code></td></tr>
-            <tr><td>1</td><td>Season</td><td>Int</td><td>The current era ID</td></tr>
-            <tr><td>2</td><td>Turns</td><td>Int</td><td>Total actions taken by Operator</td></tr>
-            <tr><td>3</td><td>Sectors</td><td>Int</td><td>Land/Infrastructure count</td></tr>
-            <tr><td>4</td><td>PUNKW</td><td>Int</td><td>War Chest balance</td></tr>
-            <tr><td>5-11</td><td>Units 1-7</td><td>Int</td><td>Individual counts for 7 troop types</td></tr>
-            <tr><td>12</td><td>Spells</td><td>Mask</td><td>25-bit binary string (0=Locked, 1=Known)</td></tr>
-            <tr><td>13</td><td>Items</td><td>Mask</td><td>25-bit binary string (0=None, 1=Owned)</td></tr>
-        </tbody>
-    </table>
-
-    
-
-    <h2>III. ATTACK RESOLUTION (MAINNET CONFLICT)</h2>
-    <p>In the absence of the vProgs VM, attacks are resolved via <strong>Client-Side Enforcement</strong>. The DAG records the <em>intent</em> of an attack; the next time the Defender boots their SPA, the logic calculates losses and updates the next State Transaction.</p>
-
-    <p style="text-align:center; margin-top:50px;">
-        <a href="index.html" style="color:var(--kaspa-bright);">[ RETURN_TO_BUNKER ]</a>
+    <p style="text-align:center; margin-top:30px;">
+        <a href="index.html" style="color:var(--kaspa-bright);">[ ACCESS_BUNKER_TERMINAL ]</a>
     </p>
 
 </body>

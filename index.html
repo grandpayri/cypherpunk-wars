@@ -35,6 +35,7 @@
         .title-ascii {
             font-size: 8px; line-height: 9px; white-space: pre;
             color: var(--kaspa-bright); text-align: center; margin: 10px 0;
+            text-shadow: 0 0 8px var(--kaspa-bright);
         }
         .subtitle {
             text-align: center; color: var(--kaspa-teal);
@@ -115,8 +116,10 @@
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netStatus');
     
-    // Switch to "mainnet" if testnet-11 resolver is timing out
+    // --- CONFIGURATION ---
     let targetNetwork = "testnet-11"; 
+    const FALLBACK_NODE = "wss://tn11-rpc-1.kaspa.org/ws"; // Static backup for TN11
+    // ----------------------
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -137,13 +140,18 @@
                 
                 try {
                     const resolver = new Resolver();
-                    logMsg(`SEARCHING_FOR_NODE...`);
+                    logMsg(`LOCATING_${targetNetwork.toUpperCase()}_NODE...`);
                     
-                    // Added a safety timeout for the resolver
-                    const url = await Promise.race([
-                        resolver.getUrl(Encoding.Borsh, targetNetwork),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 8000))
-                    ]);
+                    let url;
+                    try {
+                        url = await Promise.race([
+                            resolver.getUrl(Encoding.Borsh, targetNetwork),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 5000))
+                        ]);
+                    } catch (e) {
+                        logMsg("RESOLVER_FAILED. TRYING_FALLBACK_NODE...");
+                        url = FALLBACK_NODE;
+                    }
 
                     const rpc = new RpcClient({ 
                         url, 
@@ -151,28 +159,25 @@
                         networkId: targetNetwork 
                     });
                     
-                    logMsg(`NODE_FOUND: ${url}`);
-                    logMsg("ATTEMPTING_RPC_HANDSHAKE...");
-                    
+                    logMsg(`DIALING: ${url}`);
                     await rpc.connect();
-                    logMsg(`SUCCESS: CONNECTED_TO_${targetNetwork.toUpperCase()}`);
+                    logMsg(`SUCCESS: LINK_ESTABLISHED.`);
                     
                     const info = await rpc.getInfo();
-                    logMsg(`BLUE_SCORE: ${info.blueScore}`);
+                    logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
                     logMsg(`WELCOME_BACK_OPERATOR.`);
                     
                     netStatus.style.color = "#00ff00";
                     netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
 
                 } catch (e) {
-                    logMsg(`BOOT_ERROR: ${e.message}`);
-                    logMsg(`TIP: If timeout, check if Testnet-11 is active or switch to Mainnet.`);
+                    logMsg(`CONN_ERROR: ${e.message || "NETWORK_REJECTED"}`);
                     netStatus.style.color = "#ff0000";
                     netStatus.innerText = "NET: ERROR";
                 }
             };
         } catch (e) {
-            logMsg(`CRITICAL_FAILURE: ${e.message}`);
+            logMsg("CRITICAL_BOOT_FAILURE.");
         }
     }
     run();

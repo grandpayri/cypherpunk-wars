@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K-RYPTO-NOMICON | Era 01a</title>
+    <title>CYPHERPUNK WARS | Kaspa</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -19,91 +19,126 @@
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
+        body::before {
+            content: " "; display: block; position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px; z-index: 10; pointer-events: none;
+        }
         .terminal-container {
             border: 2px solid var(--kaspa-teal);
             background: rgba(112, 199, 186, 0.05);
             box-shadow: 0 0 20px var(--kaspa-glow);
-            width: 95%; max-width: 800px; padding: 20px;
-            z-index: 5;
+            width: 95%; max-width: 850px; padding: 20px;
+            z-index: 5; position: relative;
         }
-        .yri-ascii {
-            font-size: 8px; line-height: 8px; white-space: pre;
-            color: var(--kaspa-bright); text-align: center; margin: 20px 0;
+        .title-ascii {
+            font-size: 8px; line-height: 9px; white-space: pre;
+            color: var(--kaspa-bright); text-align: center; margin: 10px 0;
+            text-shadow: 0 0 8px var(--kaspa-bright);
+        }
+        .subtitle {
+            text-align: center; color: var(--kaspa-teal);
+            font-size: 0.85rem; margin-bottom: 25px; letter-spacing: 3px;
+            font-weight: bold;
         }
         .log-area {
-            height: 150px; overflow-y: auto; border: 1px solid #333;
+            height: 160px; overflow-y: auto; border: 1px solid #333;
             background: #000; padding: 10px; margin-top: 20px;
-            color: var(--kaspa-bright); font-size: 0.9rem;
+            color: var(--kaspa-bright); font-size: 0.85rem;
+        }
+        .stats-box {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 20px; border-top: 1px solid #333; padding-top: 15px;
         }
         button {
             background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 10px; cursor: pointer;
-            font-family: 'Courier New', monospace;
+            color: var(--kaspa-teal); padding: 8px 15px; cursor: pointer;
+            font-family: 'Courier New', monospace; text-transform: uppercase;
+        }
+        button:hover { background: var(--kaspa-teal); color: #000; }
+        input {
+            background: #000; color: #fff; border: 1px solid var(--kaspa-teal);
+            padding: 8px; font-family: 'Courier New', monospace; width: 180px;
         }
     </style>
 </head>
 <body>
 
-    <div class="terminal-container">
-        <h1 style="text-align:center; color:var(--kaspa-bright);">K-RYPTO-NOMICON</h1>
-        
-        <div class="yri-ascii">
-     _   _  ____  _____   _____ _   _ _____ _____ 
-    | | | |  _  \|_   _| |_   _| | | | ____|  _  \
-    | | | | |_| |  | |     | | | |_| | |__ | |_| |
-    | | | |  _  /  | |     | | |  _  |  __||  _  / 
-    | |_| | | \ \ _| |_    | | | | | | |___| | \ \ 
-     \___/|_|  \_\_____|   |_| |_| |_|_____|_|  \_\
-        </div>
+<div class="terminal-container">
+    <div class="title-ascii">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                                                                                                   
+    </div>
+    <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
 
-        <div style="display: flex; justify-content: space-around; border-top: 1px solid #333; padding-top: 10px;">
-            <div>
-                <input type="text" id="kaspaAddress" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal);" placeholder="yri.kas">
-                <button id="connectBtn">INIT</button>
-            </div>
-            <div>
-                ENTROPY: 10/10
-            </div>
+    <div class="stats-box">
+        <div>
+            <label>OPERATOR_LOGIN:</label><br>
+            <input type="text" id="targetId" placeholder="yri.kas">
+            <button id="initBtn">BOOT</button>
         </div>
-
-        <div class="log-area" id="logArea">
-            > SYSTEM READY. AWAITING OPERATOR...<br>
+        <div>
+            <label>NODE_RESOURCES:</label>
+            <div id="resourceDisplay">
+                ENTROPY: 10/10<br>
+                SECTORS: 0 | DAEMONS: 0
+            </div>
         </div>
     </div>
 
-    <script type="module">
-        import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+    <div class="log-area" id="log">
+        > SYSTEM_READY. AWAITING HANDSHAKE...<br>
+    </div>
+</div>
 
-        const log = document.getElementById('logArea');
-        const logMsg = (m) => {
-            log.innerHTML += `> ${m}<br>`;
-            log.scrollTop = log.scrollHeight;
-        };
+<script type="module">
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
 
-        async function run() {
-            try {
-                logMsg("LOADING_WAS_MODULE...");
-                await init('./kaspa_bg.wasm');
-                logMsg("CORE_ONLINE.");
+    const log = document.getElementById('log');
+    const logMsg = (m) => {
+        const t = new Date().toLocaleTimeString([], {hour12: false});
+        log.innerHTML += `> [${t}] ${m}<br>`;
+        log.scrollTop = log.scrollHeight;
+    };
 
-                document.getElementById('connectBtn').onclick = async () => {
-                    const input = document.getElementById('kaspaAddress').value;
-                    logMsg(`HANDSHAKE: ${input}`);
-                    
+    async function run() {
+        try {
+            logMsg("INITIALIZING_WASM...");
+            await init('./kaspa_bg.wasm');
+            logMsg("CORE_ONLINE.");
+
+            document.getElementById('initBtn').onclick = async () => {
+                const id = document.getElementById('targetId').value || 'yri.kas';
+                logMsg(`RESOLVING_OPERATOR: ${id}`);
+                
+                try {
                     const resolver = new Resolver();
                     const url = await resolver.getUrl(Encoding.Borsh, "mainnet");
                     const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: "mainnet" });
                     
                     await rpc.connect();
+                    logMsg("LINK_ESTABLISHED.");
+                    
                     const info = await rpc.getInfo();
-                    logMsg(`SUCCESS. BLUE_SCORE: ${info.blueScore}`);
-                };
-            } catch (e) {
-                logMsg("ERROR: MODULE_FAILED.");
-                console.error(e);
-            }
+                    logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
+                    logMsg(`WELCOME_BACK_OPERATOR.`);
+                } catch (e) {
+                    logMsg(`CONN_ERROR: ${e.message}`);
+                }
+            };
+        } catch (e) {
+            logMsg("CRITICAL_BOOT_FAILURE.");
         }
-        run();
-    </script>
+    }
+    run();
+</script>
+
 </body>
 </html>

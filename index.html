@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-5.0">
+    <meta name="version" content="Iteration-5.1">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -203,9 +203,25 @@
             await rpc.connect();
             logMsg(`SUCCESS: LINK_ESTABLISHED.`);
 
-            let resolvedAddress = (inputId === 'grandpayri.kas' || inputId === 'yri.kas') 
-                ? "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l" 
-                : inputId;
+            // DYNAMIC RESOLUTION LOGIC
+            let resolvedAddress;
+            if (inputId.includes(".kas")) {
+                logMsg(`RESOLVING_KNS: ${inputId}...`);
+                // Use the resolver's native address lookup instead of hardcoding
+                try {
+                    const addr = await resolver.resolveAddress(inputId);
+                    resolvedAddress = addr.toString();
+                } catch (e) {
+                    // Fallback to manual mapping if resolution helper fails
+                    if (inputId === 'grandpayri.kas') resolvedAddress = "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l";
+                    else if (inputId === 'timelordkas.kas') resolvedAddress = "kaspa:qp8l7msxsgq82lyutu9t9f76d70ws5sgq82l_MOCK"; // Placeholder
+                    else throw new Error("KNS_RESOLUTION_FAILED");
+                }
+            } else if (inputId.startsWith("kaspa:")) {
+                resolvedAddress = inputId;
+            } else {
+                throw new Error("INVALID_INPUT_FORMAT");
+            }
 
             logMsg(`SYNCING_LEDGER_FUEL...`);
             const balanceData = await rpc.getBalanceByAddress({ address: resolvedAddress });
@@ -216,13 +232,15 @@
             netStatus.style.color = "#00ff00";
             netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
             logMsg(`LEDGER_SYNC_COMPLETE. BALANCE: ${totalKas} KAS`);
-        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
+        } catch (e) { 
+            logMsg(`BOOT_ERROR: ${e.message || "UNKNOWN_INTERNAL_ERROR"}`); 
+            console.error(e);
+        }
     }
 
     async function run() {
         try {
             logMsg("LOADING_KASPA_WASM...");
-            // Corrected: Pointing init specifically to the binary .wasm file
             await init('./kaspa_bg.wasm'); 
             logMsg("ENGINE_READY.");
             

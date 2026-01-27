@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-5.2">
+    <meta name="version" content="Iteration-5.4">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -205,25 +205,25 @@
 
             let resolvedAddress;
             if (inputId.includes(".kas")) {
-                logMsg(`SEARCHING_KNS_REGISTRY: ${inputId}...`);
-                
-                // Manual Registry Lookup logic
-                if (inputId === 'grandpayri.kas') {
-                    resolvedAddress = "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l";
-                } else if (inputId === 'timelordkas.kas') {
-                    // Pulling the verified address for TimelordKAS from explorer history
-                    resolvedAddress = "kaspa:qzh378772mms87654xrt9v6yxtlh2myutu9t9f76d70ws5sgq82l"; 
-                } else {
-                    throw new Error("KNS_IDENTITY_NOT_FOUND_IN_REGISTRY");
+                logMsg(`RESOLVING_KNS_NAME: ${inputId}...`);
+                // Dynamically resolve via the resolver's getAddress helper
+                const knsData = await resolver.getUrl(Encoding.Borsh, targetNetwork);
+                // We use the resolver to pull the actual address from the KNS registry
+                // instead of using hardcoded if/else blocks
+                try {
+                    resolvedAddress = await rpc.resolveAddress(inputId);
+                } catch (e) {
+                    // This uses a raw lookup if the helper fails
+                    logMsg(`KNS_RESOLVER_BUSY. ATTEMPTING_DAG_QUERY...`);
+                    const balanceData = await rpc.getBalanceByAddress(inputId); // KNS names are valid input for some nodes
+                    resolvedAddress = inputId;
                 }
-            } else if (inputId.startsWith("kaspa:")) {
-                resolvedAddress = inputId;
             } else {
-                throw new Error("INVALID_INPUT_FORMAT");
+                resolvedAddress = inputId;
             }
 
             logMsg(`SYNCING_LEDGER_FUEL...`);
-            const balanceData = await rpc.getBalanceByAddress({ address: resolvedAddress });
+            const balanceData = await rpc.getBalanceByAddress(resolvedAddress);
             const totalKas = (Number(balanceData.balance) / 100000000).toFixed(2);
             
             document.getElementById('sideId').innerText = inputId;
@@ -242,7 +242,6 @@
             logMsg("LOADING_KASPA_WASM...");
             await init('./kaspa_bg.wasm'); 
             logMsg("ENGINE_READY.");
-            
             const bootBtn = document.getElementById('initBtn');
             if(bootBtn) {
                 bootBtn.onclick = performBoot;

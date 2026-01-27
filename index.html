@@ -11,6 +11,7 @@
             --kaspa-dark: #0A0A0A;
             --kaspa-glow: rgba(112, 199, 186, 0.3);
         }
+        * { box-sizing: border-box; }
         body {
             background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
@@ -31,7 +32,7 @@
             grid-template-rows: 50px 1fr;
             width: 98vw; height: 96vh;
             border: 2px solid var(--kaspa-teal);
-            background: rgba(112, 199, 186, 0.02);
+            background: rgba(10, 10, 10, 0.95);
             box-shadow: 0 0 20px var(--kaspa-glow);
             z-index: 5;
         }
@@ -40,7 +41,6 @@
             border-bottom: 1px solid var(--kaspa-teal);
             padding: 0 20px;
             display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,0,0,0.8);
         }
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
@@ -58,7 +58,6 @@
         .sidebar {
             border-right: 1px solid var(--kaspa-teal);
             padding: 15px;
-            background: rgba(0,0,0,0.5);
             display: flex; flex-direction: column;
             overflow-y: auto;
         }
@@ -92,4 +91,31 @@
         }
 
         .btn-execute { background: var(--kaspa-bright); color: #000; padding: 8px 16px; font-weight: bold; border: none; cursor: pointer; font-family: inherit; text-transform: uppercase; }
-        .readme-footer { margin-top: auto;
+        .readme-footer { margin-top: auto; padding-top: 10px; text-align: center; font-size: 0.7rem; }
+        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
+    </style>
+</head>
+<body>
+
+<div class="bunker-frame">
+    <div class="header">
+        <div class="toggle-box">
+            <span>TN11</span>
+            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
+            <span>MAINNET</span>
+        </div>
+        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
+        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
+    </div>
+
+    <div class="sidebar">
+        <nav class="nav-menu">
+            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+            <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
+        </nav>
+
+        <div class="stat-group">

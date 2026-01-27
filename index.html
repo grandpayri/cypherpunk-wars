@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-5.7">
+    <meta name="version" content="Iteration-5.8">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -66,12 +66,15 @@
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
             color: var(--kaspa-teal); padding: 8px; cursor: pointer;
-            text-align: left; font-family: inherit; font-size: 0.75rem; margin-bottom: 5px;
+            text-align: left; font-family: inherit; font-size: 0.75rem; margin-bottom: 5px; width: 100%;
         }
         .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
         .stat-group { border-top: 1px solid #333; padding-top: 10px; }
         .stat-item { margin-bottom: 8px; }
         .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
 
         .btn-execute {
             background: var(--kaspa-bright); color: #000;
@@ -82,7 +85,6 @@
         .btn-execute:disabled {
             background: #222; color: var(--kaspa-teal);
             cursor: wait; border: 1px solid var(--kaspa-teal);
-            box-shadow: 0 0 15px var(--kaspa-teal);
         }
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
@@ -112,13 +114,13 @@
 
     <div class="main-container">
         <div class="sidebar">
-            <nav class="nav-menu" style="display:flex; flex-direction:column;">
-                <button class="nav-btn active">[00] BOOT_SEQUENCE</button>
-                <button class="nav-btn">[01] PHISH_NETWORK</button>
-                <button class="nav-btn">[02] BUILD_INFRA</button>
-                <button class="nav-btn">[03] ATTACK_NODE</button>
-                <button class="nav-btn">[04] R&D_HACKS</button>
-                <button class="nav-btn">[05] EXECUTE_HACK</button>
+            <nav class="nav-menu">
+                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+                <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+                <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+                <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+                <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
             </nav>
 
             <div class="stat-group">
@@ -128,9 +130,6 @@
                 <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
                 <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
                 <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
-            </div>
-            <div style="margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333;">
-                <a href="README.html" target="_blank" style="color: var(--kaspa-bright); text-decoration: none;">[ VIEW_README.md ]</a>
             </div>
         </div>
 
@@ -147,11 +146,16 @@
             </div>
 
             <div class="content-area">
-                <div id="page-boot">
+                <div id="page-boot" class="page active">
                     <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
-                    <p>Input Operator Identity (Alias.kas or Wallet Address).</p>
-                    <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:250px; font-family: inherit;">
+                    <p>Input Wallet Address to sync with the BlockDAG.</p>
+                    <input type="text" id="targetId" placeholder="kaspa:q..." style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:80%; font-family: inherit;">
                     <button id="initBtn" class="btn-execute">BOOT</button>
+                </div>
+                <div id="page-phish" class="page">
+                    <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
+                    <p>Scan the DAG for $PUNKW fragments. Costs 1 Entropy.</p>
+                    <button class="btn-execute" onclick="executePhish()">BROADCAST_PHISH</button>
                 </div>
             </div>
 
@@ -166,26 +170,45 @@
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netIndicator');
     const netToggle = document.getElementById('netToggle');
-    const bootBtn = document.getElementById('initBtn');
-    
+    const sideKas = document.getElementById('sideKas');
+    const sideMeme = document.getElementById('sideMeme');
+    const sideEntropy = document.getElementById('sideEntropy');
+
+    let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
     let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
         log.innerHTML += `> [${t}] ${m}<br>`;
         log.scrollTop = log.scrollHeight;
     };
 
-    netToggle.onchange = () => {
-        targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
-        logMsg(`NET_LINK: ${targetNetwork.toUpperCase()}`);
-        netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        btn.classList.add('active');
+    };
+
+    window.executePhish = () => {
+        if (!gameState.operator) return logMsg("CRITICAL: IDENTITY_SYNC_REQUIRED.");
+        if (gameState.entropy <= 0) return logMsg("ERROR: INSUFFICIENT_ENTROPY.");
+        
+        gameState.entropy--;
+        let yieldAmount = Math.floor(Math.random() * 50) + 10;
+        gameState.meme += yieldAmount;
+        
+        sideEntropy.innerText = `${gameState.entropy}/10`;
+        sideMeme.innerText = gameState.meme;
+        logMsg(`PHISH_SUCCESS: GATHERED ${yieldAmount} $PUNKW FRAGMENTS.`);
     };
 
     async function performBoot() {
-        const inputId = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
-        bootBtn.disabled = true;
-        bootBtn.innerText = "SYNCING...";
-        logMsg(`INITIATING_RESOLVER: ${inputId}`);
+        const inputId = document.getElementById('targetId').value.trim();
+        if (!inputId) return logMsg("ERROR: INPUT_REQUIRED.");
+        
+        const bootBtn = document.getElementById('initBtn');
+        bootBtn.disabled = true; bootBtn.innerText = "SYNCING...";
         
         try {
             const resolver = new Resolver();
@@ -199,59 +222,28 @@
             
             const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
             await rpc.connect();
-            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
-
-            let targetAddress = inputId;
-            if (inputId.includes(".kas")) {
-                logMsg(`DAG_QUERY: ${inputId}...`);
-                try {
-                    // Manual KNS resolution via RPC getAddress logic
-                    // We call the rpc directly to resolve the name to a raw address string
-                    const resolved = await rpc.resolveAddress(inputId);
-                    targetAddress = (typeof resolved === 'object') ? resolved.address : resolved;
-                    logMsg(`MAPPED: ${targetAddress.substring(0, 15)}...`);
-                } catch (e) {
-                    logMsg(`KNS_RPC_ERROR. TRYING_RAW_ENTRY...`);
-                    // This is the "No-Cheat" barrier. If this fails, the node truly doesn't see the name.
-                    targetAddress = inputId;
-                }
-            }
-
-            logMsg(`FETCHING_LEDGER_DATA...`);
-            // Attempt balance fetch using both common WASM patterns to prevent PROTOCOL_FAILURE
-            let balanceData;
-            try {
-                balanceData = await rpc.getBalanceByAddress({ address: targetAddress });
-            } catch {
-                balanceData = await rpc.getBalanceByAddress(targetAddress);
-            }
             
-            const rawBalance = (typeof balanceData === 'object') ? (balanceData.balance || 0) : balanceData;
-            const totalKas = (Number(rawBalance) / 100000000).toFixed(2);
+            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${inputId.substring(0,10)}...`);
+            const balanceData = await rpc.getBalanceByAddress(inputId);
+            const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
-            document.getElementById('sideId').innerText = inputId;
-            document.getElementById('sideKas').innerText = totalKas; 
+            gameState.kas = totalKas;
+            gameState.operator = inputId;
+            
+            document.getElementById('sideId').innerText = "OPERATOR_ACTIVE";
+            sideKas.innerText = totalKas;
             netStatus.style.color = "#00ff00";
             netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
-            logMsg(`LEDGER_SYNC_COMPLETE. BALANCE: ${totalKas} KAS`);
-        } catch (e) { 
-            logMsg(`BOOT_ERROR: ${e.message || "PROTOCOL_FAILURE"}`); 
-            console.error(e);
-        } finally {
-            bootBtn.disabled = false;
-            bootBtn.innerText = "BOOT";
-        }
+            logMsg(`BOOT_SUCCESS: BALANCE ${totalKas} KAS.`);
+        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
+        finally { bootBtn.disabled = false; bootBtn.innerText = "BOOT"; }
     }
 
     async function run() {
         try {
-            logMsg("LOADING_KASPA_WASM...");
-            await init('./kaspa_bg.wasm'); 
+            await init('./kaspa_bg.wasm');
             logMsg("ENGINE_READY.");
-            if(bootBtn) {
-                bootBtn.onclick = performBoot;
-                logMsg("BOOT_LISTENER_ACTIVE.");
-            }
+            document.getElementById('initBtn').onclick = performBoot;
         } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
     }
     run();

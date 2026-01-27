@@ -29,8 +29,9 @@
             border: 2px solid var(--kaspa-teal);
             background: rgba(112, 199, 186, 0.05);
             box-shadow: 0 0 20px var(--kaspa-glow);
-            width: 95%; max-width: 850px; padding: 20px;
+            width: 95%; max-width: 900px; padding: 20px;
             z-index: 5; position: relative;
+            margin-bottom: 40px;
         }
         .title-ascii {
             font-size: 8px; line-height: 9px; white-space: pre;
@@ -61,6 +62,25 @@
             background: #000; color: #fff; border: 1px solid var(--kaspa-teal);
             padding: 8px; font-family: 'Courier New', monospace; width: 180px;
         }
+        /* Footer Styling */
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            z-index: 20;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+        footer a {
+            color: var(--kaspa-bright);
+            text-decoration: none;
+            border: 1px solid var(--kaspa-teal);
+            padding: 5px 10px;
+            transition: 0.3s;
+        }
+        footer a:hover {
+            background: var(--kaspa-glow);
+            box-shadow: 0 0 10px var(--kaspa-bright);
+        }
     </style>
 </head>
 <body>
@@ -74,7 +94,7 @@
  | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
   \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
          __/ | |                                                                      
-                                                                                                                                                  
+        |___/|_|                                                                      
     </div>
     <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
 
@@ -97,6 +117,10 @@
         > SYSTEM_READY. AWAITING HANDSHAKE...<br>
     </div>
 </div>
+
+<footer>
+    [ <a href="README.html">READ_PROTOCOL_DOCUMENTATION</a> ]
+</footer>
 
 <script type="module">
     import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
@@ -129,6 +153,7 @@
                     const info = await rpc.getInfo();
                     logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
                     logMsg(`WELCOME_BACK_OPERATOR.`);
+
                 } catch (e) {
                     logMsg(`CONN_ERROR: ${e.message}`);
                 }

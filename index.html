@@ -66,7 +66,6 @@
         .stat-item { margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
         .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; }
         
-        /* Navigation (Now directly below stats) */
         .nav-menu { display: flex; flex-direction: column; gap: 6px; margin: 15px 0; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
@@ -78,7 +77,7 @@
         .readme-link { margin-top: auto; padding-top: 10px; border-top: 1px solid #333; text-align: center; font-size: 0.7rem; }
         .readme-link a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
 
-        /* Viewport with ASCII and Log */
+        /* Viewport */
         .viewport { padding: 20px; display: flex; flex-direction: column; overflow: hidden; }
         .ascii-banner {
             font-size: 6px; line-height: 7px; white-space: pre;
@@ -121,7 +120,7 @@
         <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
 
         <nav class="nav-menu">
-            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQ</button>
+            <button class="nav-btn active" id="btn-boot" onclick="showPage('boot', this)">[00] BOOT_SEQ</button>
             <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH</button>
             <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD</button>
             <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK</button>
@@ -129,7 +128,7 @@
             <button class="nav-btn" onclick="showPage('hack', this)">[05] HACK</button>
         </nav>
 
-        <div class="readme-link"><a href="README.html">[ VIEW_PROTOCOL_README ]</a></div>
+        <div class="readme-link"><a href="README.html" target="_blank">[ VIEW_PROTOCOL_README ]</a></div>
     </div>
 
     <div class="viewport">
@@ -146,35 +145,4 @@
 
         <div class="content-area">
             <div id="page-boot" class="page active">
-                <h3>CORE_HANDSHAKE</h3>
-                <p>Input Operator Identity to begin synchronization.</p>
-                <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:8px; width:200px; font-family:inherit;">
-                <button id="initBtn" class="btn-execute">BOOT</button>
-            </div>
-
-            <div id="page-phish" class="page">
-                <h3>PROTOCOL: PHISH</h3>
-                <p>Scanning peer-nodes for meme-fragments...</p>
-                <button class="btn-execute" onclick="executeAction('PHISH')">EXECUTE</button>
-            </div>
-
-            <div id="page-build" class="page">
-                <h3>PROTOCOL: BUILD</h3>
-                <p>Provisioning Sector hardware...</p>
-                <button class="btn-execute" onclick="executeAction('BUILD')">EXECUTE</button>
-            </div>
-            </div>
-
-        <div id="log" class="terminal-log">> AWAITING_OPERATOR_AUTHENTICATION...<br></div>
-    </div>
-</div>
-
-<script type="module">
-    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
-
-    const log = document.getElementById('log');
-    const netStatus = document.getElementById('netIndicator');
-    const netToggle = document.getElementById('netToggle');
-    
-    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
-    const FALLBACK_TN_NODE = "wss://tn11
+                <h3>

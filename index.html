@@ -17,7 +17,7 @@
             font-family: 'Courier New', monospace;
             margin: 0; padding: 0;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; overflow: hidden;
+            height: 100vh; width: 100vw; overflow: hidden;
         }
         body::before {
             content: " "; display: block; position: fixed;
@@ -55,12 +55,12 @@
         }
         input:checked + .slider:before { transform: translateX(16px); }
 
-        /* Sidebar: Nav on Top, Stats Below */
         .sidebar {
             border-right: 1px solid var(--kaspa-teal);
             padding: 15px;
             background: rgba(0,0,0,0.5);
             display: flex; flex-direction: column;
+            overflow-y: auto;
         }
         .nav-menu { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
         .nav-btn {
@@ -71,7 +71,7 @@
         .nav-btn:hover, .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
 
         .stat-group { border-top: 1px solid #333; padding-top: 10px; }
-        .stat-item { margin-bottom: 10px; }
+        .stat-item { margin-bottom: 8px; }
         .stat-label { color: var(--kaspa-bright); font-size: 0.6rem; display: block; letter-spacing: 1px; }
         .stat-sub { font-size: 0.5rem; color: #666; display: block; }
         
@@ -87,4 +87,75 @@
 
         .terminal-log {
             height: 140px; border: 1px solid #222; background: #050505;
-            padding: 1
+            padding: 10px; color: var(--kaspa-teal); font-size: 0.8rem; 
+            overflow-y: auto; margin-top: 10px; line-height: 1.4;
+        }
+
+        .btn-execute { background: var(--kaspa-bright); color: #000; padding: 8px 16px; font-weight: bold; border: none; cursor: pointer; font-family: inherit; text-transform: uppercase; }
+        .readme-footer { margin-top: auto; padding-top: 10px; text-align: center; font-size: 0.7rem; }
+        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
+    </style>
+</head>
+<body>
+
+<div class="bunker-frame">
+    <div class="header">
+        <div class="toggle-box">
+            <span>TN11</span>
+            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
+            <span>MAINNET</span>
+        </div>
+        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
+        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
+    </div>
+
+    <div class="sidebar">
+        <nav class="nav-menu">
+            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+            <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
+        </nav>
+
+        <div class="stat-group">
+            <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
+            <div class="stat-item">
+                <span class="stat-label">NET_FUEL ($KAS)</span>
+                <span id="sideKas">0.00</span>
+                <span class="stat-sub">(FOR ENTROPY & GAS)</span>
+            </div>
+            <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
+            <div class="stat-item" style="border: 1px solid var(--kaspa-glow); padding: 4px;">
+                <span class="stat-label">WAR_CHEST ($PUNKW)</span>
+                <span id="sideMeme">0</span>
+                <span class="stat-sub" style="color: var(--kaspa-teal)">(IN-GAME ECONOMY)</span>
+            </div>
+            <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
+            <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
+        </div>
+
+        <div class="readme-footer"><a href="README.html" target="_blank">[ VIEW_PROTOCOL_README ]</a></div>
+    </div>
+
+    <div class="viewport">
+        <div class="ascii-banner">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                      
+        </div>
+
+        <div class="content-area">
+            <div id="page-boot" class="page active">
+                <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
+                <p>Input Operator Identity to sync with the BlockDAG.</p>
+                <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:8px; width:220px; font-family:inherit;">
+                <button id="initBtn" class="btn-execute">BOOT</button>
+            </div>
+            <div id="page-phish" class="page"><h3>PROTOCOL: PHISH</h3>

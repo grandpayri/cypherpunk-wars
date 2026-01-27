@@ -141,23 +141,29 @@
             document.getElementById('initBtn').onclick = async () => {
                 const id = document.getElementById('targetId').value || 'yri.kas';
                 logMsg(`RESOLVING_OPERATOR: ${id}`);
-                
+    
                 try {
                     const resolver = new Resolver();
-                    const url = await resolver.getUrl(Encoding.Borsh, "mainnet");
-                    const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: "mainnet" });
-                    
-                    await rpc.connect();
-                    logMsg("LINK_ESTABLISHED.");
-                    
-                    const info = await rpc.getInfo();
-                    logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
-                    logMsg(`WELCOME_BACK_OPERATOR.`);
+                // Change "mainnet" to "testnet-11"
+                const url = await resolver.getUrl(Encoding.Borsh, "testnet-11");
+        
+                const rpc = new RpcClient({ 
+                    url, 
+                    encoding: Encoding.Borsh, 
+                    networkId: "testnet-11" // Sync this with the resolver
+                });
+        
+                await rpc.connect();
+                logMsg("LINK_ESTABLISHED: TESTNET-11");
+        
+                const info = await rpc.getInfo();
+                logMsg(`BLUE_SCORE_SYNC: ${info.blueScore}`);
+                logMsg(`WELCOME_BACK_OPERATOR [DEBUG_MODE].`);
 
-                } catch (e) {
-                    logMsg(`CONN_ERROR: ${e.message}`);
-                }
-            };
+            } catch (e) {
+                logMsg(`CONN_ERROR: ${e.message}`);
+            }
+        };
         } catch (e) {
             logMsg("CRITICAL_BOOT_FAILURE.");
         }

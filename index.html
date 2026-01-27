@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYPHERPUNK WARS | Tactical</title>
+    <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -19,23 +19,23 @@
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden;
         }
+        /* CRT Scanline Overlay */
         body::before {
             content: " "; display: block; position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px; z-index: 10; pointer-events: none;
+            background-size: 100% 4px; z-index: 100; pointer-events: none;
         }
         .bunker-frame {
             display: grid;
             grid-template-columns: 280px 1fr;
             grid-template-rows: 50px 1fr;
-            width: 96vw; height: 94vh;
+            width: 98vw; height: 96vh;
             border: 2px solid var(--kaspa-teal);
             background: rgba(112, 199, 186, 0.02);
             box-shadow: 0 0 20px var(--kaspa-glow);
             z-index: 5;
         }
-        /* Header */
         .header {
             grid-column: 1 / span 2;
             border-bottom: 1px solid var(--kaspa-teal);
@@ -43,6 +43,7 @@
             display: flex; justify-content: space-between; align-items: center;
             background: rgba(0,0,0,0.8);
         }
+        /* Network Toggle */
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -56,48 +57,52 @@
         }
         input:checked + .slider:before { transform: translateX(16px); }
 
-        /* Sidebar */
+        /* Sidebar: Stats & Actions */
         .sidebar {
             border-right: 1px solid var(--kaspa-teal);
-            padding: 20px;
-            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
             display: flex; flex-direction: column;
         }
-        .stat-item { margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; }
-        
-        .nav-menu { display: flex; flex-direction: column; gap: 6px; margin: 15px 0; }
+        .nav-menu { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
             color: var(--kaspa-teal); padding: 8px; cursor: pointer;
-            text-align: left; font-family: inherit; font-size: 0.75rem;
+            text-align: left; font-family: inherit; font-size: 0.7rem;
         }
         .nav-btn:hover, .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
 
-        .readme-link { margin-top: auto; padding-top: 10px; border-top: 1px solid #333; text-align: center; font-size: 0.7rem; }
-        .readme-link a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
-
+        .stat-group { border-top: 1px solid #333; padding-top: 10px; margin-top: 10px; }
+        .stat-item { margin-bottom: 8px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.6rem; display: block; letter-spacing: 1px; }
+        
         /* Viewport */
-        .viewport { padding: 20px; display: flex; flex-direction: column; overflow: hidden; }
+        .viewport { padding: 15px; display: flex; flex-direction: column; overflow: hidden; background: #000; }
         .ascii-banner {
-            font-size: 6px; line-height: 7px; white-space: pre;
+            font-size: 5px; line-height: 6px; white-space: pre;
             color: var(--kaspa-bright); text-align: center; 
-            margin-bottom: 20px; text-shadow: 0 0 5px var(--kaspa-bright);
+            margin: 10px 0; text-shadow: 0 0 5px var(--kaspa-bright);
         }
-        .content-area { flex-grow: 1; border: 1px solid #333; background: #000; padding: 20px; position: relative; overflow-y: auto; }
+        .content-area {
+            flex-grow: 1; border: 1px solid #222; 
+            padding: 20px; position: relative; overflow-y: auto;
+        }
         .page { display: none; }
         .page.active { display: block; }
 
         .terminal-log {
-            height: 120px; border-top: 1px solid #333; background: #050505;
-            padding: 10px; color: var(--kaspa-teal); font-size: 0.8rem; overflow-y: auto; margin-top: 10px;
+            height: 150px; border: 1px solid #222; background: #050505;
+            padding: 10px; color: var(--kaspa-teal); font-size: 0.8rem; 
+            overflow-y: auto; margin-top: 10px; line-height: 1.4;
         }
 
         .btn-execute {
             background: var(--kaspa-bright); color: #000;
-            padding: 10px 20px; font-weight: bold; border: none; cursor: pointer;
-            font-family: inherit;
+            padding: 8px 16px; font-weight: bold; border: none; cursor: pointer;
+            font-family: inherit; text-transform: uppercase;
         }
+        .readme-footer { margin-top: auto; padding-top: 10px; text-align: center; font-size: 0.7rem; }
+        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
     </style>
 </head>
 <body>
@@ -106,29 +111,36 @@
     <div class="header">
         <div class="toggle-box">
             <span>TN11</span>
-            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
+            <label class="switch">
+                <input type="checkbox" id="netToggle" checked>
+                <span class="slider"></span>
+            </label>
             <span>MAINNET</span>
         </div>
         <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
     </div>
 
     <div class="sidebar">
-        <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
-        <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
-        <div class="stat-item"><span class="stat-label">MEME_STASH</span><span id="sideMeme">0</span></div>
-        <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
-        <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
-
         <nav class="nav-menu">
-            <button class="nav-btn active" id="btn-boot" onclick="showPage('boot', this)">[00] BOOT_SEQ</button>
-            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH</button>
-            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD</button>
-            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK</button>
-            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D</button>
-            <button class="nav-btn" onclick="showPage('hack', this)">[05] HACK</button>
+            <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+            <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+            <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+            <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+            <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+            <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
         </nav>
 
-        <div class="readme-link"><a href="README.html" target="_blank">[ VIEW_PROTOCOL_README ]</a></div>
+        <div class="stat-group">
+            <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
+            <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
+            <div class="stat-item"><span class="stat-label">MEME_STASH</span><span id="sideMeme">0</span></div>
+            <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
+            <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
+        </div>
+
+        <div class="readme-footer">
+            <a href="README.html" target="_blank">[ VIEW_PROTOCOL_README ]</a>
+        </div>
     </div>
 
     <div class="viewport">
@@ -145,4 +157,114 @@
 
         <div class="content-area">
             <div id="page-boot" class="page active">
-                <h3>
+                <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
+                <p>Input Operator Identity to sync with the BlockDAG.</p>
+                <input type="text" id="targetId" placeholder="grandpayri.kas" style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:8px; width:220px; font-family:inherit;">
+                <button id="initBtn" class="btn-execute">BOOT</button>
+            </div>
+
+            <div id="page-phish" class="page">
+                <h3>PROTOCOL: PHISH</h3>
+                <p>Harvesting meme-coin fragments from peer nodes...</p>
+                <button class="btn-execute" onclick="executeAction('PHISH')">BROADCAST_PHISH</button>
+            </div>
+
+            <div id="page-build" class="page">
+                <h3>PROTOCOL: BUILD</h3>
+                <p>Constructing Data Center Sectors...</p>
+                <button class="btn-execute" onclick="executeAction('BUILD')">CONFIRM_BUILD</button>
+            </div>
+        </div>
+
+        <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...<br></div>
+    </div>
+</div>
+
+<script type="module">
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+
+    const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+    
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+    const FALLBACK_TN_NODE = "wss://tn11-rpc-1.kaspa.org/ws";
+
+    const logMsg = (m) => {
+        const t = new Date().toLocaleTimeString([], {hour12: false});
+        log.innerHTML += `> [${t}] ${m}<br>`;
+        log.scrollTop = log.scrollHeight;
+    };
+
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        const targetPage = document.getElementById(`page-${id}`);
+        if(targetPage) targetPage.classList.add('active');
+        if(btn) btn.classList.add('active');
+    };
+
+    window.executeAction = (type) => {
+        logMsg(`CRITICAL: ${type}_REJECTED. PRIVATE_KEY_REQUIRED.`);
+    };
+
+    netToggle.onchange = () => {
+        targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+        logMsg(`NETWORK_LINK_SET: ${targetNetwork.toUpperCase()}`);
+        netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
+    };
+
+    async function performBoot() {
+        const id = document.getElementById('targetId').value || 'grandpayri.kas';
+        logMsg(`INITIATING_RESOLVER: ${id}`);
+        
+        try {
+            const resolver = new Resolver();
+            let url;
+            try {
+                url = await Promise.race([
+                    resolver.getUrl(Encoding.Borsh, targetNetwork),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("RESOLVER_TIMEOUT")), 6000))
+                ]);
+            } catch (e) {
+                logMsg(`RESOLVER_BUSY. USING_FALLBACK.`);
+                url = targetNetwork === "testnet-11" ? FALLBACK_TN_NODE : "wss://mainnet-rpc.kaspa.org/ws";
+            }
+
+            logMsg(`DIALING_RPC: ${url}`);
+            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            await rpc.connect();
+            
+            const info = await rpc.getServerInfo();
+            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
+            logMsg(`SYNC_HEIGHT: ${info.serverVersion || "ACTIVE"}`);
+            
+            document.getElementById('sideId').innerText = id;
+            netStatus.style.color = "#00ff00";
+            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
+        } catch (e) { 
+            logMsg(`BOOT_ERROR: ${e.message}`); 
+        }
+    }
+
+    async function run() {
+        try {
+            logMsg("LOADING_KASPA_WASM...");
+            await init('./kaspa_bg.wasm');
+            logMsg("ENGINE_READY.");
+            
+            // Hardcoded link to ensure the button works
+            const btn = document.getElementById('initBtn');
+            if(btn) {
+                btn.onclick = () => {
+                    performBoot();
+                };
+            }
+        } catch (e) { 
+            logMsg(`CRITICAL_FAIL: ${e.message}`); 
+        }
+    }
+    run();
+</script>
+</body>
+</html>

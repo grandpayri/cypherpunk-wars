@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="version" content="Iteration-4.8">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -45,8 +46,6 @@
             flex-shrink: 0; background: rgba(112, 199, 186, 0.05);
         }
         .viewport { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
-        
-        /* RESTORED VISUALS */
         .ascii-logo {
             font-size: 8px; line-height: 9px; white-space: pre;
             color: var(--kaspa-bright); text-align: center; 
@@ -64,8 +63,6 @@
             font-size: 0.8rem; overflow-y: auto; flex-shrink: 0;
             line-height: 1.4;
         }
-
-        /* NAVIGATION & STATS */
         .nav-menu { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
         .nav-btn {
             background: transparent; border: 1px solid var(--kaspa-teal);
@@ -76,7 +73,6 @@
         .stat-group { border-top: 1px solid #333; padding-top: 10px; }
         .stat-item { margin-bottom: 8px; }
         .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
-
         .page { display: none; }
         .page.active { display: block; }
         .btn-execute {
@@ -131,7 +127,7 @@
             </div>
 
             <div style="margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333;">
-                <a href="README.html" target="_blank" style="color: var(--kaspa-bright); text-decoration: none;">[ VIEW_PROTOCOL_README ]</a>
+                <a href="README.html" target="_blank" style="color: var(--kaspa-bright); text-decoration: none;">[ VIEW_README.md ]</a>
             </div>
         </div>
 
@@ -169,7 +165,6 @@
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netIndicator');
     const netToggle = document.getElementById('netToggle');
-    const initBtn = document.getElementById('initBtn');
     
     let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
     const logMsg = (m) => {
@@ -191,6 +186,7 @@
         netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
     };
 
+    // Define function in module scope
     async function performBoot() {
         const inputId = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
         logMsg(`INITIATING_RESOLVER: ${inputId}`);
@@ -203,3 +199,43 @@
                     new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 6000))
                 ]);
             } catch { url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws"; }
+            
+            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            await rpc.connect();
+            logMsg(`SUCCESS: LINK_ESTABLISHED.`);
+
+            let resolvedAddress = (inputId === 'grandpayri.kas' || inputId === 'yri.kas') 
+                ? "kaspa:qprxkkvetjgxpsz4c7st887j3tdcq2yexhtlh2myutu9t9f76d70ws5sgq82l" 
+                : inputId;
+
+            logMsg(`SYNCING_LEDGER_FUEL...`);
+            const balanceData = await rpc.getBalanceByAddress({ address: resolvedAddress });
+            const totalKas = (Number(balanceData.balance) / 100000000).toFixed(2);
+            
+            document.getElementById('sideId').innerText = inputId;
+            document.getElementById('sideKas').innerText = totalKas; 
+            netStatus.style.color = "#00ff00";
+            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
+            logMsg(`LEDGER_SYNC_COMPLETE. BALANCE: ${totalKas} KAS`);
+        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
+    }
+
+    async function run() {
+        try {
+            logMsg("LOADING_KASPA_WASM...");
+            // Corrected to init from the .js bridge
+            await init('./kaspa.js');
+            logMsg("ENGINE_READY.");
+            
+            // Re-bind the global listener specifically
+            const bootBtn = document.getElementById('initBtn');
+            if(bootBtn) {
+                bootBtn.onclick = performBoot;
+                logMsg("BOOT_LISTENER_ACTIVE.");
+            }
+        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
+    }
+    run();
+</script>
+</body>
+</html>

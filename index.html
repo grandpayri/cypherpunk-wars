@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-4.8">
+    <meta name="version" content="Iteration-4.9">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -186,7 +186,6 @@
         netStatus.innerText = `NET: ${targetNetwork.toUpperCase()}`;
     };
 
-    // Define function in module scope
     async function performBoot() {
         const inputId = document.getElementById('targetId').value.trim() || 'grandpayri.kas';
         logMsg(`INITIATING_RESOLVER: ${inputId}`);
@@ -223,11 +222,9 @@
     async function run() {
         try {
             logMsg("LOADING_KASPA_WASM...");
-            // Corrected to init from the .js bridge
             await init('./kaspa.js');
             logMsg("ENGINE_READY.");
             
-            // Re-bind the global listener specifically
             const bootBtn = document.getElementById('initBtn');
             if(bootBtn) {
                 bootBtn.onclick = performBoot;

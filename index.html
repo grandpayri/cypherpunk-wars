@@ -156,11 +156,17 @@
 
             <div class="content-area">
                 <div id="page-boot" class="page active">
-                    <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
-                    <p>Input Wallet Address to sync with the BlockDAG.</p>
-                    <input type="text" id="targetId" placeholder="kaspa:q..." style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:80%; font-family: inherit;">
-                    <button id="initBtn" class="btn-execute">BOOT</button>
-                </div>
+                    <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
+                    <p>Initialize your 24-word High-Entropy Operator Identity.</p>
+                    
+                    <button id="initBtn" class="btn-execute">EXECUTE_HANDSHAKE</button>
+                    
+                    <div id="seedBackupArea" style="display:none; margin-top: 20px;">
+                        <p style="color:#ff00ff; font-size: 0.7rem;">!! CRITICAL: RECORD MASTER KEY !!</p>
+                        <div id="seedDisplay" style="border:1px dashed #ff00ff; padding:10px; color:#ff00ff; font-size:0.8rem; word-break:break-all;"></div>
+                        <button class="btn-execute" style="background:#ff00ff; color:#000;" onclick="confirmBackup()">I_HAVE_RECORDED_KEY</button>
+                    </div>
+                </div>             
                 <div id="page-phish" class="page">
                     <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
                     <p>Scan the DAG for $PUNKW fragments. Costs 1 Entropy.</p>
@@ -209,34 +215,52 @@
 
     async function performBoot() {
         const bootBtn = document.getElementById('initBtn');
-        bootBtn.disabled = true; bootBtn.innerText = "SYNCING...";
+        const seedArea = document.getElementById('seedBackupArea');
+        const seedDisplay = document.getElementById('seedDisplay');
+        
+        bootBtn.disabled = true; 
+        bootBtn.innerText = "FORGING...";
         
         try {
-            // Handshake with our modular wallet-gen tool
-            const identity = await handleIdentity();
-            gameState.operator = identity.address;
+            // 1. Handshake with wallet-gen utility
+            let savedMnemonic = localStorage.getItem('cpw_mnemonic');
             
-            logMsg(`DAG_SYNC: CONNECTING_TO_MAINNET...`);
-            const rpc = new RpcClient({ 
-                url: "wss://mainnet-rpc.kaspa.org/ws", 
-                encoding: Encoding.Borsh, 
-                networkId: "mainnet" 
-            });
-            await rpc.connect();
-            
-            const balanceData = await rpc.getBalanceByAddress(identity.address);
-            const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
-            
-            document.getElementById('sideKas').innerText = totalKas;
-            sideId.innerText = "OPERATOR_ACTIVE";
-            logMsg(`BOOT_SUCCESS: IDENTITY_ARMED [${identity.address.substring(0,10)}...]`);
+            if (!savedMnemonic) {
+                logMsg("IDENTITY_NOT_FOUND. GENERATING_NEW_OPERATOR_KEY...");
+                const identity = await walletSvc.initIdentity();
+                
+                // Display the new 24-word seed for manual backup
+                seedDisplay.innerText = localStorage.getItem('cpw_mnemonic');
+                seedArea.style.display = 'block';
+                bootBtn.style.display = 'none';
+                return; // Wait for user to confirm backup
+            }
+    
+            // 2. If seed exists, proceed to Sync
+            await finalizeBoot();
             
         } catch (e) { 
             logMsg(`BOOT_ERROR: ${e.message}`); 
-        } finally { 
-            bootBtn.disabled = false; bootBtn.innerText = "BOOT"; 
+            bootBtn.disabled = false;
+            bootBtn.innerText = "RETRY_BOOT";
         }
     }
+    
+    // Helper to handle the actual DAG connection after key is confirmed
+    async function finalizeBoot() {
+        const identity = await walletSvc.initIdentity();
+        gameState.operator = identity.address;
+        
+        logMsg("DAG_SYNC: CONNECTING_TO_MAINNET...");
+        // ... your existing RpcClient logic to fetch balance ...
+        logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
+        document.getElementById('page-boot').innerHTML = `<h3 style='color:var(--kaspa-bright)'>OPERATOR_ACTIVE</h3><p>Identity: ${identity.address}</p>`;
+    }
+    
+    window.confirmBackup = () => {
+        document.getElementById('seedBackupArea').style.display = 'none';
+        finalizeBoot();
+    };
 
     async function run() {
         try {

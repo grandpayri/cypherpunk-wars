@@ -2,238 +2,124 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-6.4">
-    <meta name="protocol" content="CPW1">
-    <title>CYPHERPUNK WARS | Command v1.4</title>
+    <meta name="version" content="Iteration-6.1-Reset">
+    <title>CypherPunk Wars</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
-            --kaspa-bright: #49EACB;
-            --kaspa-dark: #0A0A0A;
-            --kaspa-glow: rgba(112, 199, 186, 0.3);
+            --kaspa-glow: #49EACB;
+            --bg-dark: #050a0a;
         }
-        * { box-sizing: border-box; }
         body {
-            background-color: var(--kaspa-dark); color: var(--kaspa-teal);
-            font-family: 'Courier New', monospace; margin: 0; padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--kaspa-teal);
+            font-family: 'Courier New', monospace;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; width: 100vw; overflow: hidden;
+            height: 100vh; margin: 0;
         }
-        body::before {
-            content: ""; display: block; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.1) 50%);
-            background-size: 100% 4px; z-index: 1000; pointer-events: none;
+        .terminal-border {
+            border: 2px solid var(--kaspa-teal);
+            padding: 30px; width: 900px;
+            box-shadow: 0 0 15px rgba(112, 199, 186, 0.2);
+            background: black;
         }
-        .bunker-frame {
-            display: flex; flex-direction: column; width: 98vw; height: 96vh;
-            border: 2px solid var(--kaspa-teal); background: #000;
-            box-shadow: 0 0 20px var(--kaspa-glow); position: relative; z-index: 5;
+        .logo {
+            font-size: 12px; line-height: 12px; white-space: pre;
+            color: var(--kaspa-glow); text-align: center; margin-bottom: 10px;
+            text-shadow: 0 0 8px var(--kaspa-glow);
         }
-        .header {
-            height: 50px; border-bottom: 1px solid var(--kaspa-teal);
-            padding: 0 20px; display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,0,0,0.8);
+        .subtitle { text-align: center; letter-spacing: 5px; font-size: 14px; margin-bottom: 30px; }
+        .grid-stats { display: flex; justify-content: space-between; margin: 20px 0; border-top: 1px solid #222; padding-top: 20px; }
+        .login-box { display: flex; gap: 10px; align-items: center; }
+        input { 
+            background: black; border: 1px solid var(--kaspa-teal); 
+            color: var(--kaspa-teal); padding: 10px; font-family: inherit;
         }
-        .main-container { display: flex; flex-grow: 1; overflow: hidden; }
-        .sidebar {
-            width: 280px; border-right: 1px solid var(--kaspa-teal);
-            padding: 15px; display: flex; flex-direction: column;
-            background: rgba(112, 199, 186, 0.05);
+        button {
+            background: black; border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-teal); padding: 10px 20px; cursor: pointer; font-family: inherit;
         }
-        .viewport { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
-        .content-area {
-            flex-grow: 1; border: 1px solid #222; padding: 20px;
-            background: #050505; position: relative; overflow-y: auto;
+        button:hover { background: var(--kaspa-teal); color: black; }
+        .log-area {
+            border: 1px solid #222; background: #000; height: 200px;
+            margin-top: 20px; padding: 15px; font-size: 14px; overflow-y: auto;
         }
-        .terminal-log {
-            height: 120px; border-top: 1px solid var(--kaspa-teal);
-            background: #000; padding: 10px; font-size: 0.75rem; overflow-y: auto;
-        }
-        .nav-btn {
-            background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
-            text-align: left; font-family: inherit; margin-bottom: 5px; width: 100%;
-        }
-        .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
-        .page { display: none; }
-        .page.active { display: block; }
-        .btn-execute {
-            background: var(--kaspa-bright); color: #000; padding: 10px 20px;
-            border: none; cursor: pointer; font-family: inherit; font-weight: bold; margin: 5px 0;
-        }
-        .memo-box {
-            background: #111; border: 1px dashed var(--kaspa-bright);
-            padding: 15px; margin: 10px 0; word-break: break-all; color: #ff00ff; font-size: 0.8rem;
-        }
-        .ascii-logo {
-            font-size: 10px; line-height: 10px; color: var(--kaspa-bright);
-            white-space: pre; margin-bottom: 20px; text-shadow: 0 0 5px var(--kaspa-bright);
-        }
+        .memo-box { border: 1px dashed var(--kaspa-glow); padding: 10px; margin: 10px 0; color: #ff00ff; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div class="bunker-frame">
-    <div class="header">
-        <div style="font-size: 0.7rem; color: var(--kaspa-bright);">NET: MAINNET</div>
-        <div style="font-weight: bold; letter-spacing: 4px;">CYPHERPUNK_WARS_v1.4</div>
-        <div id="syncIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">ID: NOT_SYNCED</div>
+<div class="terminal-border">
+    <div class="logo">
+  ____             _               ____             _     _  _                 
+ / ___| _   _ _ __ | |__   ___ _ __|  _ \ _   _ _ __ | | __| || |__   ____ _ ___ 
+| |    | | | | '_ \| '_ \ / _ \ '__| |_) | | | | '_ \| |/ /| || |\ \ / / _` / __|
+| |___ | |_| | |_) | | | |  __/ |  |  __/| |_| | | | |   < | || | \ V / (_| \__ \
+ \____| \__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\|_||_|  \_/ \__,_|___/
+        |___/|_|                                                                  
+    </div>
+    <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
+
+    <div class="grid-stats">
+        <div class="login-box">
+            OPERATOR_LOGIN: <input type="text" id="opLogin" placeholder="yri.kas"> 
+            <button onclick="bootSequence()">BOOT</button>
+        </div>
+        <div>
+            NODE_RESOURCES:<br>
+            ENTROPY: <span id="entropy">10/10</span><br>
+            SECTORS: <span id="sectors">0</span> | DAEMONS: <span id="daemons">0</span>
+        </div>
     </div>
 
-    <div class="main-container">
-        <div class="sidebar">
-            <nav class="nav-menu">
-                <button class="nav-btn active" id="btn-nav-boot" onclick="showPage('boot')">[00] BOOT_SEQUENCE</button>
-                <button class="nav-btn" id="btn-nav-phish" onclick="showPage('phish')">[01] PHISH_NETWORK</button>
-            </nav>
-            <div style="border-top: 1px solid #333; margin-top: 15px; padding-top: 10px;">
-                <div style="margin-bottom:10px;"><span class="stat-label">OPERATOR</span><span id="sideId" style="font-size:0.6rem; word-break:break-all;">NONE</span></div>
-                <div style="margin-bottom:10px;"><span class="stat-label">TURNS</span><span id="sideTurns">0</span></div>
-                <div style="margin-bottom:10px;"><span class="stat-label">$PUNKW</span><span id="sidePunkw">0.00</span></div>
-            </div>
-        </div>
+    <div id="seedArea" style="display:none;">
+        <div class="memo-box" id="seedDisplay"></div>
+        <button onclick="confirmSeed()">CONFIRM_RECORDING</button>
+    </div>
 
-        <div class="viewport">
-            <div class="content-area">
-                <div id="page-boot" class="page active">
-                    <div class="ascii-logo">
-      _  _           _                               _                    
-  _ _| || |_ _ _ ___| |_ ___ ___ ___ _ _ ___ ___ ___| |_ ___ ___ ___ ___ 
- | | | ||  _| | |  _|  _| . |  _|  _| | |  _|  _| -_| . | . | . | -_|  _|
- |_  |_||_| |_  |___|_| |___|_| |_| |_  |___|_| |___|___|___|_  |___|_|  
- |___|      |___|                   |___|                   |___|         
-                    </div>
-                    <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
-                    <p>Initialize your 24-word High-Entropy Operator Identity.</p>
-                    <button class="btn-execute" onclick="triggerHandshake('GENERATE')">GENERATE NEW SEED</button>
-                    <hr style="border:0; border-top:1px solid #222; margin:20px 0;">
-                    <p>Or import existing phrase:</p>
-                    <textarea id="importSeed" placeholder="word1 word2 ... word24" style="width:100%; height:60px; background:#000; border:1px solid var(--kaspa-teal); color:#fff; padding:10px; font-family:inherit;"></textarea>
-                    <button class="btn-execute" onclick="triggerHandshake('IMPORT')">IMPORT IDENTITY</button>
-                </div>
-
-                <div id="page-seed-backup" class="page">
-                    <h3 style="color: #ff00ff;">!! CRITICAL_BACKUP !!</h3>
-                    <p>Record these 24 words exactly. This is the only way to recover your bunker state across devices.</p>
-                    <div id="seedDisplay" class="memo-box"></div>
-                    <button class="btn-execute" onclick="confirmBackup()">I HAVE RECORDED THE SEED</button>
-                </div>
-
-                <div id="page-phish" class="page">
-                    <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
-                    <div style="margin:15px 0; font-size:0.8rem;">
-                        <span class="stat-label">STAGING_AREA</span>
-                        Queued Actions: <span id="queuedTurns" style="color:#ff00ff">0</span>
-                    </div>
-                    <button id="phishBtn" class="btn-execute" onclick="runPhish()">EXECUTE_PHISH</button>
-                    <button id="commitBtn" class="btn-execute" style="background: #ff00ff; display:none;" onclick="commitToDag()">COMMIT_TO_DAG</button>
-                </div>
-            </div>
-            <div id="log" class="terminal-log">> AWAITING_OPERATOR_SYNC...<br></div>
-        </div>
+    <div class="log-area" id="terminal">
+        > SYSTEM READY. AWAITING HANDSHAKE...
     </div>
 </div>
 
 <script type="module">
-    import init, { RpcClient, Mnemonic, PrivateKey, ExtendedPrivateKey, Encoding } from './kaspa.js';
+    import init, { Mnemonic, PrivateKey, ExtendedPrivateKey } from './kaspa.js';
 
-    let rpc;
-    let sessionKey = null; 
-    let gameState = { season: 1, turns: 0, queued: 0, punkw: 0, operator: null };
+    let gameState = { operator: null, entropy: 10, sectors: 0, daemons: 0 };
 
-    const logMsg = (m) => {
-        const t = new Date().toLocaleTimeString([], {hour12: false});
-        document.getElementById('log').innerHTML += `> [${t}] ${m}<br>`;
-        document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+    function log(msg) {
+        const time = new Date().toLocaleTimeString([], {hour12: false});
+        const term = document.getElementById('terminal');
+        term.innerHTML += `<br>> [${time}] ${msg}`;
+        term.scrollTop = term.scrollHeight;
+    }
+
+    window.bootSequence = async () => {
+        log("INITIALIZING_WASM...");
+        await init('./kaspa_bg.wasm');
+        log("CORE_ONLINE.");
+
+        const mnemonic = Mnemonic.random(256); // 24 words
+        document.getElementById('seedDisplay').innerText = mnemonic.phrase;
+        document.getElementById('seedArea').style.display = 'block';
+        log("SEED_GENERATED. RECORD BEFORE PROCEEDING.");
     };
 
-    window.showPage = (id) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${id}`).classList.add('active');
-        const navBtn = document.getElementById(`btn-nav-${id}`);
-        if(navBtn) navBtn.classList.add('active');
-    };
-
-    window.triggerHandshake = async (mode) => {
-        try {
-            if (mode === 'GENERATE') {
-                // Fixed: Explicitly request 256 bits of entropy for 24 words
-                const mnemonic = Mnemonic.random(256); 
-                if (!mnemonic || !mnemonic.phrase) throw new Error("WASM_ENTROPY_FAILURE");
-                
-                document.getElementById('seedDisplay').innerText = mnemonic.phrase;
-                showPage('seed-backup');
-                logMsg("SEED_GENERATED: High-entropy phrase prepared.");
-            } else {
-                const phrase = document.getElementById('importSeed').value.trim();
-                if (phrase.split(/\s+/).length < 24) return logMsg("ERROR: 24_WORDS_REQUIRED.");
-                await finalizeIdentity(new Mnemonic(phrase));
-            }
-        } catch (e) { 
-            logMsg(`BOOT_FAIL: ${e.message}`); 
-            console.error(e);
-        }
-    };
-
-    window.confirmBackup = async () => {
+    window.confirmSeed = async () => {
         const phrase = document.getElementById('seedDisplay').innerText;
-        await finalizeIdentity(new Mnemonic(phrase));
-    };
-
-    async function finalizeIdentity(mnemonic) {
-        logMsg("DERIVING_IDENTITY_KEY...");
+        const mnemonic = new Mnemonic(phrase);
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
-        // m/44'/111111'/0'/0/0
-        sessionKey = xpriv.deriveChild(44,true).deriveChild(111111,true).deriveChild(0,true).deriveChild(0).deriveChild(0).privateKey;
-        const addr = sessionKey.toAddress("mainnet").toString();
+        const key = xpriv.deriveChild(44, true).deriveChild(111111, true).deriveChild(0, true).deriveChild(0).deriveChild(0).privateKey;
         
-        gameState.operator = addr;
-        localStorage.setItem('cpw_addr', addr);
+        gameState.operator = key.toAddress("mainnet").toString();
+        localStorage.setItem('cpw_addr', gameState.operator);
         
-        document.getElementById('sideId').innerText = addr.substring(0,18) + "...";
-        document.getElementById('syncIndicator').innerText = "ID: ACTIVE";
-        logMsg(`BUNKER_LOCKED: ${addr}`);
-        showPage('phish');
-    }
-
-    window.runPhish = () => {
-        gameState.queued++;
-        gameState.punkw += (Math.floor(Math.random() * 50) + 10);
-        document.getElementById('queuedTurns').innerText = gameState.queued;
-        document.getElementById('sidePunkw').innerText = gameState.punkw.toFixed(2);
-        document.getElementById('commitBtn').style.display = 'inline-block';
-        logMsg(`LOCAL_TICK: Turn ${gameState.turns + gameState.queued} staged.`);
+        document.getElementById('seedArea').style.display = 'none';
+        log(`HANDSHAKE COMPLETE. OPERATOR: ${gameState.operator.substring(0,12)}...`);
+        document.getElementById('opLogin').value = gameState.operator.substring(0,10);
     };
-
-    window.commitToDag = async () => {
-        logMsg("COMPILING_PAYLOAD...");
-        gameState.turns += gameState.queued;
-        gameState.queued = 0;
-        document.getElementById('sideTurns').innerText = gameState.turns;
-        document.getElementById('queuedTurns').innerText = "0";
-        document.getElementById('commitBtn').style.display = 'none';
-        logMsg("STATE_STAGED: Ready for Mainnet broadcast.");
-    };
-
-    async function run() {
-        try {
-            await init('./kaspa_bg.wasm');
-            logMsg("BUNKER_OS_v1.4_ONLINE.");
-            rpc = new RpcClient({ url: "wss://mainnet-rpc.kaspa.org/ws", encoding: Encoding.Borsh, networkId: "mainnet" });
-            await rpc.connect();
-            
-            const savedAddr = localStorage.getItem('cpw_addr');
-            if (savedAddr) {
-                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);
-                document.getElementById('sideId').innerText = savedAddr.substring(0,18) + "...";
-            }
-        } catch (e) { logMsg(`SYSTEM_INIT_ERROR: ${e.message}`); }
-    }
-    run();
 </script>
+
 </body>
 </html>

@@ -16,65 +16,73 @@
             font-family: 'Courier New', monospace;
             display: flex; justify-content: center; align-items: center;
             height: 100vh; margin: 0;
+            overflow: hidden;
         }
         .terminal-border {
-            border: 2px solid var(--kaspa-teal);
-            padding: 30px; width: 900px;
-            box-shadow: 0 0 15px rgba(112, 199, 186, 0.2);
+            border: 1px solid var(--kaspa-teal);
+            padding: 40px; width: 950px;
+            box-shadow: 0 0 15px rgba(112, 199, 186, 0.1);
             background: black;
         }
-        .logo {
-            font-size: 12px; line-height: 12px; white-space: pre;
-            color: var(--kaspa-glow); text-align: center; margin-bottom: 10px;
-            text-shadow: 0 0 8px var(--kaspa-glow);
+        .ascii-banner {
+            font-size: 10px; line-height: 10px; white-space: pre;
+            color: var(--kaspa-glow); text-align: center; margin-bottom: 5px;
+            text-shadow: 0 0 5px var(--kaspa-glow);
         }
-        .subtitle { text-align: center; letter-spacing: 5px; font-size: 14px; margin-bottom: 30px; }
-        .grid-stats { display: flex; justify-content: space-between; margin: 20px 0; border-top: 1px solid #222; padding-top: 20px; }
+        .subtitle { text-align: center; letter-spacing: 5px; font-size: 14px; margin-bottom: 40px; color: var(--kaspa-teal); }
+        .grid-stats { display: flex; justify-content: space-between; margin: 20px 0; border-top: 1px solid #1a1a1a; padding-top: 20px; }
         .login-box { display: flex; gap: 10px; align-items: center; }
         input { 
             background: black; border: 1px solid var(--kaspa-teal); 
-            color: var(--kaspa-teal); padding: 10px; font-family: inherit;
+            color: var(--kaspa-teal); padding: 8px; font-family: inherit; width: 180px;
         }
         button {
             background: black; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 10px 20px; cursor: pointer; font-family: inherit;
+            color: var(--kaspa-teal); padding: 8px 20px; cursor: pointer; font-family: inherit;
         }
         button:hover { background: var(--kaspa-teal); color: black; }
+        .node-resources { text-align: right; font-size: 14px; line-height: 1.6; }
         .log-area {
-            border: 1px solid #222; background: #000; height: 200px;
-            margin-top: 20px; padding: 15px; font-size: 14px; overflow-y: auto;
+            border: 1px solid #1a1a1a; background: #000; height: 220px;
+            margin-top: 25px; padding: 15px; font-size: 14px; overflow-y: auto;
+            color: var(--kaspa-teal);
         }
-        .memo-box { border: 1px dashed var(--kaspa-glow); padding: 10px; margin: 10px 0; color: #ff00ff; font-size: 12px; }
+        .memo-box { border: 1px dashed #ff00ff; padding: 15px; margin: 15px 0; color: #ff00ff; font-size: 12px; word-break: break-all; }
+        .highlight { color: var(--kaspa-glow); }
     </style>
 </head>
 <body>
 
 <div class="terminal-border">
-    <div class="logo">
-  ____             _               ____             _     _  _                 
- / ___| _   _ _ __ | |__   ___ _ __|  _ \ _   _ _ __ | | __| || |__   ____ _ ___ 
-| |    | | | | '_ \| '_ \ / _ \ '__| |_) | | | | '_ \| |/ /| || |\ \ / / _` / __|
-| |___ | |_| | |_) | | | |  __/ |  |  __/| |_| | | | |   < | || | \ V / (_| \__ \
- \____| \__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\|_||_|  \_/ \__,_|___/
-        |___/|_|                                                                  
+    <div class="ascii-banner">
+  _____            _                _____             _     __         __           
+ / ____|          | |              |  __ \           | |    \ \       / /           
+| |    _   _ _ __ | |__   ___ _ __ | |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+| |   | | | | '_ \| '_ \ / _ \ '__||  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+| |___| |_| | |_) | | | |  __/ |   | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+ \_____\__, | .__/|_| |_|\___|_|   |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+        __/ | |                                                                       
+       |___/|_|                                                                       
     </div>
     <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
 
     <div class="grid-stats">
         <div class="login-box">
-            OPERATOR_LOGIN: <input type="text" id="opLogin" placeholder="yri.kas"> 
+            OPERATOR_LOGIN:<br>
+            <input type="text" id="opLogin" placeholder="yri.kas"> 
             <button onclick="bootSequence()">BOOT</button>
         </div>
-        <div>
+        <div class="node-resources">
             NODE_RESOURCES:<br>
-            ENTROPY: <span id="entropy">10/10</span><br>
-            SECTORS: <span id="sectors">0</span> | DAEMONS: <span id="daemons">0</span>
+            ENTROPY: <span class="highlight" id="entropy">10/10</span><br>
+            SECTORS: <span class="highlight" id="sectors">0</span> | DAEMONS: <span class="highlight" id="daemons">0</span>
         </div>
     </div>
 
     <div id="seedArea" style="display:none;">
+        <p style="color:#ff00ff; font-size: 12px;">!! CRITICAL: RECORD 24-WORD RECOVERY PHRASE !!</p>
         <div class="memo-box" id="seedDisplay"></div>
-        <button onclick="confirmSeed()">CONFIRM_RECORDING</button>
+        <button style="border-color:#ff00ff; color:#ff00ff;" onclick="confirmSeed()">CONFIRM_RECORDING</button>
     </div>
 
     <div class="log-area" id="terminal">
@@ -83,7 +91,7 @@
 </div>
 
 <script type="module">
-    import init, { Mnemonic, PrivateKey, ExtendedPrivateKey } from './kaspa.js';
+    import init, { Mnemonic, PrivateKey, ExtendedPrivateKey, Encoding } from './kaspa.js';
 
     let gameState = { operator: null, entropy: 10, sectors: 0, daemons: 0 };
 
@@ -95,14 +103,19 @@
     }
 
     window.bootSequence = async () => {
-        log("INITIALIZING_WASM...");
-        await init('./kaspa_bg.wasm');
-        log("CORE_ONLINE.");
+        try {
+            log("INITIALIZING_WASM...");
+            await init('./kaspa_bg.wasm');
+            log("CORE_ONLINE.");
 
-        const mnemonic = Mnemonic.random(256); // 24 words
-        document.getElementById('seedDisplay').innerText = mnemonic.phrase;
-        document.getElementById('seedArea').style.display = 'block';
-        log("SEED_GENERATED. RECORD BEFORE PROCEEDING.");
+            // Generate 24-word phrase (256 bits of entropy)
+            const mnemonic = Mnemonic.random(256); 
+            document.getElementById('seedDisplay').innerText = mnemonic.phrase;
+            document.getElementById('seedArea').style.display = 'block';
+            log("SEED_GENERATED. MANDATORY BACKUP REQUIRED.");
+        } catch (e) {
+            log("BOOT_ERROR: " + e.message);
+        }
     };
 
     window.confirmSeed = async () => {
@@ -110,15 +123,26 @@
         const mnemonic = new Mnemonic(phrase);
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
+        
+        // Derive standard Kaspa path
         const key = xpriv.deriveChild(44, true).deriveChild(111111, true).deriveChild(0, true).deriveChild(0).deriveChild(0).privateKey;
         
         gameState.operator = key.toAddress("mainnet").toString();
-        localStorage.setItem('cpw_addr', gameState.operator);
+        localStorage.setItem('cpw_addr', gameState.operator); // Anchor identity
         
         document.getElementById('seedArea').style.display = 'none';
-        log(`HANDSHAKE COMPLETE. OPERATOR: ${gameState.operator.substring(0,12)}...`);
-        document.getElementById('opLogin').value = gameState.operator.substring(0,10);
+        log(`HANDSHAKE COMPLETE. OPERATOR: ${gameState.operator.substring(0,22)}...`);
+        document.getElementById('opLogin').value = "grandpayri.kas";
     };
+
+    // Check for existing anchor on load
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('cpw_addr');
+        if (saved) {
+            log(`RECOGNIZED_OPERATOR: ${saved.substring(0,18)}...`);
+            document.getElementById('opLogin').value = "grandpayri.kas";
+        }
+    });
 </script>
 
 </body>

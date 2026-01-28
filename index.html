@@ -1,153 +1,261 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="version" content="Iteration-6.1.1">
-    <title>CypherPunk Wars</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="version" content="Iteration-6.1">
+    <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
-            --kaspa-glow: #49EACB;
-            --bg-dark: #050a0a;
+            --kaspa-bright: #49EACB;
+            --kaspa-dark: #0A0A0A;
+            --kaspa-glow: rgba(112, 199, 186, 0.3);
         }
+        * { box-sizing: border-box; }
         body {
-            background-color: var(--bg-dark);
+            background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
             font-family: 'Courier New', monospace;
+            margin: 0; padding: 0;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0; overflow: hidden;
+            height: 100vh; width: 100vw; overflow: hidden;
         }
-        /* The main terminal frame from your screenshot */
-        .terminal-border {
-            border: 1px solid var(--kaspa-teal);
-            padding: 30px; width: 950px;
-            background: black;
-            position: relative;
+        body::before {
+            content: ""; display: block; position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px; z-index: 1000; pointer-events: none;
         }
-        .ascii-banner {
-            font-size: 10px; line-height: 10px; white-space: pre;
-            color: var(--kaspa-glow); text-align: center; margin-bottom: 10px;
-            text-shadow: 0 0 5px var(--kaspa-glow);
+        .bunker-frame {
+            display: flex; flex-direction: column;
+            width: 98vw; height: 96vh;
+            border: 2px solid var(--kaspa-teal);
+            background: #000; box-shadow: 0 0 20px var(--kaspa-glow);
+            z-index: 5;
         }
-        .subtitle { text-align: center; letter-spacing: 5px; font-size: 14px; margin-bottom: 40px; }
-        
-        /* Two-column layout for the top section */
-        .header-grid { 
-            display: flex; justify-content: space-between; 
-            border-bottom: 1px solid #1a1a1a; padding-bottom: 20px; margin-bottom: 20px;
+        .header {
+            height: 50px; border-bottom: 1px solid var(--kaspa-teal);
+            padding: 0 20px; display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; background: rgba(0,0,0,0.8);
         }
-        .login-section { display: flex; gap: 10px; align-items: flex-end; }
-        .resources-section { text-align: left; font-size: 14px; line-height: 1.4; min-width: 250px; }
-        
-        input { 
-            background: black; border: 1px solid var(--kaspa-teal); 
-            color: var(--kaspa-teal); padding: 8px; font-family: inherit; width: 200px;
+        .main-container { display: flex; flex-grow: 1; overflow: hidden; }
+        .sidebar {
+            width: 280px; border-right: 1px solid var(--kaspa-teal);
+            padding: 15px; display: flex; flex-direction: column;
+            flex-shrink: 0; background: rgba(112, 199, 186, 0.05);
         }
-        button {
-            background: black; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 8px 15px; cursor: pointer; font-family: inherit;
+        .viewport { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
+        .ascii-logo {
+            font-size: 8px; line-height: 9px; white-space: pre;
+            color: var(--kaspa-bright); text-align: center; 
+            margin-bottom: 25px; flex-shrink: 0;
+            text-shadow: 0 0 8px var(--kaspa-bright);
         }
-        button:hover { background: var(--kaspa-teal); color: black; }
-        
-        .log-area {
-            border: 1px solid #1a1a1a; background: #000; height: 250px;
-            padding: 15px; font-size: 14px; overflow-y: auto; color: var(--kaspa-teal);
+        .content-area {
+            flex-grow: 1; border: 1px solid #222;
+            padding: 20px; background: #050505;
+            position: relative; overflow-y: auto;
         }
-        .highlight { color: var(--kaspa-glow); }
-        .memo-box { border: 1px dashed #ff00ff; padding: 10px; margin: 10px 0; color: #ff00ff; font-size: 12px; }
+        .terminal-log {
+            height: 150px; border-top: 1px solid var(--kaspa-teal);
+            background: #000; padding: 10px; color: var(--kaspa-teal);
+            font-size: 0.8rem; overflow-y: auto; flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .nav-btn {
+            background: transparent; border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
+            text-align: left; font-family: inherit; font-size: 0.75rem; margin-bottom: 5px; width: 100%;
+        }
+        .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
+        .stat-group { border-top: 1px solid #333; padding-top: 10px; }
+        .stat-item { margin-bottom: 8px; }
+        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .btn-execute {
+            background: var(--kaspa-bright); color: #000;
+            padding: 10px 20px; border: none; cursor: pointer;
+            font-family: inherit; font-weight: bold; margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-execute:disabled {
+            background: #222; color: var(--kaspa-teal);
+            cursor: wait; border: 1px solid var(--kaspa-teal);
+        }
+        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #222; border: 1px solid var(--kaspa-teal); transition: .4s;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
+        }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        /* Document Link Styling */
+        .readme-footer { margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333; }
+        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
     </style>
 </head>
 <body>
 
-<div class="terminal-border">
-    <div id="banner-container" class="ascii-banner"></div>
-    <div class="subtitle">A KASPA DRIVEN RIFF ON ARCHMAGE</div>
+<div class="bunker-frame">
+    <div class="header">
+        <div class="toggle-box">
+            <span>TN11</span>
+            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
+            <span>MAINNET</span>
+        </div>
+        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
+        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
+    </div>
 
-    <div class="header-grid">
-        <div class="login-section">
-            <div>
-                <span style="font-size: 12px; display:block; margin-bottom:5px;">OPERATOR_LOGIN:</span>
-                <input type="text" id="opLogin" placeholder="yri.kas">
+    <div class="main-container">
+        <div class="sidebar">
+            <nav class="nav-menu">
+                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
+                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+                <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
+                <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
+                <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
+                <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
+            </nav>
+
+            <div class="stat-group">
+                <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
+                <div class="stat-item"><span class="stat-label">FUEL ($KAS)</span><span id="sideKas">0.00</span></div>
+                <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
+                <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
+                <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
+                <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
             </div>
-            <button onclick="bootSequence()">BOOT</button>
-        </div>
-        <div class="resources-section">
-            NODE_RESOURCES:<br>
-            ENTROPY: <span class="highlight" id="entropy">10/10</span><br>
-            SECTORS: <span class="highlight" id="sectors">0</span> | DAEMONS: <span class="highlight" id="daemons">0</span>
-        </div>
-    </div>
 
-    <div id="seedArea" style="display:none;">
-        <div class="memo-box" id="seedDisplay"></div>
-        <button style="border-color:#ff00ff; color:#ff00ff;" onclick="confirmSeed()">CONFIRM_RECORDING</button>
-    </div>
+            <div class="readme-footer">
+                <a href="README.html" target="_blank">[ VIEW_PROTOCOL_SPEC ]</a>
+            </div>
+        </div>
 
-    <div class="log-area" id="terminal">
-        > SYSTEM READY. AWAITING HANDSHAKE...
+        <div class="viewport">
+            <div class="ascii-logo">
+   _____            _               _____             _     __          __            
+  / ____|          | |             |  __ \           | |    \ \        / /            
+ | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
+ | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
+ | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
+  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
+         __/ | |                                                                      
+        |___/|_|                                                                      
+            </div>
+
+            <div class="content-area">
+                <div id="page-boot" class="page active">
+                    <h3 style="color: var(--kaspa-bright)">CORE_HANDSHAKE</h3>
+                    <p>Input Wallet Address to sync with the BlockDAG.</p>
+                    <input type="text" id="targetId" placeholder="kaspa:q..." style="background:#000; color:#fff; border:1px solid var(--kaspa-teal); padding:10px; width:80%; font-family: inherit;">
+                    <button id="initBtn" class="btn-execute">BOOT</button>
+                </div>
+                <div id="page-phish" class="page">
+                    <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
+                    <p>Scan the DAG for $PUNKW fragments. Costs 1 Entropy.</p>
+                    <button class="btn-execute" onclick="executePhish()">BROADCAST_PHISH</button>
+                </div>
+            </div>
+
+            <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...<br></div>
+        </div>
     </div>
 </div>
 
 <script type="module">
-    import init, { Mnemonic, PrivateKey, ExtendedPrivateKey } from './kaspa.js';
+    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
 
-    // PROTECTED ASSETS
-    const ASCII_BANNER = `
-  _____            _                _____             _     __         __           
- / ____|          | |              |  __ \\           | |    \\ \\       / /           
-| |    _   _ _ __ | |__   ___ _ __ | |__) |   _ _ __ | | __  \\ \\  /\\  / /_ _ _ __ ___ 
-| |   | | | | '_ \\| '_ \\ / _ \\ '__||  ___/ | | | '_ \\| |/ /   \\ \\/  \\/ / _\` | '__/ __|
-| |___| |_| | |_) | | | |  __/ |   | |   | |_| | | | |   <     \\  /\\  / (_| | |  \\__ \\
- \\_____\\__, | .__/|_| |_|\\___|_|   |_|    \\__,_|_| |_|_|\\_\\     \\/  \\/ \\__,_|_|  |___/
-        __/ | |                                                                       
-       |___/|_|                                                                       
-    `;
+    const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+    const sideKas = document.getElementById('sideKas');
+    const sideMeme = document.getElementById('sideMeme');
+    const sideEntropy = document.getElementById('sideEntropy');
 
-    let gameState = { operator: null, entropy: 10, sectors: 0, daemons: 0 };
+    let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
 
-    function log(msg) {
-        const time = new Date().toLocaleTimeString([], {hour12: false});
-        const term = document.getElementById('terminal');
-        term.innerHTML += `<br>> [${time}] ${msg}`;
-        term.scrollTop = term.scrollHeight;
+    const logMsg = (m) => {
+        const t = new Date().toLocaleTimeString([], {hour12: false});
+        log.innerHTML += `> [${t}] ${m}<br>`;
+        log.scrollTop = log.scrollHeight;
+    };
+
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        btn.classList.add('active');
+    };
+
+    window.executePhish = () => {
+        if (!gameState.operator) return logMsg("CRITICAL: IDENTITY_SYNC_REQUIRED.");
+        if (gameState.entropy <= 0) return logMsg("ERROR: INSUFFICIENT_ENTROPY.");
+        
+        gameState.entropy--;
+        let yieldAmount = Math.floor(Math.random() * 50) + 10;
+        gameState.meme += yieldAmount;
+        
+        sideEntropy.innerText = `${gameState.entropy}/10`;
+        sideMeme.innerText = gameState.meme;
+        logMsg(`PHISH_SUCCESS: GATHERED ${yieldAmount} $PUNKW FRAGMENTS.`);
+    };
+
+    async function performBoot() {
+        const inputId = document.getElementById('targetId').value.trim();
+        if (!inputId) return logMsg("ERROR: INPUT_REQUIRED.");
+        
+        const bootBtn = document.getElementById('initBtn');
+        bootBtn.disabled = true; bootBtn.innerText = "SYNCING...";
+        
+        try {
+            const resolver = new Resolver();
+            let url;
+            try {
+                url = await Promise.race([
+                    resolver.getUrl(Encoding.Borsh, targetNetwork),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5000))
+                ]);
+            } catch { url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws"; }
+            
+            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            await rpc.connect();
+            
+            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${inputId.substring(0,10)}...`);
+            const balanceData = await rpc.getBalanceByAddress(inputId);
+            const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
+            
+            gameState.kas = totalKas;
+            gameState.operator = inputId;
+            
+            document.getElementById('sideId').innerText = "OPERATOR_ACTIVE";
+            sideKas.innerText = totalKas;
+            netStatus.style.color = "#00ff00";
+            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
+            logMsg(`BOOT_SUCCESS: BALANCE ${totalKas} KAS.`);
+        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
+        finally { bootBtn.disabled = false; bootBtn.innerText = "BOOT"; }
     }
 
-    window.bootSequence = async () => {
+    async function run() {
         try {
-            log("INITIALIZING_WASM...");
             await init('./kaspa_bg.wasm');
-            log("CORE_ONLINE.");
-            
-            const mnemonic = Mnemonic.random(256); // 24 words
-            document.getElementById('seedDisplay').innerText = mnemonic.phrase;
-            document.getElementById('seedArea').style.display = 'block';
-            log("SEED_GENERATED. RECORD BEFORE PROCEEDING.");
-        } catch (e) { log("BOOT_ERR: " + e.message); }
-    };
-
-    window.confirmSeed = async () => {
-        const phrase = document.getElementById('seedDisplay').innerText;
-        const mnemonic = new Mnemonic(phrase);
-        const seed = await mnemonic.toSeed();
-        const xpriv = ExtendedPrivateKey.fromSeed(seed);
-        const key = xpriv.deriveChild(44, true).deriveChild(111111, true).deriveChild(0, true).deriveChild(0).deriveChild(0).privateKey;
-        
-        gameState.operator = key.toAddress("mainnet").toString();
-        localStorage.setItem('cpw_addr', gameState.operator);
-        
-        document.getElementById('seedArea').style.display = 'none';
-        log(`HANDSHAKE COMPLETE. OPERATOR: ${gameState.operator.substring(0,12)}...`);
-        document.getElementById('opLogin').value = "yri.kas"; 
-    };
-
-    window.addEventListener('load', () => {
-        document.getElementById('banner-container').innerText = ASCII_BANNER;
-        const saved = localStorage.getItem('cpw_addr');
-        if (saved) {
-            log(`RECOGNIZED_OPERATOR: ${saved.substring(0,12)}...`);
-            document.getElementById('opLogin').value = "yri.kas";
-        }
-    });
+            logMsg("ENGINE_READY.");
+            document.getElementById('initBtn').onclick = performBoot;
+        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
+    }
+    run();
 </script>
 </body>
 </html>

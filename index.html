@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="version" content="Iteration-6.4">
-    <title>CYPHERPUNK WARS | Command</title>
+    <meta name="protocol" content="CPW1">
+    <title>CYPHERPUNK WARS | Command v1.4</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
@@ -27,7 +28,7 @@
         .bunker-frame {
             display: flex; flex-direction: column; width: 98vw; height: 96vh;
             border: 2px solid var(--kaspa-teal); background: #000;
-            box-shadow: 0 0 20px var(--kaspa-glow); z-index: 5;
+            box-shadow: 0 0 20px var(--kaspa-glow); position: relative; z-index: 5;
         }
         .header {
             height: 50px; border-bottom: 1px solid var(--kaspa-teal);
@@ -60,12 +61,15 @@
         .page.active { display: block; }
         .btn-execute {
             background: var(--kaspa-bright); color: #000; padding: 10px 20px;
-            border: none; cursor: pointer; font-family: inherit; font-weight: bold;
+            border: none; cursor: pointer; font-family: inherit; font-weight: bold; margin: 5px 0;
         }
-        .btn-execute:disabled { background: #222; color: var(--kaspa-teal); cursor: wait; }
         .memo-box {
             background: #111; border: 1px dashed var(--kaspa-bright);
             padding: 15px; margin: 10px 0; word-break: break-all; color: #ff00ff; font-size: 0.8rem;
+        }
+        .ascii-logo {
+            font-size: 8px; line-height: 8px; color: var(--kaspa-bright);
+            white-space: pre; margin-bottom: 20px; text-shadow: 0 0 5px var(--kaspa-bright);
         }
     </style>
 </head>
@@ -74,50 +78,55 @@
 <div class="bunker-frame">
     <div class="header">
         <div style="font-size: 0.7rem; color: var(--kaspa-bright);">NET: MAINNET</div>
-        <div style="font-weight: bold; letter-spacing: 4px;">CYPHERPUNK_WARS_v1.3</div>
+        <div style="font-weight: bold; letter-spacing: 4px;">CYPHERPUNK_WARS_v1.4</div>
         <div id="syncIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">ID: NOT_SYNCED</div>
     </div>
 
     <div class="main-container">
         <div class="sidebar">
             <nav class="nav-menu">
-                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
-                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
+                <button class="nav-btn active" id="btn-nav-boot" onclick="showPage('boot')">[00] BOOT_SEQUENCE</button>
+                <button class="nav-btn" id="btn-nav-phish" onclick="showPage('phish')">[01] PHISH_NETWORK</button>
             </nav>
             <div style="border-top: 1px solid #333; margin-top: 15px; padding-top: 10px;">
-                <div style="margin-bottom:10px;"><span class="stat-label">OPERATOR</span><span id="sideId" style="font-size:0.7rem;">NONE</span></div>
-                <div style="margin-bottom:10px;"><span class="stat-label">TURNS (COMMITTED)</span><span id="sideTurns">0</span></div>
+                <div style="margin-bottom:10px;"><span class="stat-label">OPERATOR</span><span id="sideId" style="font-size:0.6rem; word-break:break-all;">NONE</span></div>
+                <div style="margin-bottom:10px;"><span class="stat-label">TURNS</span><span id="sideTurns">0</span></div>
                 <div style="margin-bottom:10px;"><span class="stat-label">$PUNKW</span><span id="sidePunkw">0.00</span></div>
-            </div>
-            <div style="margin-top:auto; font-size:0.6rem; text-align:center;">
-                <a href="README.html" target="_blank" style="color:var(--kaspa-bright); text-decoration:none;">[ VIEW_PROTOCOL_SPEC ]</a>
             </div>
         </div>
 
         <div class="viewport">
             <div class="content-area">
                 <div id="page-boot" class="page active">
+                    <div class="ascii-logo">
+ ██████╗██████╗ ██╗    ██╗    ██████╗ ██╗   ██╗███╗   ██╗██╗  ██╗
+██╔════╝██╔══██╗██║    ██║    ██╔══██╗██║   ██║████╗  ██║██║ ██╔╝
+██║     ██████╔╝██║ █╗ ██║    ██████╔╝██║   ██║██╔██╗ ██║█████╔╝ 
+██║     ██╔═══╝ ██║███╗██║    ██╔═══╝ ██║   ██║██║╚██╗██║██╔═██╗ 
+╚██████╗██║     ╚███╔███╔╝    ██║     ╚██████╔╝██║ ╚████║██║  ██╗
+ ╚═════╝╚═╝      ╚══╝╚══╝     ╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝
+                    </div>
                     <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
-                    <p>Initialize your 24-word Operator Identity.</p>
+                    <p>Initialize your 24-word High-Entropy Operator Identity.</p>
                     <button class="btn-execute" onclick="triggerHandshake('GENERATE')">GENERATE NEW SEED</button>
                     <hr style="border:0; border-top:1px solid #222; margin:20px 0;">
-                    <p>Or import existing 24-word phrase:</p>
+                    <p>Or import existing phrase:</p>
                     <textarea id="importSeed" placeholder="word1 word2 ... word24" style="width:100%; height:60px; background:#000; border:1px solid var(--kaspa-teal); color:#fff; padding:10px; font-family:inherit;"></textarea>
-                    <button class="btn-execute" style="margin-top:10px;" onclick="triggerHandshake('IMPORT')">IMPORT IDENTITY</button>
+                    <button class="btn-execute" onclick="triggerHandshake('IMPORT')">IMPORT IDENTITY</button>
                 </div>
 
                 <div id="page-seed-backup" class="page">
                     <h3 style="color: #ff00ff;">!! CRITICAL_BACKUP !!</h3>
-                    <p>Write these 24 words down. They are your permanent key to this Bunker.</p>
+                    <p>Write these 24 words down. This is your permanent key.</p>
                     <div id="seedDisplay" class="memo-box"></div>
                     <button class="btn-execute" onclick="confirmBackup()">I HAVE RECORDED THE SEED</button>
                 </div>
 
                 <div id="page-phish" class="page">
                     <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
-                    <p>Status: <span id="localStatus">Operational</span></p>
-                    <div id="phishStats" style="margin:15px 0; font-size:0.8rem; color:var(--kaspa-bright);">
-                        Queued Turns: <span id="queuedTurns">0</span>
+                    <div style="margin:15px 0; font-size:0.8rem;">
+                        <span class="stat-label">STAGING_AREA</span>
+                        Queued Actions: <span id="queuedTurns" style="color:#ff00ff">0</span>
                     </div>
                     <button id="phishBtn" class="btn-execute" onclick="runPhish()">EXECUTE_PHISH</button>
                     <button id="commitBtn" class="btn-execute" style="background: #ff00ff; display:none;" onclick="commitToDag()">COMMIT_TO_DAG</button>
@@ -132,7 +141,7 @@
     import init, { RpcClient, Mnemonic, PrivateKey, ExtendedPrivateKey, Encoding } from './kaspa.js';
 
     let rpc;
-    let sessionKey = null; // Stays in RAM only
+    let sessionKey = null; 
     let gameState = { season: 1, turns: 0, queued: 0, punkw: 0, operator: null };
 
     const logMsg = (m) => {
@@ -143,45 +152,45 @@
 
     window.showPage = (id) => {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`page-${id}`).classList.add('active');
+        const navBtn = document.getElementById(`btn-nav-${id}`);
+        if(navBtn) navBtn.classList.add('active');
     };
 
     window.triggerHandshake = async (mode) => {
         try {
-            let mnemonic;
             if (mode === 'GENERATE') {
-                mnemonic = Mnemonic.random(256); // 24 words
+                const mnemonic = Mnemonic.random(256); 
                 document.getElementById('seedDisplay').innerText = mnemonic.phrase;
                 showPage('seed-backup');
-                return;
+                logMsg("SEED_GENERATED: High-entropy phrase prepared.");
             } else {
                 const phrase = document.getElementById('importSeed').value.trim();
-                if (phrase.split(' ').length < 24) return logMsg("ERROR: 24_WORDS_REQUIRED.");
-                mnemonic = new Mnemonic(phrase);
+                if (phrase.split(/\s+/).length < 24) return logMsg("ERROR: 24_WORDS_REQUIRED.");
+                await finalizeIdentity(new Mnemonic(phrase));
             }
-            await finalizeIdentity(mnemonic);
         } catch (e) { logMsg(`BOOT_FAIL: ${e.message}`); }
     };
 
-    window.confirmBackup = () => {
+    window.confirmBackup = async () => {
         const phrase = document.getElementById('seedDisplay').innerText;
-        finalizeIdentity(new Mnemonic(phrase));
+        await finalizeIdentity(new Mnemonic(phrase));
     };
 
     async function finalizeIdentity(mnemonic) {
-        logMsg("DERIVING_CYPHER_KEYS...");
+        logMsg("DERIVING_IDENTITY_KEY...");
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
-        // Path: m/44'/111111'/0'/0/0
         sessionKey = xpriv.deriveChild(44,true).deriveChild(111111,true).deriveChild(0,true).deriveChild(0).deriveChild(0).privateKey;
         const addr = sessionKey.toAddress("mainnet").toString();
         
         gameState.operator = addr;
-        localStorage.setItem('cpw_addr', addr); // Public anchor only
+        localStorage.setItem('cpw_addr', addr);
         
-        document.getElementById('sideId').innerText = addr.substring(0,12) + "...";
+        document.getElementById('sideId').innerText = addr.substring(0,18) + "...";
         document.getElementById('syncIndicator').innerText = "ID: ACTIVE";
-        logMsg(`IDENTITY_LOCKED: ${addr.substring(0,18)}...`);
+        logMsg(`BUNKER_LOCKED: ${addr}`);
         showPage('phish');
     }
 
@@ -191,31 +200,29 @@
         document.getElementById('queuedTurns').innerText = gameState.queued;
         document.getElementById('sidePunkw').innerText = gameState.punkw.toFixed(2);
         document.getElementById('commitBtn').style.display = 'inline-block';
-        logMsg(`LOCAL_TICK: Turn ${gameState.turns + gameState.queued} queued.`);
+        logMsg(`LOCAL_TICK: Turn ${gameState.turns + gameState.queued} staged.`);
     };
 
     window.commitToDag = async () => {
-        logMsg("INITIATING_DAG_COMMIT...");
-        // Placeholder for Iteration 6.5: Signing logic with sessionKey
-        logMsg("COMPILED_PAYLOAD: CPW1|1|" + (gameState.turns + gameState.queued) + "|...");
+        logMsg("COMPILING_PAYLOAD...");
         gameState.turns += gameState.queued;
         gameState.queued = 0;
         document.getElementById('sideTurns').innerText = gameState.turns;
         document.getElementById('queuedTurns').innerText = "0";
         document.getElementById('commitBtn').style.display = 'none';
+        logMsg("STATE_STAGED: Ready for Mainnet broadcast.");
     };
 
     async function run() {
         await init('./kaspa_bg.wasm');
-        logMsg("WASM_ENGINE_READY.");
+        logMsg("BUNKER_OS_v1.4_ONLINE.");
         rpc = new RpcClient({ url: "wss://mainnet-rpc.kaspa.org/ws", encoding: Encoding.Borsh, networkId: "mainnet" });
         await rpc.connect();
         
-        // Auto-Recon if public address exists
         const savedAddr = localStorage.getItem('cpw_addr');
         if (savedAddr) {
-            logMsg(`RECON_OPERATOR: ${savedAddr.substring(0,10)}... (Awaiting Re-Auth for Actions)`);
-            document.getElementById('sideId').innerText = savedAddr.substring(0,12) + "...";
+            logMsg(`RECON: ${savedAddr.substring(0,12)}... (Re-Auth Required for Writes)`);
+            document.getElementById('sideId').innerText = savedAddr.substring(0,18) + "...";
         }
     }
     run();

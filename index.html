@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-7.03">
+    <meta name="version" content="Iteration-7.04">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -190,7 +190,7 @@
     const netStatus = document.getElementById('netIndicator');
     const netToggle = document.getElementById('netToggle');
 
-    // State
+    // Internal State
     let walletSvc = null; 
     let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
     let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
@@ -201,14 +201,7 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    window.showPage = (id, btn) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${id}`).classList.add('active');
-        if(btn) btn.classList.add('active');
-    };
-
-    // The Global Handshake Function
+    // Global Handshake Logic
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
         if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_INITIALIZED.");
@@ -235,15 +228,15 @@
             gameState.kas = totalKas;
             sideId.innerText = "OPERATOR_ACTIVE";
             sideKas.innerText = totalKas;
-            netStatus.style.color = "#00ff00";
+            netStatus.style.color = "#49EACB";
             netStatus.innerText = "CONNECTED: MAINNET";
             
             logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
 
             document.getElementById('page-boot').innerHTML = `
-                <h3 style="color: var(--kaspa-bright)">BUNKER_OPERATIONAL</h3>
+                <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
                 <p style="font-size:0.8rem;">OPERATOR_ID: ${identity.address}</p>
-                <p>Identity anchored. Select a Protocol to proceed.</p>
+                <p>Welcome back, Operator. Select a Protocol from the sidebar.</p>
             `;
             
         } catch (e) { 
@@ -255,15 +248,15 @@
 
     async function run() {
         try {
-            // Initialize WASM
-            await init('./kaspa_bg.wasm');
+            // FIX: Pass empty object to avoid deprecated parameters error
+            await init({}); 
             
             // Pass the initialized kaspa module into our WalletGen tool
             walletSvc = new WalletGen(kaspa, "mainnet");
             
             logMsg("ENGINE_READY.");
 
-            // Recovery Check
+            // Recognition check for grandpayri.kas identity
             const savedAddr = localStorage.getItem('cpw_addr');
             if (savedAddr) {
                 logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);

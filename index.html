@@ -68,7 +68,7 @@
             padding: 15px; margin: 10px 0; word-break: break-all; color: #ff00ff; font-size: 0.8rem;
         }
         .ascii-logo {
-            font-size: 8px; line-height: 8px; color: var(--kaspa-bright);
+            font-size: 10px; line-height: 10px; color: var(--kaspa-bright);
             white-space: pre; margin-bottom: 20px; text-shadow: 0 0 5px var(--kaspa-bright);
         }
     </style>
@@ -99,12 +99,11 @@
             <div class="content-area">
                 <div id="page-boot" class="page active">
                     <div class="ascii-logo">
- ██████╗██████╗ ██╗    ██╗    ██████╗ ██╗   ██╗███╗   ██╗██╗  ██╗
-██╔════╝██╔══██╗██║    ██║    ██╔══██╗██║   ██║████╗  ██║██║ ██╔╝
-██║     ██████╔╝██║ █╗ ██║    ██████╔╝██║   ██║██╔██╗ ██║█████╔╝ 
-██║     ██╔═══╝ ██║███╗██║    ██╔═══╝ ██║   ██║██║╚██╗██║██╔═██╗ 
-╚██████╗██║     ╚███╔███╔╝    ██║     ╚██████╔╝██║ ╚████║██║  ██╗
- ╚═════╝╚═╝      ╚══╝╚══╝     ╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝
+      _  _           _                               _                    
+  _ _| || |_ _ _ ___| |_ ___ ___ ___ _ _ ___ ___ ___| |_ ___ ___ ___ ___ 
+ | | | ||  _| | |  _|  _| . |  _|  _| | |  _|  _| -_| . | . | . | -_|  _|
+ |_  |_||_| |_  |___|_| |___|_| |_| |_  |___|_| |___|___|___|_  |___|_|  
+ |___|      |___|                   |___|                   |___|         
                     </div>
                     <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
                     <p>Initialize your 24-word High-Entropy Operator Identity.</p>
@@ -117,7 +116,7 @@
 
                 <div id="page-seed-backup" class="page">
                     <h3 style="color: #ff00ff;">!! CRITICAL_BACKUP !!</h3>
-                    <p>Write these 24 words down. This is your permanent key.</p>
+                    <p>Record these 24 words exactly. This is the only way to recover your bunker state across devices.</p>
                     <div id="seedDisplay" class="memo-box"></div>
                     <button class="btn-execute" onclick="confirmBackup()">I HAVE RECORDED THE SEED</button>
                 </div>
@@ -161,7 +160,10 @@
     window.triggerHandshake = async (mode) => {
         try {
             if (mode === 'GENERATE') {
+                // Fixed: Explicitly request 256 bits of entropy for 24 words
                 const mnemonic = Mnemonic.random(256); 
+                if (!mnemonic || !mnemonic.phrase) throw new Error("WASM_ENTROPY_FAILURE");
+                
                 document.getElementById('seedDisplay').innerText = mnemonic.phrase;
                 showPage('seed-backup');
                 logMsg("SEED_GENERATED: High-entropy phrase prepared.");
@@ -170,7 +172,10 @@
                 if (phrase.split(/\s+/).length < 24) return logMsg("ERROR: 24_WORDS_REQUIRED.");
                 await finalizeIdentity(new Mnemonic(phrase));
             }
-        } catch (e) { logMsg(`BOOT_FAIL: ${e.message}`); }
+        } catch (e) { 
+            logMsg(`BOOT_FAIL: ${e.message}`); 
+            console.error(e);
+        }
     };
 
     window.confirmBackup = async () => {
@@ -182,6 +187,7 @@
         logMsg("DERIVING_IDENTITY_KEY...");
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
+        // m/44'/111111'/0'/0/0
         sessionKey = xpriv.deriveChild(44,true).deriveChild(111111,true).deriveChild(0,true).deriveChild(0).deriveChild(0).privateKey;
         const addr = sessionKey.toAddress("mainnet").toString();
         
@@ -214,16 +220,18 @@
     };
 
     async function run() {
-        await init('./kaspa_bg.wasm');
-        logMsg("BUNKER_OS_v1.4_ONLINE.");
-        rpc = new RpcClient({ url: "wss://mainnet-rpc.kaspa.org/ws", encoding: Encoding.Borsh, networkId: "mainnet" });
-        await rpc.connect();
-        
-        const savedAddr = localStorage.getItem('cpw_addr');
-        if (savedAddr) {
-            logMsg(`RECON: ${savedAddr.substring(0,12)}... (Re-Auth Required for Writes)`);
-            document.getElementById('sideId').innerText = savedAddr.substring(0,18) + "...";
-        }
+        try {
+            await init('./kaspa_bg.wasm');
+            logMsg("BUNKER_OS_v1.4_ONLINE.");
+            rpc = new RpcClient({ url: "wss://mainnet-rpc.kaspa.org/ws", encoding: Encoding.Borsh, networkId: "mainnet" });
+            await rpc.connect();
+            
+            const savedAddr = localStorage.getItem('cpw_addr');
+            if (savedAddr) {
+                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);
+                document.getElementById('sideId').innerText = savedAddr.substring(0,18) + "...";
+            }
+        } catch (e) { logMsg(`SYSTEM_INIT_ERROR: ${e.message}`); }
     }
     run();
 </script>

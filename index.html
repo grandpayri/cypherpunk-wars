@@ -180,8 +180,11 @@
 </div>
 
 <script type="module">
-    import init, { RpcClient, Encoding } from './kaspa.js';
+    import init, * as kaspa from './kaspa.js';
     import { WalletGen } from './wallet-gen.js';
+
+    // Extract what we need from the kaspa module
+    const { RpcClient, Encoding } = kaspa;
 
     const log = document.getElementById('log');
     const sideId = document.getElementById('sideId');

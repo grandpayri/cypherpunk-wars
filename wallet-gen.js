@@ -1,15 +1,18 @@
 // wallet-gen.js - BIP39 Identity & Key Derivation Utility
-import * as kaspa from './kaspa.js';
-
 export class WalletGen {
-    constructor(network = "mainnet") {
+    constructor(kaspaInstance, network = "mainnet") {
+        this.kaspa = kaspaInstance;
         this.network = network;
     }
 
     async initIdentity() {
-        // Use the exports from the kaspa object
-        const { Mnemonic, ExtendedPrivateKey } = kaspa;
+        // Accessing the classes from the instance passed from index.html
+        const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
+        if (!Mnemonic || !ExtendedPrivateKey) {
+            throw new Error("KASPA_WASM_CLASSES_NOT_LOADED");
+        }
+
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         

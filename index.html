@@ -174,8 +174,10 @@
 </div>
 
 <script type="module">
-    import init, { RpcClient, Resolver, Encoding } from './kaspa.js';
+    import init, { RpcClient, Encoding } from './kaspa.js';
+    import { WalletGen } from './wallet-gen.js';
 
+    // UI Element Hooks
     const log = document.getElementById('log');
     const netStatus = document.getElementById('netIndicator');
     const netToggle = document.getElementById('netToggle');
@@ -183,6 +185,9 @@
     const sideMeme = document.getElementById('sideMeme');
     const sideEntropy = document.getElementById('sideEntropy');
 
+    // Internal State
+    const walletSvc = new WalletGen("mainnet");
+    let sessionKey = null; // Stays in RAM only
     let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
     let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
 
@@ -213,39 +218,41 @@
     };
 
     async function performBoot() {
-        const inputId = document.getElementById('targetId').value.trim();
-        if (!inputId) return logMsg("ERROR: INPUT_REQUIRED.");
-        
         const bootBtn = document.getElementById('initBtn');
-        bootBtn.disabled = true; bootBtn.innerText = "SYNCING...";
+        bootBtn.disabled = true; 
+        bootBtn.innerText = "SYNCING...";
         
         try {
-            const resolver = new Resolver();
-            let url;
-            try {
-                url = await Promise.race([
-                    resolver.getUrl(Encoding.Borsh, targetNetwork),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5000))
-                ]);
-            } catch { url = targetNetwork === "testnet-11" ? "wss://tn11-rpc-1.kaspa.org/ws" : "wss://mainnet-rpc.kaspa.org/ws"; }
-            
+            // 1. Initialize Identity through the wallet-gen utility
+            const identity = await walletSvc.initIdentity();
+            sessionKey = identity.privateKey;
+            gameState.operator = identity.address;
+
+            // 2. Connect to the DAG
+            const url = targetNetwork === "mainnet" ? "wss://mainnet-rpc.kaspa.org/ws" : "wss://tn11-rpc-1.kaspa.org/ws";
             const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
             await rpc.connect();
             
-            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${inputId.substring(0,10)}...`);
-            const balanceData = await rpc.getBalanceByAddress(inputId);
+            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${identity.address.substring(0,10)}...`);
+            
+            // 3. Update UI with real BlockDAG data
+            const balanceData = await rpc.getBalanceByAddress(identity.address);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
             gameState.kas = totalKas;
-            gameState.operator = inputId;
-            
             document.getElementById('sideId').innerText = "OPERATOR_ACTIVE";
             sideKas.innerText = totalKas;
             netStatus.style.color = "#00ff00";
             netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
-            logMsg(`BOOT_SUCCESS: BALANCE ${totalKas} KAS.`);
-        } catch (e) { logMsg(`BOOT_ERROR: ${e.message}`); }
-        finally { bootBtn.disabled = false; bootBtn.innerText = "BOOT"; }
+            
+            logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
+            
+        } catch (e) { 
+            logMsg(`BOOT_ERROR: ${e.message}`); 
+        } finally { 
+            bootBtn.disabled = false; 
+            bootBtn.innerText = "BOOT"; 
+        }
     }
 
     async function run() {
@@ -253,7 +260,16 @@
             await init('./kaspa_bg.wasm');
             logMsg("ENGINE_READY.");
             document.getElementById('initBtn').onclick = performBoot;
-        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
+
+            // Check if address is already known for grandpayri.kas
+            const savedAddr = localStorage.getItem('cpw_addr');
+            if (savedAddr) {
+                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}... (Awaiting Boot Handshake)`);
+                document.getElementById('sideId').innerText = "RESTORE_REQUIRED";
+            }
+        } catch (e) { 
+            logMsg(`CRITICAL_FAIL: ${e.message}`); 
+        }
     }
     run();
 </script>

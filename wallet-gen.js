@@ -1,4 +1,5 @@
-// wallet-gen.js - BIP39 Identity & Key Derivation Utility
+// wallet-gen.js - BIP39 Identity Utility
+//7.05
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -6,19 +7,17 @@ export class WalletGen {
     }
 
     async initIdentity() {
-        // Accessing the classes from the instance passed from index.html
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
-        if (!Mnemonic || !ExtendedPrivateKey) {
-            throw new Error("KASPA_WASM_CLASSES_NOT_LOADED");
-        }
+        if (!Mnemonic) throw new Error("WASM_MNEMONIC_CLASS_MISSING");
 
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
         if (!savedMnemonic) {
-            mnemonic = Mnemonic.random(256); 
+            mnemonic = Mnemonic.random(256); // 24 words
             localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
+            alert("NEW_OPERATOR_KEY_GENERATED:\n\n" + mnemonic.phrase);
         } else {
             mnemonic = new Mnemonic(savedMnemonic);
         }
@@ -26,6 +25,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
+        // m/44'/111111'/0'/0/0 derivation
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

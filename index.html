@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-7.04">
+    <meta name="version" content="Iteration-7.05">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -188,12 +188,10 @@
     const sideId = document.getElementById('sideId');
     const sideKas = document.getElementById('sideKas');
     const netStatus = document.getElementById('netIndicator');
-    const netToggle = document.getElementById('netToggle');
 
-    // Internal State
+    // Global State
     let walletSvc = null; 
     let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
-    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -201,20 +199,21 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    // Global Handshake Logic
+    // The Bridge: Global scope attachment
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
-        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_INITIALIZED.");
+        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_READY.");
 
         bootBtn.disabled = true; 
         bootBtn.innerText = "FORGING...";
         
         try {
-            // Handshake with modular utility
+            // 1. Identity Handshake
             const identity = await walletSvc.initIdentity();
             gameState.operator = identity.address;
 
-            logMsg("DAG_SYNC: CONNECTING_TO_MAINNET...");
+            // 2. DAG Connection
+            logMsg("DAG_SYNC: CONNECTING...");
             const rpc = new kaspa.RpcClient({ 
                 url: "wss://mainnet-rpc.kaspa.org/ws", 
                 encoding: kaspa.Encoding.Borsh, 
@@ -222,21 +221,21 @@
             });
             await rpc.connect();
             
+            // 3. UI Update
             const balanceData = await rpc.getBalanceByAddress(identity.address);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
-            gameState.kas = totalKas;
             sideId.innerText = "OPERATOR_ACTIVE";
             sideKas.innerText = totalKas;
             netStatus.style.color = "#49EACB";
             netStatus.innerText = "CONNECTED: MAINNET";
             
-            logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
+            logMsg(`BOOT_SUCCESS: ${identity.address.substring(0,10)}...`);
 
             document.getElementById('page-boot').innerHTML = `
                 <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
-                <p style="font-size:0.8rem;">OPERATOR_ID: ${identity.address}</p>
-                <p>Welcome back, Operator. Select a Protocol from the sidebar.</p>
+                <p style="font-size:0.8rem;">ID: ${identity.address}</p>
+                <p>Welcome back, Operator.</p>
             `;
             
         } catch (e) { 
@@ -248,15 +247,12 @@
 
     async function run() {
         try {
-            // FIX: Pass empty object to avoid deprecated parameters error
-            await init({}); 
+            // Fixed: Minimal init to prevent the 'undefined' error
+            await init(); 
             
-            // Pass the initialized kaspa module into our WalletGen tool
             walletSvc = new WalletGen(kaspa, "mainnet");
-            
             logMsg("ENGINE_READY.");
 
-            // Recognition check for grandpayri.kas identity
             const savedAddr = localStorage.getItem('cpw_addr');
             if (savedAddr) {
                 logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);

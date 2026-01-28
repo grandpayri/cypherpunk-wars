@@ -181,17 +181,17 @@
 
 <script type="module">
     import init, * as kaspa from './kaspa.js';
-    import { WalletGen } from './wallet-gen.js';
 
-    // UI Hooks
+    // UI Element Hooks
     const log = document.getElementById('log');
     const sideId = document.getElementById('sideId');
     const sideKas = document.getElementById('sideKas');
     const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
 
-    // Global State
-    let walletSvc = null; 
+    // State Variables
     let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -199,43 +199,74 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    // The Bridge: Global scope attachment
+    // Navigation Logic
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        if(btn) btn.classList.add('active');
+    };
+
+    // The Stable Handshake Logic
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
-        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_READY.");
-
         bootBtn.disabled = true; 
         bootBtn.innerText = "FORGING...";
         
         try {
-            // 1. Identity Handshake
-            const identity = await walletSvc.initIdentity();
-            gameState.operator = identity.address;
+            // 1. Identity Derivation (Internalized for stability)
+            const { Mnemonic, ExtendedPrivateKey } = kaspa;
+            let mnemonic;
+            let savedMnemonic = localStorage.getItem('cpw_mnemonic');
+            
+            if (!savedMnemonic) {
+                logMsg("FORGING_NEW_IDENTITY...");
+                mnemonic = Mnemonic.random(256); // High-entropy 24 words
+                localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
+                alert("!! NEW_OPERATOR_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+            } else {
+                logMsg("RESTORING_IDENTITY...");
+                mnemonic = new Mnemonic(savedMnemonic);
+            }
+
+            const seed = await mnemonic.toSeed();
+            const xpriv = ExtendedPrivateKey.fromSeed(seed);
+            
+            // Standard Kaspa Path m/44'/111111'/0'/0/0
+            const key = xpriv.deriveChild(44, true)
+                             .deriveChild(111111, true)
+                             .deriveChild(0, true)
+                             .deriveChild(0)
+                             .deriveChild(0).privateKey;
+
+            const addr = key.toAddress(targetNetwork).toString();
+            gameState.operator = addr;
+            localStorage.setItem('cpw_addr', addr);
 
             // 2. DAG Connection
-            logMsg("DAG_SYNC: CONNECTING...");
+            logMsg(`DAG_SYNC: CONNECTING_TO_${targetNetwork.toUpperCase()}...`);
             const rpc = new kaspa.RpcClient({ 
-                url: "wss://mainnet-rpc.kaspa.org/ws", 
+                url: targetNetwork === "mainnet" ? "wss://mainnet-rpc.kaspa.org/ws" : "wss://tn11-rpc-1.kaspa.org/ws", 
                 encoding: kaspa.Encoding.Borsh, 
-                networkId: "mainnet" 
+                networkId: targetNetwork 
             });
             await rpc.connect();
             
-            // 3. UI Update
-            const balanceData = await rpc.getBalanceByAddress(identity.address);
+            // 3. Update UI
+            const balanceData = await rpc.getBalanceByAddress(addr);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
             sideId.innerText = "OPERATOR_ACTIVE";
             sideKas.innerText = totalKas;
             netStatus.style.color = "#49EACB";
-            netStatus.innerText = "CONNECTED: MAINNET";
+            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
             
-            logMsg(`BOOT_SUCCESS: ${identity.address.substring(0,10)}...`);
+            logMsg(`BOOT_SUCCESS: ${addr.substring(0,10)}... [${totalKas} KAS]`);
 
             document.getElementById('page-boot').innerHTML = `
                 <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
-                <p style="font-size:0.8rem;">ID: ${identity.address}</p>
-                <p>Welcome back, Operator.</p>
+                <p style="font-size:0.8rem;">ID: ${addr}</p>
+                <p>Welcome back, Operator. Identity anchored to BlockDAG.</p>
             `;
             
         } catch (e) { 
@@ -245,12 +276,11 @@
         }
     };
 
+    // Main Engine Runner
     async function run() {
         try {
-            // Fixed: Minimal init to prevent the 'undefined' error
-            await init(); 
-            
-            walletSvc = new WalletGen(kaspa, "mainnet");
+            // Use an empty object to satisfy the WASM loader requirements
+            await init({}); 
             logMsg("ENGINE_READY.");
 
             const savedAddr = localStorage.getItem('cpw_addr');

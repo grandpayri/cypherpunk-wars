@@ -183,14 +183,17 @@
     import init, * as kaspa from './kaspa.js';
     import { WalletGen } from './wallet-gen.js';
 
-    // Extract what we need from the kaspa module
-    const { RpcClient, Encoding } = kaspa;
-
+    // UI Hooks
     const log = document.getElementById('log');
     const sideId = document.getElementById('sideId');
-    const walletSvc = new WalletGen("mainnet");
-    
-    let gameState = { operator: null, entropy: 10 };
+    const sideKas = document.getElementById('sideKas');
+    const netStatus = document.getElementById('netIndicator');
+    const netToggle = document.getElementById('netToggle');
+
+    // State
+    let walletSvc = null; 
+    let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
+    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -198,61 +201,49 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    // New: Internal function to handle the 24-word display inside the UI
-    async function handleIdentity() {
-        let savedMnemonic = localStorage.getItem('cpw_mnemonic');
-        
-        if (!savedMnemonic) {
-            logMsg("FORGING_NEW_IDENTITY... CHECK_TERMINAL_FOR_KEY.");
-            const identity = await walletSvc.initIdentity();
-            
-            // Instead of an alert, we print it to the log area
-            logMsg("<span style='color:#ff00ff'>!! RECORD_THIS_MASTER_KEY !!</span>");
-            logMsg(`<div style='border:1px dashed #ff00ff; padding:10px; margin:5px 0;'>${localStorage.getItem('cpw_mnemonic')}</div>`);
-            logMsg("<span style='color:#ff00ff'>!! DO_NOT_SHARE_OR_LOSE_THIS_KEY !!</span>");
-            
-            return identity;
-        }
-        return await walletSvc.initIdentity();
-    }
+    window.showPage = (id, btn) => {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${id}`).classList.add('active');
+        if(btn) btn.classList.add('active');
+    };
 
-// 1. ATTACH TO WINDOW: This makes the function clickable from the HTML
+    // The Global Handshake Function
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
-        if (!bootBtn) return;
+        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_INITIALIZED.");
 
         bootBtn.disabled = true; 
-        bootBtn.innerText = "SYNCING...";
+        bootBtn.innerText = "FORGING...";
         
         try {
-            // Handshake with the modular wallet-gen tool
+            // Handshake with modular utility
             const identity = await walletSvc.initIdentity();
-            sessionKey = identity.privateKey;
             gameState.operator = identity.address;
 
-            // Connect to the DAG
-            const url = targetNetwork === "mainnet" ? "wss://mainnet-rpc.kaspa.org/ws" : "wss://tn11-rpc-1.kaspa.org/ws";
-            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            logMsg("DAG_SYNC: CONNECTING_TO_MAINNET...");
+            const rpc = new kaspa.RpcClient({ 
+                url: "wss://mainnet-rpc.kaspa.org/ws", 
+                encoding: kaspa.Encoding.Borsh, 
+                networkId: "mainnet" 
+            });
             await rpc.connect();
-            
-            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${identity.address.substring(0,10)}...`);
             
             const balanceData = await rpc.getBalanceByAddress(identity.address);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
             gameState.kas = totalKas;
-            document.getElementById('sideId').innerText = "OPERATOR_ACTIVE";
+            sideId.innerText = "OPERATOR_ACTIVE";
             sideKas.innerText = totalKas;
             netStatus.style.color = "#00ff00";
-            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
+            netStatus.innerText = "CONNECTED: MAINNET";
             
             logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
 
-            // Update center view to confirm active state
             document.getElementById('page-boot').innerHTML = `
                 <h3 style="color: var(--kaspa-bright)">BUNKER_OPERATIONAL</h3>
                 <p style="font-size:0.8rem;">OPERATOR_ID: ${identity.address}</p>
-                <p>Select a Protocol from the sidebar to begin.</p>
+                <p>Identity anchored. Select a Protocol to proceed.</p>
             `;
             
         } catch (e) { 
@@ -262,17 +253,21 @@
         }
     };
 
-    // 2. INITIALIZATION: Run this when the page loads
     async function run() {
         try {
+            // Initialize WASM
             await init('./kaspa_bg.wasm');
-            logMsg("ENGINE_READY.");
             
-            // Check if address is already known for grandpayri.kas
+            // Pass the initialized kaspa module into our WalletGen tool
+            walletSvc = new WalletGen(kaspa, "mainnet");
+            
+            logMsg("ENGINE_READY.");
+
+            // Recovery Check
             const savedAddr = localStorage.getItem('cpw_addr');
             if (savedAddr) {
-                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}... (Awaiting Boot Handshake)`);
-                document.getElementById('sideId').innerText = "RESTORE_REQUIRED";
+                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);
+                sideId.innerText = "RESTORE_REQUIRED";
             }
         } catch (e) { 
             logMsg(`CRITICAL_FAIL: ${e.message}`); 

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-6.1">
+    <meta name="version" content="Iteration-7.0">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -177,19 +177,11 @@
     import init, { RpcClient, Encoding } from './kaspa.js';
     import { WalletGen } from './wallet-gen.js';
 
-    // UI Element Hooks
     const log = document.getElementById('log');
-    const netStatus = document.getElementById('netIndicator');
-    const netToggle = document.getElementById('netToggle');
-    const sideKas = document.getElementById('sideKas');
-    const sideMeme = document.getElementById('sideMeme');
-    const sideEntropy = document.getElementById('sideEntropy');
-
-    // Internal State
+    const sideId = document.getElementById('sideId');
     const walletSvc = new WalletGen("mainnet");
-    let sessionKey = null; // Stays in RAM only
-    let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
-    let targetNetwork = netToggle.checked ? "mainnet" : "testnet-11";
+    
+    let gameState = { operator: null, entropy: 10 };
 
     const logMsg = (m) => {
         const t = new Date().toLocaleTimeString([], {hour12: false});
@@ -197,79 +189,66 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    window.showPage = (id, btn) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${id}`).classList.add('active');
-        btn.classList.add('active');
-    };
-
-    window.executePhish = () => {
-        if (!gameState.operator) return logMsg("CRITICAL: IDENTITY_SYNC_REQUIRED.");
-        if (gameState.entropy <= 0) return logMsg("ERROR: INSUFFICIENT_ENTROPY.");
+    // New: Internal function to handle the 24-word display inside the UI
+    async function handleIdentity() {
+        let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
-        gameState.entropy--;
-        let yieldAmount = Math.floor(Math.random() * 50) + 10;
-        gameState.meme += yieldAmount;
-        
-        sideEntropy.innerText = `${gameState.entropy}/10`;
-        sideMeme.innerText = gameState.meme;
-        logMsg(`PHISH_SUCCESS: GATHERED ${yieldAmount} $PUNKW FRAGMENTS.`);
-    };
+        if (!savedMnemonic) {
+            logMsg("FORGING_NEW_IDENTITY... CHECK_TERMINAL_FOR_KEY.");
+            const identity = await walletSvc.initIdentity();
+            
+            // Instead of an alert, we print it to the log area
+            logMsg("<span style='color:#ff00ff'>!! RECORD_THIS_MASTER_KEY !!</span>");
+            logMsg(`<div style='border:1px dashed #ff00ff; padding:10px; margin:5px 0;'>${localStorage.getItem('cpw_mnemonic')}</div>`);
+            logMsg("<span style='color:#ff00ff'>!! DO_NOT_SHARE_OR_LOSE_THIS_KEY !!</span>");
+            
+            return identity;
+        }
+        return await walletSvc.initIdentity();
+    }
 
     async function performBoot() {
         const bootBtn = document.getElementById('initBtn');
-        bootBtn.disabled = true; 
-        bootBtn.innerText = "SYNCING...";
+        bootBtn.disabled = true; bootBtn.innerText = "SYNCING...";
         
         try {
-            // 1. Initialize Identity through the wallet-gen utility
-            const identity = await walletSvc.initIdentity();
-            sessionKey = identity.privateKey;
+            // Handshake with our modular wallet-gen tool
+            const identity = await handleIdentity();
             gameState.operator = identity.address;
-
-            // 2. Connect to the DAG
-            const url = targetNetwork === "mainnet" ? "wss://mainnet-rpc.kaspa.org/ws" : "wss://tn11-rpc-1.kaspa.org/ws";
-            const rpc = new RpcClient({ url, encoding: Encoding.Borsh, networkId: targetNetwork });
+            
+            logMsg(`DAG_SYNC: CONNECTING_TO_MAINNET...`);
+            const rpc = new RpcClient({ 
+                url: "wss://mainnet-rpc.kaspa.org/ws", 
+                encoding: Encoding.Borsh, 
+                networkId: "mainnet" 
+            });
             await rpc.connect();
             
-            logMsg(`DAG_SYNC: FETCHING_LEDGER_FOR_${identity.address.substring(0,10)}...`);
-            
-            // 3. Update UI with real BlockDAG data
             const balanceData = await rpc.getBalanceByAddress(identity.address);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
-            gameState.kas = totalKas;
-            document.getElementById('sideId').innerText = "OPERATOR_ACTIVE";
-            sideKas.innerText = totalKas;
-            netStatus.style.color = "#00ff00";
-            netStatus.innerText = `CONNECTED: ${targetNetwork.toUpperCase()}`;
-            
-            logMsg(`BOOT_SUCCESS: IDENTITY ${identity.address.substring(0,8)}... ARMED.`);
+            document.getElementById('sideKas').innerText = totalKas;
+            sideId.innerText = "OPERATOR_ACTIVE";
+            logMsg(`BOOT_SUCCESS: IDENTITY_ARMED [${identity.address.substring(0,10)}...]`);
             
         } catch (e) { 
             logMsg(`BOOT_ERROR: ${e.message}`); 
         } finally { 
-            bootBtn.disabled = false; 
-            bootBtn.innerText = "BOOT"; 
+            bootBtn.disabled = false; bootBtn.innerText = "BOOT"; 
         }
     }
 
     async function run() {
         try {
             await init('./kaspa_bg.wasm');
-            logMsg("ENGINE_READY.");
+            logMsg("BUNKER_OS_LOADED. READY_FOR_HANDSHAKE.");
             document.getElementById('initBtn').onclick = performBoot;
-
-            // Check if address is already known for grandpayri.kas
-            const savedAddr = localStorage.getItem('cpw_addr');
-            if (savedAddr) {
-                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}... (Awaiting Boot Handshake)`);
-                document.getElementById('sideId').innerText = "RESTORE_REQUIRED";
+            
+            if (localStorage.getItem('cpw_addr')) {
+                logMsg(`RECOGNIZED_OPERATOR: ${localStorage.getItem('cpw_addr').substring(0,12)}...`);
+                sideId.innerText = "RESTORE_REQUIRED";
             }
-        } catch (e) { 
-            logMsg(`CRITICAL_FAIL: ${e.message}`); 
-        }
+        } catch (e) { logMsg(`CRITICAL_FAIL: ${e.message}`); }
     }
     run();
 </script>

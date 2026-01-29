@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration-8.4">
+    <meta name="version" content="Iteration-8.5">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -197,19 +197,20 @@
         log.scrollTop = log.scrollHeight;
     };
 
+    // Linked to the EXECUTE_HANDSHAKE button
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
-        if (!walletSvc) return logMsg("ERROR: WASM_NOT_INITIALIZED");
+        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_READY.");
 
         bootBtn.disabled = true; 
         bootBtn.innerText = "FORGING...";
         
         try {
-            // Identity Handshake via Hardened 8.1 Logic
+            // Identity Handshake via Manual Entropy Injection
             const identity = await walletSvc.initIdentity();
             gameState.operator = identity.address;
 
-            logMsg("DAG_SYNC: CONNECTING...");
+            logMsg("DAG_SYNC: CONNECTING_TO_MAINNET...");
             const rpc = new kaspa.RpcClient({ 
                 url: "wss://mainnet-rpc.kaspa.org/ws", 
                 encoding: kaspa.Encoding.Borsh, 
@@ -230,7 +231,7 @@
             document.getElementById('page-boot').innerHTML = `
                 <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
                 <p style="font-size:0.8rem;">ID: ${identity.address}</p>
-                <p>Welcome back, Operator.</p>
+                <p>Welcome back, Operator. System synchronized.</p>
             `;
             
         } catch (e) { 
@@ -242,8 +243,7 @@
 
     async function run() {
         try {
-            // FIX: Single-object initialization to clear kaspa.js:13820 error
-            // We pass the module path inside the object as 'module_or_path'
+            // Single-object init pattern for stability
             await init({ module_or_path: './kaspa_bg.wasm' }); 
             
             walletSvc = new WalletGen(kaspa, "mainnet");
@@ -256,7 +256,6 @@
             }
         } catch (e) { 
             logMsg(`CRITICAL_FAIL: ${e.message}`); 
-            console.error("WASM_INIT_REJECTED:", e);
         }
     }
     run();

@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 9.6 (Static Method Bypass)
+// wallet-gen.js - Iteration 9.7 (Entropy-First)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -9,28 +9,27 @@ export class WalletGen {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
         trace("TRACE: AUDITING_STORAGE...");
-        // For testing, we will keep your hardcoded phrase if storage is empty
-        let phrase = localStorage.getItem('cpw_mnemonic') || "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree twentyfour";
+        let storedPhrase = localStorage.getItem('cpw_mnemonic');
+        let mnemonic;
 
         try {
-            trace("TRACE: BINDING_PHRASE_VIA_STATIC_METHOD...");
-            
-            // Syntax Bypass: Many WASM builds prefer Mnemonic.fromPhrase over 'new'
-            // This avoids the 'charCodeAt' bridge error
-            let mnemonic;
-            const cleanPhrase = phrase.trim();
-            
-            try {
-                // Try the static factory first
-                mnemonic = Mnemonic.fromPhrase(cleanPhrase);
-                trace("TRACE: SUCCESS via Mnemonic.fromPhrase()");
-            } catch (e) {
-                // Fallback to the constructor only if the factory doesn't exist
-                trace("TRACE: fromPhrase missing, trying constructor fallback...");
-                mnemonic = new Mnemonic(cleanPhrase);
+            if (!storedPhrase) {
+                trace("TRACE: NO_STORED_PHRASE. GENERATING_ENTROPY...");
+                // Generate 32 bytes of raw entropy
+                const entropy = new Uint8Array(32);
+                window.crypto.getRandomValues(entropy);
+                
+                trace("TRACE: INITIALIZING_MNEMONIC_FROM_BINARY...");
+                // Most WASM builds prefer entropy (Uint8Array) over strings
+                mnemonic = new Mnemonic(entropy);
+                storedPhrase = mnemonic.phrase;
+                localStorage.setItem('cpw_mnemonic', storedPhrase);
+            } else {
+                trace("TRACE: RESTORING_FROM_STRING...");
+                mnemonic = new Mnemonic(storedPhrase);
             }
-            
-            trace("TRACE: GENERATING_SEED...");
+
+            trace("TRACE: GENERATING_SEED_BUFFER...");
             const seed = await mnemonic.toSeed();
             
             trace("TRACE: DERIVING_EXTENDED_KEY...");
@@ -44,8 +43,6 @@ export class WalletGen {
                              .deriveChild(0).privateKey;
 
             const address = key.toAddress(this.network).toString();
-            
-            localStorage.setItem('cpw_mnemonic', cleanPhrase);
             localStorage.setItem('cpw_addr', address);
             
             trace(`TRACE_SUCCESS: IDENTITY_ARMED -> ${address.substring(0,10)}...`);
@@ -53,6 +50,8 @@ export class WalletGen {
 
         } catch (initErr) {
             trace(`TRACE_FAULT: INIT_FAILED -> ${initErr.message}`);
+            // If it fails, clear storage so we don't loop on bad data
+            localStorage.removeItem('cpw_mnemonic');
             throw new Error(`INIT_CRASH: ${initErr.message}`);
         }
     }

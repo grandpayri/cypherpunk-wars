@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 9.1 (Self-Healing Storage)
+// wallet-gen.js - Iteration 9.2 (Diagnostic Anchor)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -7,51 +7,59 @@ export class WalletGen {
 
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
-        let mnemonic;
-        let phrase = localStorage.getItem('cpw_mnemonic');
+        let phrase = "";
 
-        // 1. PRE-FLIGHT CHECK: Catch empty or invalid storage
-        if (!phrase || typeof phrase !== 'string' || phrase.length < 10) {
-            console.warn("IDENTITY_EMPTY: Initializing fresh state.");
-            phrase = "NEW_IDENTITY_REQUIRED"; // Known value for logic check
+        // 1. RAW QUERY & LOGGING: Check storage before the engine is even called
+        try {
+            const rawStored = localStorage.getItem('cpw_mnemonic');
+            
+            if (!rawStored || typeof rawStored !== 'string') {
+                console.warn("DIAGNOSTIC: Storage empty or null. Signaling fresh forge.");
+                phrase = "SIGNAL_FORGE_NEW"; 
+            } else {
+                phrase = rawStored;
+                console.log("DIAGNOSTIC: Found stored phrase string.");
+            }
+        } catch (e) {
+            // If even reading localStorage fails, we flag it
+            console.error("DIAGNOSTIC: LocalStorage access blocked.");
+            phrase = "SIGNAL_BLOCK_ERROR";
         }
 
+        // 2. THE HANDSHAKE CATCH BLOCK
         try {
-            if (phrase === "NEW_IDENTITY_REQUIRED") {
-                // 2. FORGE: Generate a new 24-word string
+            if (phrase === "SIGNAL_FORGE_NEW" || phrase === "SIGNAL_BLOCK_ERROR") {
+                // Generate fresh using the library's internal randomizer
                 const temp = Mnemonic.random(256);
                 phrase = temp.phrase;
-                
-                if (!phrase) throw new Error("WASM_RETURNED_NULL_PHRASE");
-                
                 localStorage.setItem('cpw_mnemonic', phrase);
-                alert("!! NEW_OPERATOR_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
+                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
             }
 
-            // 3. INITIALIZE: Try to pass the phrase to the engine
-            mnemonic = new Mnemonic(phrase);
+            // Explicitly force string type to prevent arg.charCodeAt error
+            const cleanPhrase = String(phrase).trim();
+            const mnemonic = new Mnemonic(cleanPhrase);
+
+            const seed = await mnemonic.toSeed();
+            const xpriv = ExtendedPrivateKey.fromSeed(seed);
+            
+            const privateKey = xpriv.deriveChild(44, true)
+                                    .deriveChild(111111, true)
+                                    .deriveChild(0, true)
+                                    .deriveChild(0)
+                                    .deriveChild(0).privateKey;
+
+            const address = privateKey.toAddress(this.network).toString();
+            localStorage.setItem('cpw_addr', address);
+
+            return { address };
 
         } catch (err) {
-            // 4. RECOVERY: If initialization still fails, it's corrupted
-            console.error("STORAGE_CRASH: Resetting cpw_mnemonic due to error:", err.message);
-            localStorage.removeItem('cpw_mnemonic');
+            // Return the specific "Known Value" to the game log
+            console.error("HANDSHAKE_CRASH:", err.message);
             
-            // Return a "Known Value" error message to the operator log
-            throw new Error(`RECOVERY_REQUIRED: Invalid phrase format detected. (${err.message})`);
+            // This return value will show up as the error message in index.html
+            throw new Error(`DIAGNOSTIC_CATCH: [${phrase.substring(0,10)}...] -> ${err.message}`);
         }
-
-        const seed = await mnemonic.toSeed();
-        const xpriv = ExtendedPrivateKey.fromSeed(seed);
-        
-        const privateKey = xpriv.deriveChild(44, true)
-                                .deriveChild(111111, true)
-                                .deriveChild(0, true)
-                                .deriveChild(0)
-                                .deriveChild(0).privateKey;
-
-        const address = privateKey.toAddress(this.network).toString();
-        localStorage.setItem('cpw_addr', address);
-
-        return { privateKey, address };
     }
 }

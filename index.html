@@ -276,20 +276,29 @@
         }
     };
 
-    // Main Engine Runner
     async function run() {
         try {
-            // Use an empty object to satisfy the WASM loader requirements
-            await init({}); 
-            logMsg("ENGINE_READY.");
-
+            // Initialize WASM core
+            await init('./kaspa_bg.wasm');
+            
+            // Safety Guard: Check if the Mnemonic class is actually defined in the 'kaspa' object
+            if (typeof kaspa.Mnemonic === 'undefined') {
+                throw new Error("WASM_BINDING_FAILURE: Classes not mapped.");
+            }
+    
+            logMsg("ENGINE_READY: WASM memory established.");
+            
+            // Secondary binding for the button
+            document.getElementById('initBtn').onclick = window.performBoot;
+    
             const savedAddr = localStorage.getItem('cpw_addr');
             if (savedAddr) {
                 logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);
-                sideId.innerText = "RESTORE_REQUIRED";
+                document.getElementById('sideId').innerText = "RESTORE_REQUIRED";
             }
         } catch (e) { 
             logMsg(`CRITICAL_FAIL: ${e.message}`); 
+            console.error("WASM Load Error:", e);
         }
     }
     run();

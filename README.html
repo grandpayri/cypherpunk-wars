@@ -1,102 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="version" content="Iteration-6.3">
-    <title>CYPHERPUNK WARS | The Manifest</title>
-    <style>
-        :root {
-            --kaspa-teal: #70C7BA;
-            --kaspa-bright: #49EACB;
-            --kaspa-dark: #0A0A0A;
-            --kaspa-glow: rgba(112, 199, 186, 0.3);
-        }
-        body {
-            background-color: var(--kaspa-dark);
-            color: var(--kaspa-teal);
-            font-family: 'Courier New', monospace;
-            line-height: 1.4; padding: 20px; max-width: 1200px; margin: auto;
-        }
-        h1, h2, h3 { color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); text-transform: uppercase; letter-spacing: 2px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
-        .column { border: 1px solid var(--kaspa-teal); padding: 15px; background: rgba(112, 199, 186, 0.02); }
-        .memo-box { background: #000; border: 1px dashed var(--kaspa-bright); padding: 10px; margin: 10px 0; word-break: break-all; color: #ff00ff; font-size: 0.8rem; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.75rem; }
-        th, td { border: 1px solid #333; padding: 6px; text-align: left; }
-        th { background: rgba(112, 199, 186, 0.1); color: var(--kaspa-bright); }
-        .placeholder { color: #666; font-style: italic; }
-    </style>
-</head>
-<body>
+<section id="system-index" style="border: 1px solid var(--kaspa-teal); padding: 20px; margin-top: 20px;">
+    <h2 style="color: var(--kaspa-bright);">SYSTEM_INDEX: PROJECT_INTEL</h2>
+    <p>Select a protocol below to access specific data regarding the CypherPunk Wars ecosystem:</p>
 
-    <h1 style="text-align: center;">CYPHERPUNK WARS v1.3 : Protocol & Strategy</h1>
-
-    <div class="grid">
-        <div class="column">
-            <h2>I. THE WARLORD'S INTENT</h2>
-            <p>Master the DAG to dominate the Season. Your goal: accumulate <strong>Sectors</strong> and <strong>$PUNKW</strong> while burning through your enemies' defenses.</p>
-            
-            <h3>1. Unit Classes (U1-U7)</h3>
-            <table>
-                <tr><th>Slot</th><th>Type</th><th>Combat Role</th></tr>
-                <tr><td>U1</td><td>Daemon</td><td>Frontline Swarm / Cannon Fodder</td></tr>
-                <tr><td>U2</td><td>Phantom</td><td>Stealth Phishing / Resource Theft</td></tr>
-                <tr><td>U3</td><td>Cracker</td><td>Defense Penetration / Shield Breaker</td></tr>
-                <tr><td>U4</td><td>Sentinel</td><td>Sector Defense / Hardened Wall</td></tr>
-                <tr><td>U5</td><td>Node-Wrecker</td><td>Siege Engine / Land Grabber</td></tr>
-                <tr><td>U6</td><td>Void-Walker</td><td>Counter-Spell Specialist</td></tr>
-                <tr><td>U7</td><td>Cypher-Lord</td><td>Elite Command / High Entropy DPS</td></tr>
-            </table>
-
-            <h3>2. 25-Bit Arcana (Spells)</h3>
-            <table>
-                <tr><th>Bit</th><th>Codename</th><th>Effect</th></tr>
-                <tr><td>0</td><td>Zero-Day</td><td>Instantly bypass 1 layer of Sentinel defense</td></tr>
-                <tr><td>1</td><td>Dust-Storm</td><td>Obscure your unit counts for 5 turns</td></tr>
-                <tr><td>2</td><td>Mempool-Flood</td><td>Force enemy actions to cost +1 Entropy</td></tr>
-                <tr><td>3-24</td><td class="placeholder">...Restricted...</td><td class="placeholder">Research required to unlock codenames</td></tr>
-            </table>
-
-            <h3>3. 25-Bit Artifacts (Items)</h3>
-            <table>
-                <tr><th>Bit</th><th>Identity</th><th>Passive Buff</th></tr>
-                <tr><td>0</td><td>The Genesis Key</td><td>-5% Gas fees on all game transactions</td></tr>
-                <tr><td>1</td><td>Cold-Storage Shield</td><td>Protect 50% of $PUNKW from Phish attacks</td></tr>
-                <tr><td>2</td><td>ASIC-Overclocker</td><td>+10% $PUNKW yield from PHISH actions</td></tr>
-                <tr><td>3-24</td><td class="placeholder">...Encrypted...</td><td class="placeholder">Found in high-tier Sector raids</td></tr>
-            </table>
+    <div class="intel-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        
+        <div class="intel-card" style="padding: 15px; background: rgba(73, 234, 203, 0.05); border: 1px solid var(--kaspa-glow);">
+            <h3 style="margin-top:0;">01. OPERATOR_MANUAL</h3>
+            <p style="font-size: 0.85rem;">Gameplay mechanics, Entropy management, and instructions for hacking the planet.</p>
+            <a href="documentation/gameplay.html" style="color: var(--kaspa-bright); font-weight: bold;">[ ACCESS_GAMEPLAY ]</a>
         </div>
 
-        <div class="column">
-            <h2>II. THE ARCHITECT'S PROOF</h2>
-            <p>Built on the <strong>Kaspa BlockDAG</strong> using the <strong>vProgs</strong> philosophy: Off-chain execution with on-chain verification.</p>
-
-            <h3>1. State Schema (14 Indices)</h3>
-            <div class="memo-box">
-                CPW1 | Season | Turns | Sectors | PUNKW | U1 | U2 | U3 | U4 | U5 | U6 | U7 | Spells | Items
-            </div>
-
-            <h3>2. Data Specification</h3>
-            <table>
-                <tr><th>Idx</th><th>Field</th><th>Logic</th></tr>
-                <tr><td>0</td><td>Protocol</td><td>Constant: <code>CPW1</code></td></tr>
-                <tr><td>1</td><td>Season</td><td>Reset trigger: World Armageddon</td></tr>
-                <tr><td>2</td><td>Turns</td><td>Sequence Lock for action verification</td></tr>
-                <tr><td>4</td><td>PUNKW</td><td>Floating point (8-decimal) stored as Int</td></tr>
-                <tr><td>12</td><td>Spells</td><td>25-char Binary String (e.g. <code>10100...</code>)</td></tr>
-                <tr><td>13</td><td>Items</td><td>25-char Binary String (e.g. <code>00010...</code>)</td></tr>
-            </table>
-
-            <h3>3. Conflict Resolution (Attacks)</h3>
-            <p><strong>The Protocol:</strong> Attacks are recorded as public Challenges. The <em>Enforcement Engine</em> (SPA) verifies the attack history during <code>BOOT</code> and applies State-Diffs to the Defender's local memory before their next save.</p>
-            
-            <p><strong>vProgs Transition:</strong> In Phase 2, this will move to <em>Multi-Writer AccessMetadata</em>, where the winner's proof automatically updates the global state root.</p>
+        <div class="intel-card" style="padding: 15px; background: rgba(73, 234, 203, 0.05); border: 1px solid var(--kaspa-glow);">
+            <h3 style="margin-top:0;">02. WHITEPAPER</h3>
+            <p style="font-size: 0.85rem;">The vision of CypherPunk Wars, the Archmage riff, and the Kaspathon genesis.</p>
+            <a href="documentation/whitepaper.html" style="color: var(--kaspa-bright); font-weight: bold;">[ ACCESS_WHITEPAPER ]</a>
         </div>
+
+        <div class="intel-card" style="padding: 15px; background: rgba(73, 234, 203, 0.05); border: 1px solid var(--kaspa-glow);">
+            <h3 style="margin-top:0;">03. ARCHITECTURE</h3>
+            <p style="font-size: 0.85rem;">Technical deep-dive into WASM execution, DAG storage, and vProg verification.</p>
+            <a href="documentation/architecture.html" style="color: var(--kaspa-bright); font-weight: bold;">[ ACCESS_SPECS ]</a>
+        </div>
+
     </div>
-
-    <p style="text-align:center; margin-top:30px;">
-        <a href="index.html" style="color:var(--kaspa-bright);">[ ACCESS_BUNKER_TERMINAL ]</a>
-    </p>
-
-</body>
-</html>
+</section>

@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 9.3 (Manual Entropy & Trace)
+// wallet-gen.js - Iteration 9.4 (Pre-Baked String Fix)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -11,22 +11,22 @@ export class WalletGen {
         trace("TRACE: AUDITING_LOCAL_STORAGE...");
         let phrase = localStorage.getItem('cpw_mnemonic');
 
-        // 1. FORGE: Generate manually if storage is empty
         if (!phrase || phrase.length < 10) {
-            trace("TRACE: STORAGE_EMPTY. INITIATING_MANUAL_FORGE...");
+            trace("TRACE: STORAGE_EMPTY. INITIATING_STRING_GENERATION...");
             try {
-                // Generate 32 bytes (256 bits) of raw entropy manually
-                const entropy = new Uint8Array(32);
-                window.crypto.getRandomValues(entropy);
-                trace("TRACE: BROWSER_ENTROPY_ACQUIRED.");
+                // 1. Generate the object using the static random method
+                const tempMnemonic = Mnemonic.random(256);
                 
-                // Convert entropy to a 24-word phrase via Constructor
-                trace("TRACE: BINDING_ENTROPY_TO_WASM_CONSTRUCTOR...");
-                const mnemonicObj = new Mnemonic(entropy);
-                phrase = mnemonicObj.phrase;
+                // 2. Extract the actual STRING phrase
+                // This prevents the 'charCodeAt' error by ensuring the next step gets a string
+                const phraseString = tempMnemonic.phrase;
+                
+                if (!phraseString) throw new Error("WASM_RANDOM_RETURNED_NULL_PHRASE");
+                trace("TRACE: STRING_PHRASE_GENERATED_SUCCESSFULLY.");
 
-                if (!phrase) throw new Error("WASM_CONSTRUCTOR_RETURNED_NULL");
-                trace("TRACE: 24_WORD_PHRASE_VERIFIED.");
+                // 3. Validate by re-instantiating
+                const validator = new Mnemonic(phraseString);
+                phrase = phraseString;
                 
                 localStorage.setItem('cpw_mnemonic', phrase);
                 alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
@@ -38,9 +38,9 @@ export class WalletGen {
             trace("TRACE: EXISTING_IDENTITY_RECOVERED.");
         }
 
-        // 2. INITIALIZE: Pass the verified phrase string to the engine
         try {
             trace("TRACE: BINDING_PHRASE_TO_KEY_ENGINE...");
+            // Ensure we are passing a primitive string
             const cleanPhrase = String(phrase).trim();
             const mnemonic = new Mnemonic(cleanPhrase);
             
@@ -66,7 +66,6 @@ export class WalletGen {
             return { address };
         } catch (initErr) {
             trace(`TRACE_FAULT: INIT_FAILED -> ${initErr.message}`);
-            // If the phrase is corrupt, we must clear it to allow a fresh forge
             localStorage.removeItem('cpw_mnemonic');
             throw new Error(`INIT_CRASH: ${initErr.message}`);
         }

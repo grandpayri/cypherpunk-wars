@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 9.4 (Pre-Baked String Fix)
+// wallet-gen.js - Iteration 9.4 (String-First Handshake)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -11,21 +11,20 @@ export class WalletGen {
         trace("TRACE: AUDITING_LOCAL_STORAGE...");
         let phrase = localStorage.getItem('cpw_mnemonic');
 
+        // 1. FORGE SEQUENCE
         if (!phrase || phrase.length < 10) {
             trace("TRACE: STORAGE_EMPTY. INITIATING_STRING_GENERATION...");
             try {
-                // 1. Generate the object using the static random method
+                // Static generation to avoid the constructor's type requirements
                 const tempMnemonic = Mnemonic.random(256);
                 
-                // 2. Extract the actual STRING phrase
-                // This prevents the 'charCodeAt' error by ensuring the next step gets a string
+                // EXTRACT STRING: This is the critical fix for 'charCodeAt' error
                 const phraseString = tempMnemonic.phrase;
                 
                 if (!phraseString) throw new Error("WASM_RANDOM_RETURNED_NULL_PHRASE");
                 trace("TRACE: STRING_PHRASE_GENERATED_SUCCESSFULLY.");
 
-                // 3. Validate by re-instantiating
-                const validator = new Mnemonic(phraseString);
+                // Anchor the string to our working phrase variable
                 phrase = phraseString;
                 
                 localStorage.setItem('cpw_mnemonic', phrase);
@@ -38,9 +37,10 @@ export class WalletGen {
             trace("TRACE: EXISTING_IDENTITY_RECOVERED.");
         }
 
+        // 2. INITIALIZATION SEQUENCE
         try {
             trace("TRACE: BINDING_PHRASE_TO_KEY_ENGINE...");
-            // Ensure we are passing a primitive string
+            // Force the value to a primitive string to satisfy the WASM bridge
             const cleanPhrase = String(phrase).trim();
             const mnemonic = new Mnemonic(cleanPhrase);
             
@@ -66,6 +66,7 @@ export class WalletGen {
             return { address };
         } catch (initErr) {
             trace(`TRACE_FAULT: INIT_FAILED -> ${initErr.message}`);
+            // Safety: wipe corrupted phrase to allow fresh forge on retry
             localStorage.removeItem('cpw_mnemonic');
             throw new Error(`INIT_CRASH: ${initErr.message}`);
         }

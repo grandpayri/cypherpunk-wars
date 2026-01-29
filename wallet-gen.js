@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 8.7 (Static Random Handshake)
+// wallet-gen.js - Iteration 8.8 (Universal Fallback Handshake)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -15,17 +15,24 @@ export class WalletGen {
         
         if (!savedMnemonic) {
             try {
-                // Static generator: bypasses the Mnemonic.fromEntropy error
-                // 256 bits = 24 words
-                mnemonic = Mnemonic.random(256); 
+                // UNIVERSAL PATTERN: Try the most basic constructor first.
+                // In many WASM builds, calling 'new Mnemonic()' with no arguments 
+                // generates a fresh 24-word phrase automatically.
+                mnemonic = new Mnemonic(); 
                 
+                if (!mnemonic.phrase) {
+                     // If that returned an empty object, try the random generator
+                     mnemonic = Mnemonic.random(256); 
+                }
+
                 localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! CORE_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
             } catch (err) {
-                // Final fallback if the random method itself is restricted
+                // Final desperation: The library is rejecting all internal generation.
                 throw new Error("IDENTITY_FORGE_FAILURE: " + err.message);
             }
         } else {
+            // Restore from saved string
             mnemonic = new Mnemonic(savedMnemonic);
         }
 

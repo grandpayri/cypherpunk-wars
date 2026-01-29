@@ -1,4 +1,4 @@
-// wallet-gen.js - BIP39 Identity Utility (Iteration 8.1)
+// wallet-gen.js - Iteration 8.1 (Hardened Handshake)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -8,24 +8,24 @@ export class WalletGen {
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
-        if (!Mnemonic) throw new Error("WASM_MNEMONIC_BINDING_LOST");
+        if (!Mnemonic) throw new Error("WASM_ENGINE_NOT_READY");
 
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
         if (!savedMnemonic) {
             try {
-                // MANUAL ENTROPY INJECTION: Generate 32 bytes (256 bits) via JS Crypto API
+                // 1. Generate manual entropy to bypass the WASM 'undefined' bug
                 const entropy = new Uint8Array(32);
                 window.crypto.getRandomValues(entropy);
                 
-                // Initialize Mnemonic from the manual entropy array
+                // 2. Initialize the 24-word identity from that entropy
                 mnemonic = Mnemonic.fromEntropy(entropy);
                 
                 localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! CORE_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
-            } catch (randomErr) {
-                throw new Error("JS_CRYPTO_API_FAILURE: " + randomErr.message);
+                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+            } catch (err) {
+                throw new Error("CRYPTO_HANDSHAKE_FAILED: " + err.message);
             }
         } else {
             mnemonic = new Mnemonic(savedMnemonic);
@@ -34,7 +34,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // m/44'/111111'/0'/0/0
+        // Derive standard Kaspa address (m/44'/111111'/0'/0/0)
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

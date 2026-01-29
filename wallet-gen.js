@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 8.4 (Kasia-Compatible Handshake)
+// wallet-gen.js - Iteration 8.5 (Direct Constructor Handshake)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -8,26 +8,24 @@ export class WalletGen {
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
-        if (!Mnemonic) throw new Error("WASM_MNEMONIC_BINDING_LOST");
+        if (!Mnemonic) throw new Error("WASM_MNEMONIC_CLASS_NOT_FOUND");
 
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
         if (!savedMnemonic) {
             try {
-                // Use the static random() but ensure it has a length argument
-                // This is the most stable Kasia-pattern for 24 words
-                mnemonic = Mnemonic.random(256); 
+                // Generate 32 bytes of raw entropy from the browser
+                const entropy = new Uint8Array(32);
+                window.crypto.getRandomValues(entropy);
+                
+                // Directly pass entropy to the constructor
+                mnemonic = new Mnemonic(entropy);
                 
                 localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+                alert("!! CORE_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
             } catch (err) {
-                // If random(256) still fails, we use the fallback string constructor
-                console.warn("Mnemonic.random failed, trying fallback constructor...");
-                mnemonic = new Mnemonic(); // Default constructor
-                
-                localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! IDENTITY_RECOVERED_VIA_FALLBACK !!\n\nRECORD THESE WORDS:\n\n" + mnemonic.phrase);
+                throw new Error("CRYPTO_HANDSHAKE_FAILED: " + err.message);
             }
         } else {
             mnemonic = new Mnemonic(savedMnemonic);
@@ -36,7 +34,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // m/44'/111111'/0'/0/0 derivation
+        // m/44'/111111'/0'/0/0
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

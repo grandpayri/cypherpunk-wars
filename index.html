@@ -183,15 +183,15 @@
     import init, * as kaspa from './kaspa.js';
     import { WalletGen } from './wallet-gen.js';
 
-    // UI Element Hooks
+    // UI Hooks
     const log = document.getElementById('log');
+    const netStatus = document.getElementById('netIndicator');
     const sideId = document.getElementById('sideId');
     const sideKas = document.getElementById('sideKas');
-    const netStatus = document.getElementById('netIndicator');
     const sideMeme = document.getElementById('sideMeme');
     const sideEntropy = document.getElementById('sideEntropy');
 
-    // Internal Game State
+    // Global Game State
     let walletSvc = null; 
     let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
 
@@ -201,21 +201,20 @@
         log.scrollTop = log.scrollHeight;
     };
 
-    // Global Handshake Logic: Linked to EXECUTE_HANDSHAKE
+    // Main Handshake Logic
     window.performBoot = async () => {
         const bootBtn = document.getElementById('initBtn');
-        if (!walletSvc) return logMsg("CRITICAL: ENGINE_NOT_INITIALIZED.");
+        if (!walletSvc) return logMsg("CRITICAL: WASM_ENGINE_NOT_READY.");
 
         bootBtn.disabled = true; 
         bootBtn.innerText = "FORGING...";
         
         try {
-            // 1. Identity Handshake (Using direct Mnemonic constructor)
-            const identity = await walletSvc.initIdentity();
+            // PASSING TRACE: We pass logMsg so wallet-gen can print its heartbeat
+            const identity = await walletSvc.initIdentity(logMsg); 
             gameState.operator = identity.address;
 
-            // 2. Connect to the BlockDAG
-            logMsg("DAG_SYNC: CONNECTING_TO_MAINNET...");
+            logMsg("DAG_SYNC: CONNECTING_TO_RPC...");
             const rpc = new kaspa.RpcClient({ 
                 url: "wss://mainnet-rpc.kaspa.org/ws", 
                 encoding: kaspa.Encoding.Borsh, 
@@ -223,7 +222,7 @@
             });
             await rpc.connect();
             
-            // 3. Fetch Real-time Fuel ($KAS)
+            // Fetch real-time balance
             const balanceData = await rpc.getBalanceByAddress(identity.address);
             const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
             
@@ -235,21 +234,21 @@
             
             logMsg(`BOOT_SUCCESS: IDENTITY_ARMED`);
 
-            // 4. Operational View Update
             document.getElementById('page-boot').innerHTML = `
                 <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
                 <p style="font-size:0.8rem;">ID: ${identity.address}</p>
-                <p>Welcome back, Operator. System synchronized.</p>
+                <p>Welcome back, Operator. Cyber-infrastructure is synchronized.</p>
             `;
             
         } catch (e) { 
+            // Diagnostic catch logic
             logMsg(`BOOT_ERROR: ${e.message}`); 
             bootBtn.disabled = false;
             bootBtn.innerText = "RETRY_BOOT";
         }
     };
 
-    // Navigation and Protocol Logic
+    // Navigation Logic
     window.showPage = (id, btn) => {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -257,6 +256,7 @@
         if(btn) btn.classList.add('active');
     };
 
+    // Placeholder for Protocol 01
     window.executePhish = () => {
         if (!gameState.operator) return logMsg("CRITICAL: IDENTITY_SYNC_REQUIRED.");
         if (gameState.entropy <= 0) return logMsg("ERROR: INSUFFICIENT_ENTROPY.");
@@ -270,18 +270,15 @@
         logMsg(`PHISH_SUCCESS: GATHERED ${yieldAmount} $PUNKW FRAGMENTS.`);
     };
 
-    // Main Engine Runner
+    // Initializer
     async function run() {
         try {
-            // FIX: Satisfy the WASM loader requirements
+            // Object-based init for stability
             await init({ module_or_path: './kaspa_bg.wasm' }); 
             
-            // Inject verified engine into the utility
             walletSvc = new WalletGen(kaspa, "mainnet");
-            
             logMsg("ENGINE_READY: WASM memory established.");
 
-            // Recognition check for grandpayri.kas identity
             const savedAddr = localStorage.getItem('cpw_addr');
             if (savedAddr) {
                 logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);

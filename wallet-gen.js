@@ -1,5 +1,4 @@
-// wallet-gen.js - BIP39 Identity Utility
-//7.05
+// wallet-gen.js - BIP39 Identity Utility (Iteration 8.0)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -9,15 +8,22 @@ export class WalletGen {
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
-        if (!Mnemonic) throw new Error("WASM_MNEMONIC_CLASS_MISSING");
+        // Critical: Explicitly check for Mnemonic availability before execution
+        if (!Mnemonic) throw new Error("WASM_MNEMONIC_BINDING_LOST");
 
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
         if (!savedMnemonic) {
-            mnemonic = Mnemonic.random(256); // 24 words
-            localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-            alert("NEW_OPERATOR_KEY_GENERATED:\n\n" + mnemonic.phrase);
+            // Pattern fix: Explicit entropy generation for 24 words
+            try {
+                // Use the static constructor pattern found in Kasia
+                mnemonic = Mnemonic.random(256); 
+                localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
+                alert("!! CORE_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+            } catch (randomErr) {
+                throw new Error("CRYPTO_SUBSYSTEM_UNAVAILABLE: " + randomErr.message);
+            }
         } else {
             mnemonic = new Mnemonic(savedMnemonic);
         }
@@ -25,7 +31,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // m/44'/111111'/0'/0/0 derivation
+        // m/44'/111111'/0'/0/0
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

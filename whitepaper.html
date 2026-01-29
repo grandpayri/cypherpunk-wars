@@ -2,79 +2,86 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CypherPunk Wars | Whitepaper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CypherPunk Wars | Technical Whitepaper</title>
     <style>
         :root {
             --kaspa-teal: #70C7BA;
             --kaspa-bright: #49EACB;
             --kaspa-dark: #0A0A0A;
             --kaspa-glow: rgba(112, 199, 186, 0.3);
+            --text-gray: #a0a0a0;
         }
         body {
             background-color: var(--kaspa-dark);
             color: var(--kaspa-teal);
             font-family: 'Courier New', monospace;
             line-height: 1.6;
-            padding: 40px;
-            max-width: 900px;
+            padding: 20px;
+            max-width: 1000px;
             margin: auto;
-            border: 1px solid var(--kaspa-glow);
         }
-        h1, h2, h3 { color: var(--kaspa-bright); text-transform: uppercase; border-bottom: 1px solid var(--kaspa-glow); }
-        .section { margin-bottom: 40px; }
-        .highlight { color: #fff; font-weight: bold; }
-        .bunker-note { font-style: italic; border-left: 3px solid var(--kaspa-bright); padding-left: 15px; margin: 20px 0; }
+        .container {
+            border: 1px solid var(--kaspa-teal);
+            padding: 40px;
+            box-shadow: 0 0 20px var(--kaspa-glow);
+        }
+        h1 { color: var(--kaspa-bright); text-align: center; border-bottom: 2px solid var(--kaspa-bright); padding-bottom: 10px; margin-bottom: 30px; }
+        h2 { color: var(--kaspa-bright); margin-top: 40px; border-left: 4px solid var(--kaspa-bright); padding-left: 15px; }
+        h3 { color: #fff; margin-top: 25px; }
+        p, li { color: var(--text-gray); font-size: 0.95rem; }
+        .highlight { color: var(--kaspa-bright); font-weight: bold; }
+        .feature-box {
+            background: rgba(112, 199, 186, 0.05);
+            border: 1px dashed var(--kaspa-teal);
+            padding: 20px;
+            margin: 20px 0;
+        }
+        footer { text-align: center; margin-top: 50px; font-size: 0.8rem; opacity: 0.6; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>CYPHERPUNK WARS v1.0</h1>
+        <p style="text-align: center; font-style: italic;">An On-DAG Decentralized Massively Multiplayer Turn-Based Strategy War Game</p>
 
-    <h1>CypherPunk Wars: v1.0 Whitepaper</h1>
-    <p class="highlight">An On-DAG Decentralized Massively Multiplayer Turn-Based Strategy War Game.</p>
-
-    <div class="section">
-        <h2>I. The Origination: Archmage Reborn</h2>
-        <p>CypherPunk Wars is a loving "Cypherpunk" riff on the foundational mechanics of <span class="highlight">Archmage</span>, the legendary web-based fantasy strategy game. Where the original relied on centralized servers to manage turns and territory, CypherPunk Wars decentralizes the "Mage's Tower" into a cryptographically secured <span class="highlight">Bunker</span>.</p>
+        <h2>I. ORIGINATION & THE ARCHMAGE LEGACY</h2>
+        <p>CypherPunk Wars is a modern reimagining of the classic <span class="highlight">Archmage</span> strategy genre. It preserves the deep tactical satisfaction of turn-based territory management while replacing centralized server authority with cryptographic sovereignty.</p>
         <ul>
-            <li><strong>Entropy as Energy</strong>: In place of fixed turns, players manage <strong>Entropy</strong> to execute "Phish Network" yields or "Build Infra" protocols.</li>
-            <li><strong>Sovereign Infrastructure</strong>: Every asset, from $PUNKW fragments to Sector claims, is verified through a user's 24-word High-Entropy Identity.</li>
+            <li><span class="highlight">The Bunker</span>: Each player's command center is anchored by a 24-word High-Entropy identity.</li>
+            <li><span class="highlight">Entropy Management</span>: Players manage a finite recovery of Entropy to execute tactical operations.</li>
         </ul>
+
+        <h2>II. THE KASPATHON GENESIS</h2>
+        <p>Born from the <span class="highlight">Kaspathon</span>, this project serves as a flagship for decentralized application (dApp) innovation on the Kaspa BlockDAG.</p>
+        <p>CypherPunk Wars embodies the Kaspathon ideals by moving beyond simple transactions to create a complex, state-driven ecosystem that highlights Kaspa's technical superiority.</p>
+
+        <h2>III. THE DAG AS PERSISTENT STORAGE</h2>
+        <p>Unlike traditional games that rely on ephemeral SQL databases, CypherPunk Wars utilizes the Kaspa BlockDAG as its <span class="highlight">Immutable Storage Layer</span>.</p>
+        <div class="feature-box">
+            <p><strong>Sovereign State</strong>: Every infrastructure upgrade, $PUNKW yield, and Sector claim is etched into the DAG.</p>
+            <p><strong>Historical Verification</strong>: The BlockDAG maintains a prune-resistant history, ensuring every action can be verified from its cryptographic origin, making the game world "immortal".</p>
+        </div>
+
+        <h2>IV. VPROGS: THE RULES OF WAR</h2>
+        <p>The roadmap for CypherPunk Wars centers on <span class="highlight">vProgs</span> (Virtual Programs) as the ideal solution for complex game logic.</p>
+        <h3>Collective Agreement & PVP</h3>
+        <p>vProgs act as the trustless, decentralized referee for all PVP encounters. When Operators clash over a Sector, the vProg executes the "Rules of War" on-chain, ensuring a fair outcome based on a collective agreement coded into the DAG architecture.</p>
+
+        
+
+        <h3>Chain-of-Event Verification</h3>
+        <p>Each player's state—from Daemon health to resource consumption—is verified through <span class="highlight">Chain-of-Event Proofs</span>. This allows any node to confirm that the sequence of tactical moves followed the protocol exactly.</p>
+        
+        <h3>Architectural Integrity</h3>
+        <p>The logic used to exercise game events is not just client-side script; it is verified by the <span class="highlight">Kaspa Architecture</span> itself. This ensures that the "Laws of Physics" within CypherPunk Wars are immutable and globally consistent.</p>
+
+        <h2>V. PRODUCT VISION</h2>
+        <p>By exercising browser-side WASM, real-time RPC connectivity, and future vProg automation, CypherPunk Wars proves that the Kaspa BlockDAG is the best fit for the next generation of Massively Multiplayer Strategy games.</p>
+        
+        <footer>
+            GENERATED FOR THE KASPATHON | CYPHERPUNK WARS v1.0 | 2026
+        </footer>
     </div>
-
-    
-
-    <div class="section">
-        <h2>II. The Kaspathon Genesis</h2>
-        <p>This project was born from the <span class="highlight">Kaspathon</span>, an initiative dedicated to pushing the boundaries of what is possible on the Kaspa BlockDAG. CypherPunk Wars meets and highlights the core ideals of the Kaspathon by:</p>
-        <ul>
-            <li><strong>Open-Source Innovation</strong>: Demonstrating how to bridge Browser WASM with real-time Kaspa RPC nodes without a proprietary backend.</li>
-            <li><strong>Scalable Complexity</strong>: Showing that Kaspa's high block rate can support complex, turn-based "War Game" logic at scale.</li>
-            <li><strong>Community Empowerment</strong>: Creating a framework where "Kaspa Boys" can interact in a shared, decentralized theater.</li>
-        </ul>
-    </div>
-
-    <div class="section">
-        <h2>III. Why Kaspa? The Best-Fit DAG</h2>
-        <p>Traditional blockchains suffer from "The Sequential Bottleneck." Kaspa’s GHOSTDAG protocol allows for the high-frequency interaction required for an MMO environment:</p>
-        <ul>
-            <li><strong>Parallel Execution</strong>: Unlike traditional chains, Kaspa allows thousands of "Bunker Handshakes" and "Phish Yields" to happen simultaneously without congestion.</li>
-            <li><strong>Zero-Latency Strategy</strong>: Player actions are recorded on the DAG in seconds, maintaining the tactical "flow" of a turn-based war game.</li>
-            <li><strong>Future-Proofing with vProgs</strong>: The vision for Kaspa’s <strong>vProgs</strong> (Virtual Programs) perfectly matches the game’s roadmap for "Smart Daemons"—automated defense scripts that live on the DAG.</li>
-        </ul>
-    </div>
-
-    <div class="section">
-        <h2>IV. Exercising the Features</h2>
-        <p>CypherPunk Wars isn't just a game; it is a live exercise of the Kaspa ecosystem:</p>
-        <ul>
-            <li><strong>WASM Identity</strong>: Uses the Kaspa WASM SDK for on-client key generation.</li>
-            <li><strong>RPC Resilience</strong>: Direct communication with public nodes ensures the game is "immortal" and censorship-resistant.</li>
-            <li><strong>Economic Fuel</strong>: Integrates real-time $KAS balance monitoring as the prerequisite "Industrial Fuel" for Bunker operations.</li>
-        </ul>
-    </div>
-
-    <div class="bunker-note">
-        "The Bunker is your shield. The DAG is your sword. Welcome to the frontline of the CypherPunk Wars."
-    </div>
-
 </body>
 </html>

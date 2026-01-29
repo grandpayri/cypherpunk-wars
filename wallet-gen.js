@@ -9,63 +9,65 @@ export class WalletGen {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         const trace = traceCallback || console.log;
         
-        trace("TRACE: Checking LocalStorage for existing phrase...");
+        trace("TRACE: AUDITING_STORAGE...");
         let phrase = localStorage.getItem('cpw_mnemonic');
 
         // 1. FORGE SEQUENCE
         if (!phrase || phrase.length < 10) {
-            trace("TRACE: No phrase found. Starting MANUAL_ENTROPY_FORGE...");
+            trace("TRACE: STORAGE_EMPTY. INITIATING_MANUAL_FORGE...");
             try {
+                // Generate entropy via Browser API to avoid the WASM 'undefined' bug
                 const entropy = new Uint8Array(32);
                 window.crypto.getRandomValues(entropy);
-                trace("TRACE: Browser Entropy generated (32 bytes).");
+                trace("TRACE: BROWSER_ENTROPY_ACQUIRED.");
                 
-                trace("TRACE: Feeding entropy to Mnemonic constructor...");
+                trace("TRACE: CONSTRUCTING_MNEMONIC_FROM_ENTROPY...");
+                // Feeding entropy directly to the constructor is the most stable Kasia-pattern
                 const mnemonicObj = new Mnemonic(entropy);
                 phrase = mnemonicObj.phrase;
 
-                if (!phrase) throw new Error("CONSTRUCTOR_RETURNED_NULL_PHRASE");
-                trace("TRACE: 24-word phrase successfully extracted.");
+                if (!phrase) throw new Error("WASM_CONSTRUCTOR_FAILED");
+                trace("TRACE: PHRASE_GENERATED_SUCCESSFULLY.");
                 
                 localStorage.setItem('cpw_mnemonic', phrase);
                 alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
             } catch (forgeErr) {
-                trace(`TRACE_FAULT: Forge phase failed - ${forgeErr.message}`);
+                trace(`TRACE_FAULT: FORGE_PHASE_CRASHED - ${forgeErr.message}`);
                 throw new Error(`FORGE_CRASH: ${forgeErr.message}`);
             }
         } else {
-            trace("TRACE: Existing phrase detected in storage.");
+            trace("TRACE: EXISTING_IDENTITY_DETECTED.");
         }
 
         // 2. INITIALIZATION SEQUENCE
         try {
-            trace("TRACE: Instantiating Mnemonic class from string...");
+            trace("TRACE: BINDING_PHRASE_TO_ENGINE...");
             const cleanPhrase = String(phrase).trim();
             const mnemonic = new Mnemonic(cleanPhrase);
             
-            trace("TRACE: Converting phrase to seed buffer...");
+            trace("TRACE: CONVERTING_TO_SEED...");
             const seed = await mnemonic.toSeed();
             
-            trace("TRACE: Deriving Extended Private Key (xpriv) from seed...");
+            trace("TRACE: DERIVING_XPRIV...");
             const xpriv = ExtendedPrivateKey.fromSeed(seed);
             
-            trace("TRACE: Deriving standard Kaspa path (m/44'/111111'/0'/0/0)...");
+            trace("TRACE: DERIVING_PATH_M/44'/111111'/0'/0/0...");
             const key = xpriv.deriveChild(44, true)
                              .deriveChild(111111, true)
                              .deriveChild(0, true)
                              .deriveChild(0)
                              .deriveChild(0).privateKey;
 
-            trace("TRACE: Converting key to public address string...");
+            trace("TRACE: CALCULATING_PUBLIC_ADDRESS...");
             const address = key.toAddress(this.network).toString();
             
             localStorage.setItem('cpw_addr', address);
-            trace(`TRACE_SUCCESS: Identity armed for ${address.substring(0,10)}...`);
+            trace(`TRACE_SUCCESS: IDENTITY_ARMED_FOR_${address.substring(0,10)}...`);
 
             return { address };
         } catch (initErr) {
-            trace(`TRACE_FAULT: Initialization failed - ${initErr.message}`);
-            // Safety: If the phrase is corrupt, wipe it so we don't loop errors
+            trace(`TRACE_FAULT: INIT_PHASE_CRASHED - ${initErr.message}`);
+            // If the saved phrase is what's causing the crash, wipe it for next attempt
             localStorage.removeItem('cpw_mnemonic');
             throw new Error(`INIT_CRASH: ${initErr.message}`);
         }

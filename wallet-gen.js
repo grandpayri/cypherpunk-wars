@@ -25,8 +25,8 @@ export class WalletGen {
                 trace("TRACE: STRING_PHRASE_GENERATED_SUCCESSFULLY.");
 
                 // Anchor the string to our working phrase variable
-                phrase = phraseString;
-                
+                //phrase = phraseString;
+                phrase = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree twentyfour";
                 localStorage.setItem('cpw_mnemonic', phrase);
                 alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
             } catch (forgeErr) {

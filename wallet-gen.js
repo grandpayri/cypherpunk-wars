@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 8.8 (Universal Fallback Handshake)
+// wallet-gen.js - Iteration 8.9 (The Kasia-Direct Bridge)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -15,21 +15,18 @@ export class WalletGen {
         
         if (!savedMnemonic) {
             try {
-                // UNIVERSAL PATTERN: Try the most basic constructor first.
-                // In many WASM builds, calling 'new Mnemonic()' with no arguments 
-                // generates a fresh 24-word phrase automatically.
-                mnemonic = new Mnemonic(); 
-                
-                if (!mnemonic.phrase) {
-                     // If that returned an empty object, try the random generator
-                     mnemonic = Mnemonic.random(256); 
-                }
+                // 1. Force the library to generate a phrase string first
+                // Using 256 bits specifically for the 24-word standard
+                const tempMnemonic = Mnemonic.random(256);
+                const phraseString = tempMnemonic.phrase; 
 
-                localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+                // 2. Feed the string back into a new instance to lock it
+                mnemonic = new Mnemonic(phraseString);
+                
+                localStorage.setItem('cpw_mnemonic', phraseString);
+                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phraseString);
             } catch (err) {
-                // Final desperation: The library is rejecting all internal generation.
-                throw new Error("IDENTITY_FORGE_FAILURE: " + err.message);
+                throw new Error("CRYPTO_BRIDGE_FAILURE: " + err.message);
             }
         } else {
             // Restore from saved string
@@ -39,7 +36,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // Standard Kaspa derivation path m/44'/111111'/0'/0/0
+        // Standard Kaspa derivation m/44'/111111'/0'/0/0
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

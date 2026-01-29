@@ -1,4 +1,4 @@
-// wallet-gen.js - BIP39 Identity Utility (Iteration 8.0)
+// wallet-gen.js - BIP39 Identity Utility (Iteration 8.1)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -8,21 +8,24 @@ export class WalletGen {
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
         
-        // Critical: Explicitly check for Mnemonic availability before execution
         if (!Mnemonic) throw new Error("WASM_MNEMONIC_BINDING_LOST");
 
         let mnemonic;
         let savedMnemonic = localStorage.getItem('cpw_mnemonic');
         
         if (!savedMnemonic) {
-            // Pattern fix: Explicit entropy generation for 24 words
             try {
-                // Use the static constructor pattern found in Kasia
-                mnemonic = Mnemonic.random(256); 
+                // MANUAL ENTROPY INJECTION: Generate 32 bytes (256 bits) via JS Crypto API
+                const entropy = new Uint8Array(32);
+                window.crypto.getRandomValues(entropy);
+                
+                // Initialize Mnemonic from the manual entropy array
+                mnemonic = Mnemonic.fromEntropy(entropy);
+                
                 localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
                 alert("!! CORE_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
             } catch (randomErr) {
-                throw new Error("CRYPTO_SUBSYSTEM_UNAVAILABLE: " + randomErr.message);
+                throw new Error("JS_CRYPTO_API_FAILURE: " + randomErr.message);
             }
         } else {
             mnemonic = new Mnemonic(savedMnemonic);

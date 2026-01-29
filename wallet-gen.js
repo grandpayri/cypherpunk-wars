@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 8.9 (The Kasia-Direct Bridge)
+// wallet-gen.js - Iteration 9.1 (Self-Healing Storage)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -7,36 +7,42 @@ export class WalletGen {
 
     async initIdentity() {
         const { Mnemonic, ExtendedPrivateKey } = this.kaspa;
-        
-        if (!Mnemonic) throw new Error("WASM_MNEMONIC_CLASS_NOT_FOUND");
-
         let mnemonic;
-        let savedMnemonic = localStorage.getItem('cpw_mnemonic');
-        
-        if (!savedMnemonic) {
-            try {
-                // 1. Force the library to generate a phrase string first
-                // Using 256 bits specifically for the 24-word standard
-                const tempMnemonic = Mnemonic.random(256);
-                const phraseString = tempMnemonic.phrase; 
+        let phrase = localStorage.getItem('cpw_mnemonic');
 
-                // 2. Feed the string back into a new instance to lock it
-                mnemonic = new Mnemonic(phraseString);
+        // 1. PRE-FLIGHT CHECK: Catch empty or invalid storage
+        if (!phrase || typeof phrase !== 'string' || phrase.length < 10) {
+            console.warn("IDENTITY_EMPTY: Initializing fresh state.");
+            phrase = "NEW_IDENTITY_REQUIRED"; // Known value for logic check
+        }
+
+        try {
+            if (phrase === "NEW_IDENTITY_REQUIRED") {
+                // 2. FORGE: Generate a new 24-word string
+                const temp = Mnemonic.random(256);
+                phrase = temp.phrase;
                 
-                localStorage.setItem('cpw_mnemonic', phraseString);
-                alert("!! OPERATOR_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phraseString);
-            } catch (err) {
-                throw new Error("CRYPTO_BRIDGE_FAILURE: " + err.message);
+                if (!phrase) throw new Error("WASM_RETURNED_NULL_PHRASE");
+                
+                localStorage.setItem('cpw_mnemonic', phrase);
+                alert("!! NEW_OPERATOR_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + phrase);
             }
-        } else {
-            // Restore from saved string
-            mnemonic = new Mnemonic(savedMnemonic);
+
+            // 3. INITIALIZE: Try to pass the phrase to the engine
+            mnemonic = new Mnemonic(phrase);
+
+        } catch (err) {
+            // 4. RECOVERY: If initialization still fails, it's corrupted
+            console.error("STORAGE_CRASH: Resetting cpw_mnemonic due to error:", err.message);
+            localStorage.removeItem('cpw_mnemonic');
+            
+            // Return a "Known Value" error message to the operator log
+            throw new Error(`RECOVERY_REQUIRED: Invalid phrase format detected. (${err.message})`);
         }
 
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // Standard Kaspa derivation m/44'/111111'/0'/0/0
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

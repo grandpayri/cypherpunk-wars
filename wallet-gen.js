@@ -1,4 +1,4 @@
-// wallet-gen.js - Iteration 8.5 (Direct Constructor Handshake)
+// wallet-gen.js - Iteration 8.7 (Static Random Handshake)
 export class WalletGen {
     constructor(kaspaInstance, network = "mainnet") {
         this.kaspa = kaspaInstance;
@@ -15,17 +15,15 @@ export class WalletGen {
         
         if (!savedMnemonic) {
             try {
-                // Generate 32 bytes of raw entropy from the browser
-                const entropy = new Uint8Array(32);
-                window.crypto.getRandomValues(entropy);
-                
-                // Directly pass entropy to the constructor
-                mnemonic = new Mnemonic(entropy);
+                // Static generator: bypasses the Mnemonic.fromEntropy error
+                // 256 bits = 24 words
+                mnemonic = Mnemonic.random(256); 
                 
                 localStorage.setItem('cpw_mnemonic', mnemonic.phrase);
-                alert("!! CORE_KEY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
+                alert("!! CORE_IDENTITY_FORGED !!\n\nRECORD THESE 24 WORDS:\n\n" + mnemonic.phrase);
             } catch (err) {
-                throw new Error("CRYPTO_HANDSHAKE_FAILED: " + err.message);
+                // Final fallback if the random method itself is restricted
+                throw new Error("IDENTITY_FORGE_FAILURE: " + err.message);
             }
         } else {
             mnemonic = new Mnemonic(savedMnemonic);
@@ -34,7 +32,7 @@ export class WalletGen {
         const seed = await mnemonic.toSeed();
         const xpriv = ExtendedPrivateKey.fromSeed(seed);
         
-        // m/44'/111111'/0'/0/0
+        // Standard Kaspa derivation path m/44'/111111'/0'/0/0
         const privateKey = xpriv.deriveChild(44, true)
                                 .deriveChild(111111, true)
                                 .deriveChild(0, true)

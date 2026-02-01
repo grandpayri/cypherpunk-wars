@@ -2,77 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CypherPunk Wars | Field Manual</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Gameplay Manual</title>
+    <link rel="stylesheet" href="../style.css">
     <style>
-        :root {
-            --kaspa-teal: #70C7BA;
-            --kaspa-bright: #49EACB;
-            --kaspa-dark: #0A0A0A;
-            --kaspa-glow: rgba(112, 199, 186, 0.3);
-        }
-        body {
-            background-color: var(--kaspa-dark);
-            color: var(--kaspa-teal);
-            font-family: 'Courier New', monospace;
+        .manual-container {
+            width: 90%;
+            max-width: 800px;
+            border: 2px solid var(--kaspa-teal);
+            background: rgba(0, 20, 20, 0.9);
             padding: 40px;
-            max-width: 900px;
-            margin: auto;
-            border: 1px solid var(--kaspa-glow);
+            margin: 20px;
         }
-        h1, h2, h3 { color: var(--kaspa-bright); text-transform: uppercase; border-bottom: 1px solid var(--kaspa-glow); }
-        .mechanic { margin: 25px 0; padding: 20px; background: rgba(73, 234, 203, 0.03); border-left: 4px solid var(--kaspa-bright); }
-        .highlight { color: #fff; font-weight: bold; }
-        .warning { color: #ff5555; font-weight: bold; }
+        .term-definition { margin-bottom: 20px; border-left: 3px solid var(--kaspa-teal); padding-left: 15px; }
+        .term-title { color: var(--kaspa-bright); font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
-<body>
-    <nav style="margin-bottom: 20px; padding: 10px; border-bottom: 1px solid var(--kaspa-glow);">
-        <a href="../index.html" style="color: var(--kaspa-bright); text-decoration: none; font-weight: bold;">
-            [ < RETURN_TO_BUNKER ]
-        </a>
-        <span style="color: var(--kaspa-teal); margin: 0 15px;">|</span>
-        <a href="../README.html" style="color: var(--kaspa-teal); text-decoration: none;">[ SYSTEM_INDEX ]</a>
-    </nav>
-    <h1>Protocol: Hack the Planet</h1>
-    <p class="highlight">Operator, your mission is simple: Establish your Bunker, secure your Sectors, and dominate the BlockDAG.</p>
+<body class="bunker-frame">
 
-    <div class="mechanic">
-        <h2>1. The Bunker Handshake</h2>
-        <p>Your first step is forging your <span class="highlight">High-Entropy Identity</span>. This 24-word phrase is your master key.</p>
-        <ul>
-            <li><span class="warning">NEVER SHARE THESE WORDS</span>. If you lose them, your Bunker and all its assets are lost to the void forever.</li>
-            <li>Your identity generates your unique <span class="highlight">Operator ID</span> (Public Address) for receiving Fuel and $PUNKW fragments.</li>
-        </ul>
+<div class="manual-container">
+    <h1 style="color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px;">
+        [MAN_01] OPERATIONAL_GUIDE
+    </h1>
+
+    <div class="term-definition">
+        <span class="term-title">GWh (Gigawatt-Hours)</span>
+        <p>The energy required to broadcast data to the Kaspa BlockDAG. Every action consumes 1 GWh, which is drawn from your KAS reserves.</p>
     </div>
 
-    <div class="mechanic">
-        <h2>2. Resources: Fuel & Entropy</h2>
-        <p>Survival in the CypherPunk Wars requires two primary energy sources:</p>
-        <ul>
-            <li><span class="highlight">Fuel ($KAS)</span>: Used for industrial upgrades and securing long-term storage of your state on the DAG.</li>
-            <li><span class="highlight">Entropy</span>: Your tactical action potential. Every turn—whether gathering fragments or attacking a node—consumes Entropy.</li>
-            <li><strong>Rationing</strong>: You receive 10 free Entropy turns per day. You can surge your potential by purchasing up to 100 extra turns for just 1 $KAS.</li>
-        </ul>
+    <div class="term-definition">
+        <span class="term-title">Cycles</span>
+        <p>Your AI cluster's compute capacity. 1 Cycle represents 1 execution unit of work.</p>
     </div>
 
-    <div class="mechanic">
-        <h2>3. Protocol 01: Phish Network</h2>
-        <p>The primary method for accumulating wealth. Use your Entropy to scan the network and gather <span class="highlight">$PUNKW Fragments</span>. These fragments can be forged into advanced Daemons or traded with other Operators.</p>
+    <div class="term-definition">
+        <span class="term-title">Sectors</span>
+        <p>Physical server rack infrastructure. Expanding your sectors increases the efficiency and yield of your $PUNKW ingestion.</p>
     </div>
 
-    <div class="mechanic">
-        <h2>4. Expansion: Sectors & Daemons</h2>
-        <p>The war is won through territory.</p>
-        <ul>
-            <li><strong>Build Infra</strong>: Spend $KAS to upgrade your Bunker's efficiency and defense.</li>
-            <li><strong>Attack Node</strong>: Deploy Daemons to seize Sectors from rival Operators.</li>
-            <li><strong>MMO Persistence</strong>: Your Sectors generate passive income as long as you have the Fuel to defend them.</li>
-        </ul>
+    <div class="term-definition">
+        <span class="term-title">The Armageddon Meta</span>
+        <p>A global reset initiated by an operator. The season ends when a high-level hack successfully executes a total system wipe.</p>
     </div>
 
-    <footer style="margin-top:50px; text-align:center; font-size:0.8rem; opacity: 0.7;">
-        "THERE IS NO SYSTEM WITHOUT A WEAKNESS." | CYPHERPUNK WARS v1.0
-    </footer>
+    <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
+        <button class="btn-execute" onclick="window.location.href='../bunker.html'">
+            RETURN_TO_COMMAND_CENTER
+        </button>
+    </div>
+</div>
+
+<div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
+    > ACCESSING_LOCAL_DOCUMENTATION_STORE...
+</div>
 
 </body>
 </html>

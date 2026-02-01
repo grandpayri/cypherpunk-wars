@@ -1,16 +1,26 @@
-<div class="content-area">
-    <h3>PROTOCOL: IDENTITY_FORGE</h3>
-    <p>Generating 24-word High-Entropy Key. Ensure no one is watching your screen.</p>
-    
-    <div id="mnemonic-display" class="input-terminal">
-        [ CLICK_GENERATE_BELOW ]
+<body class="bunker-frame">
+<div class="central-gate">
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">[01] IDENTITY_FORGE_PROTOCOL</h2>
+        <p>Your identity is generated using 256-bit entropy. This process happens entirely in your browser's local RAM.</p>
+
+        <div id="mnemonic-grid" class="mnemonic-grid">
+            <div style="grid-column: span 4; text-align: center; color: #444;">AWAITING_ENTROPY_GENERATION...</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn-execute" onclick="generateIdentity()">GENERATE_24_WORDS</button>
+            
+            <div id="security-warning" style="display: none; color: var(--hazard-yellow); font-size: 0.8rem; text-align: right;">
+                <b>CRITICAL:</b> WRITE THESE WORDS DOWN ON PHYSICAL PAPER.<br>
+                IF YOU LOSE THEM, YOUR GIGAWATTS ARE GONE FOREVER.
+            </div>
+        </div>
+
+        <div id="confirm-area" style="display: none; margin-top: 30px; text-align: center; border-top: 1px dashed #333; padding-top: 20px;">
+            <button class="btn-execute btn-danger" onclick="saveAndProceed()">I_HAVE_SECURED_MY_KEY_ENTERING_BUNKER</button>
+        </div>
     </div>
 
-    <button class="btn-execute" onclick="generate24Words()">GENERATE_IDENTITY</button>
-    
-    <div id="save-warning" style="display:none; color: #ff0000; margin-top: 15px;">
-        WARNING: Losing these words means permanent loss of your data center.
-        <br>
-        <button class="btn-execute" onclick="proceedToFunding()">I_HAVE_SAVED_MY_KEY</button>
-    </div>
+    <div id="log" class="terminal-log">> STANDBY: AWAITING_OPERATOR_COMMAND...</div>
 </div>

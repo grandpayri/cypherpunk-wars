@@ -1,66 +1,59 @@
 /**
  * CYPHERPUNK WARS: IDENTITY FORGE (wallet-gen.js)
- * High-performance WASM identity management based on Kaspa SDK standards.
+ * High-performance WASM identity management.
  */
 
-// Global access to SDK classes
 const { Wallet, initKaspaFramework, Mnemonic } = kaspa;
+let engineOnline = false;
 
 /**
  * BOOT ENGINE: Initializes the WASM framework.
- * This must resolve before any crypto actions occur.
  */
 async function bootBunkerEngine() {
     try {
-        console.log("ENGINE: Initializing Kaspa WASM Framework...");
+        console.log("ENGINE: Initializing Kaspa WASM...");
         await initKaspaFramework();
+        engineOnline = true;
         console.log("ENGINE: Framework Online.");
         return true;
     } catch (err) {
-        console.error("BOOT_ERROR: Engine failed to start.", err);
+        console.error("BOOT_ERROR:", err);
         return false;
     }
 }
 
 /**
- * FORGE NEW IDENTITY: Generates a secure 12-word BIP39 phrase.
+ * FORGE NEW IDENTITY: Generates a secure 12-word phrase.
  */
 function forgeNewIdentity() {
+    if (!engineOnline) return "ERROR: ENGINE_OFFLINE";
     try {
         const mnemonic = Mnemonic.random(12);
-        console.log("FORGE: New Identity Generated.");
         return mnemonic.phrase; 
     } catch (err) {
-        console.error("FORGE_ERROR: Generation failed.", err);
+        console.error("FORGE_ERROR:", err);
         return null;
     }
 }
 
 /**
- * SYNC IDENTITY: Converts a mnemonic string into a Sovereign Bunker ID.
- * This pattern avoids the 'charCodeAt' error by using the Wallet class wrapper.
+ * SYNC IDENTITY: Derives the Bunker ID.
  */
 async function syncBunkerIdentity(mnemonicPhrase) {
+    if (!engineOnline) throw new Error("ENGINE_OFFLINE");
     try {
-        console.log("SYNC: Deriving Bunker ID from mnemonic...");
-        
-        // Use the Wallet class to handle the binary conversion
         const wallet = await Wallet.fromMnemonic(
             mnemonicPhrase,
             { networkId: "mainnet" }
         );
-
         const account = await wallet.getAccount(0);
         const address = await account.receive.getAddress(0);
         
         const bunkerId = address.toString();
-        
-        // Persistence: Store the ID but NOT the mnemonic for security
         localStorage.setItem('bunker_id', bunkerId);
-        
         return bunkerId;
     } catch (err) {
-        console.error("SYNC_ERROR: Invalid Mnemonic or SDK mismatch.", err);
+        console.error("SYNC_ERROR:", err);
         throw err;
     }
 }

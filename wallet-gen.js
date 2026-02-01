@@ -1,50 +1,51 @@
 /**
- * CYPHERPUNK WARS: IDENTITY FORGE (wallet-gen.js)
- * High-performance WASM identity management.
+ * CYPHERPUNK_WARS: CRYPTO_LAYER
+ * wallet-gen.js
  */
 
+// This ensures the WASM global is available
 const { Wallet, initKaspaFramework, Mnemonic } = kaspa;
 let engineOnline = false;
 
-/**
- * BOOT ENGINE: Initializes the WASM framework.
- */
 async function bootBunkerEngine() {
     try {
-        console.log("ENGINE: Initializing Kaspa WASM...");
-        await initKaspaFramework();
+        console.log("ENGINE: Locating WASM binaries...");
+        
+        // IMPORTANT: We must await the framework initialization
+        // This loads the actual logic into the browser's memory
+        await initKaspaFramework(); 
+        
         engineOnline = true;
-        console.log("ENGINE: Framework Online.");
+        console.log("ENGINE: Status 200 - Online");
         return true;
     } catch (err) {
-        console.error("BOOT_ERROR:", err);
+        console.error("WASM_BOOT_FAILURE:", err);
         return false;
     }
 }
 
-/**
- * FORGE NEW IDENTITY: Generates a secure 12-word phrase.
- */
 function forgeNewIdentity() {
-    if (!engineOnline) return "ERROR: ENGINE_OFFLINE";
+    if (!engineOnline) {
+        console.error("FORGE_BLOCKED: Engine Offline");
+        return null;
+    }
     try {
         const mnemonic = Mnemonic.random(12);
-        return mnemonic.phrase; 
+        return mnemonic.phrase;
     } catch (err) {
-        console.error("FORGE_ERROR:", err);
+        console.error("MNEMONIC_GEN_ERROR:", err);
         return null;
     }
 }
 
-/**
- * SYNC IDENTITY: Derives the Bunker ID.
- */
 async function syncBunkerIdentity(mnemonicPhrase) {
     if (!engineOnline) throw new Error("ENGINE_OFFLINE");
+    
     try {
+        // networkId: "mainnet" or "testnet-11"
         const wallet = await Wallet.fromMnemonic(
-            mnemonicPhrase,
-            { networkId: "mainnet" }
+            mnemonicPhrase, 
+            { networkId: "mainnet" } 
         );
         const account = await wallet.getAccount(0);
         const address = await account.receive.getAddress(0);
@@ -53,7 +54,7 @@ async function syncBunkerIdentity(mnemonicPhrase) {
         localStorage.setItem('bunker_id', bunkerId);
         return bunkerId;
     } catch (err) {
-        console.error("SYNC_ERROR:", err);
+        console.error("IDENTITY_SYNC_ERROR:", err);
         throw err;
     }
 }

@@ -179,116 +179,74 @@
     </div>
 </div>
 
-<script type="module">
-    import init, * as kaspa from './kaspa.js';
-    import { WalletGen } from './wallet-gen.js';
+<script>
+    /**
+     * CYPHERPUNK WARS: MAIN OPERATOR INTERFACE
+     */
 
-    // UI Hooks
-    const log = document.getElementById('log');
-    const netStatus = document.getElementById('netIndicator');
-    const sideId = document.getElementById('sideId');
-    const sideKas = document.getElementById('sideKas');
-    const sideMeme = document.getElementById('sideMeme');
-    const sideEntropy = document.getElementById('sideEntropy');
-
-    // Global Game State
-    let walletSvc = null; 
-    let gameState = { kas: 0, meme: 0, entropy: 10, operator: null };
-
-    const logMsg = (m) => {
-        const t = new Date().toLocaleTimeString([], {hour12: false});
-        log.innerHTML += `> [${t}] ${m}<br>`;
-        log.scrollTop = log.scrollHeight;
-    };
-
-    // Main Handshake Logic
-    window.performBoot = async () => {
-        const bootBtn = document.getElementById('initBtn');
-        if (!walletSvc) return logMsg("CRITICAL: WASM_ENGINE_NOT_READY.");
-
-        bootBtn.disabled = true; 
-        bootBtn.innerText = "FORGING...";
-        
-        try {
-            // PASSING TRACE: We pass logMsg so wallet-gen can print its heartbeat
-            const identity = await walletSvc.initIdentity(logMsg); 
-            gameState.operator = identity.address;
-
-            logMsg("DAG_SYNC: CONNECTING_TO_RPC...");
-            const rpc = new kaspa.RpcClient({ 
-                url: "wss://mainnet-rpc.kaspa.org/ws", 
-                encoding: kaspa.Encoding.Borsh, 
-                networkId: "mainnet" 
-            });
-            await rpc.connect();
-            
-            // Fetch real-time balance
-            const balanceData = await rpc.getBalanceByAddress(identity.address);
-            const totalKas = (Number(balanceData.balance || balanceData) / 100000000).toFixed(2);
-            
-            gameState.kas = totalKas;
-            sideId.innerText = "OPERATOR_ACTIVE";
-            sideKas.innerText = totalKas;
-            netStatus.style.color = "#49EACB";
-            netStatus.innerText = "CONNECTED: MAINNET";
-            
-            logMsg(`BOOT_SUCCESS: IDENTITY_ARMED`);
-
-            document.getElementById('page-boot').innerHTML = `
-                <h3 style="color: #49EACB">BUNKER_OPERATIONAL</h3>
-                <p style="font-size:0.8rem;">ID: ${identity.address}</p>
-                <p>Welcome back, Operator. Cyber-infrastructure is synchronized.</p>
-            `;
-            
-        } catch (e) { 
-            // Diagnostic catch logic
-            logMsg(`BOOT_ERROR: ${e.message}`); 
-            bootBtn.disabled = false;
-            bootBtn.innerText = "RETRY_BOOT";
+    // Initialize the engine as soon as the window loads
+    window.addEventListener('load', async () => {
+        const engineReady = await bootBunkerEngine();
+        if (!engineReady) {
+            updateStatus("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
         }
-    };
+    });
 
-    // Navigation Logic
-    window.showPage = (id, btn) => {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${id}`).classList.add('active');
-        if(btn) btn.classList.add('active');
-    };
+    /**
+     * UI HELPER: Updates the terminal status text
+     */
+    function updateStatus(msg) {
+        const statusDisplay = document.getElementById('status-display');
+        if (statusDisplay) statusDisplay.innerText = `> ${msg}`;
+    }
 
-    // Placeholder for Protocol 01
-    window.executePhish = () => {
-        if (!gameState.operator) return logMsg("CRITICAL: IDENTITY_SYNC_REQUIRED.");
-        if (gameState.entropy <= 0) return logMsg("ERROR: INSUFFICIENT_ENTROPY.");
-        
-        gameState.entropy--;
-        let yieldAmount = Math.floor(Math.random() * 50) + 10;
-        gameState.meme += yieldAmount;
-        
-        sideEntropy.innerText = `${gameState.entropy}/10`;
-        sideMeme.innerText = gameState.meme;
-        logMsg(`PHISH_SUCCESS: GATHERED ${yieldAmount} $PUNKW FRAGMENTS.`);
-    };
-
-    // Initializer
-    async function run() {
-        try {
-            // Object-based init for stability
-            await init({ module_or_path: './kaspa_bg.wasm' }); 
+    /**
+     * ACTION: FORGE_NEW_IDENTITY
+     */
+    function handleForgeNew() {
+        const newMnemonic = forgeNewIdentity();
+        if (newMnemonic) {
+            const inputField = document.getElementById('mnemonic-input');
+            inputField.value = newMnemonic;
+            updateStatus("NEW_IDENTITY_FORGED: WRITE_IT_DOWN_NOW");
             
-            walletSvc = new WalletGen(kaspa, "mainnet");
-            logMsg("ENGINE_READY: WASM memory established.");
-
-            const savedAddr = localStorage.getItem('cpw_addr');
-            if (savedAddr) {
-                logMsg(`RECOGNIZED_OPERATOR: ${savedAddr.substring(0,12)}...`);
-                sideId.innerText = "RESTORE_REQUIRED";
-            }
-        } catch (e) { 
-            logMsg(`CRITICAL_FAIL: ${e.message}`); 
+            // Highlight the input so they see it
+            inputField.style.borderColor = "var(--kaspa-bright)";
         }
     }
-    run();
+
+    /**
+     * ACTION: BOOT_BUNKER (Sync/Login)
+     */
+    async function handleBunkerBoot() {
+        const mnemonicInput = document.getElementById('mnemonic-input').value.trim();
+
+        if (!mnemonicInput) {
+            updateStatus("ERROR: IDENTITY_STRING_REQUIRED");
+            return;
+        }
+
+        updateStatus("STATUS: SYNCING_WITH_DAG...");
+        
+        try {
+            const bunkerId = await syncBunkerIdentity(mnemonicInput);
+            
+            // Success Logic
+            updateStatus(`SUCCESS: BUNKER_${bunkerId.substring(0,10)}... ONLINE`);
+            
+            // Transition UI: Hide Boot, Show Bunker
+            setTimeout(() => {
+                document.getElementById('boot-screen').style.display = 'none';
+                document.getElementById('bunker-ui').style.display = 'block';
+                // Display the active Bunker ID in the UI
+                document.getElementById('display-bunker-id').innerText = bunkerId;
+            }, 1000);
+            
+        } catch (err) {
+            updateStatus("ERROR: SYNC_FAILED. VERIFY_MNEMONIC.");
+            console.error(err);
+        }
+    }
 </script>
 </body>
 </html>

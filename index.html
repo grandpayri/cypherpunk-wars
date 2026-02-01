@@ -2,218 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration 10.3 - Restored">
-    <title>CYPHERPUNK WARS | Command</title>
-    <style>
-        :root {
-            --kaspa-teal: #70C7BA;
-            --kaspa-bright: #49EACB;
-            --kaspa-dark: #0A0A0A;
-            --kaspa-glow: rgba(112, 199, 186, 0.3);
-        }
-        * { box-sizing: border-box; }
-        body {
-            background-color: var(--kaspa-dark);
-            color: var(--kaspa-teal);
-            font-family: 'Courier New', monospace;
-            margin: 0; padding: 0;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; width: 100vw; overflow: hidden;
-        }
-        body::before {
-            content: ""; display: block; position: fixed;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px; z-index: 1000; pointer-events: none;
-        }
-        .bunker-frame {
-            display: flex; flex-direction: column;
-            width: 98vw; height: 96vh;
-            border: 2px solid var(--kaspa-teal);
-            background: #000; box-shadow: 0 0 20px var(--kaspa-glow);
-            z-index: 5;
-        }
-        .header {
-            height: 50px; border-bottom: 1px solid var(--kaspa-teal);
-            padding: 0 20px; display: flex; justify-content: space-between; align-items: center;
-            flex-shrink: 0; background: rgba(0,0,0,0.8);
-        }
-        .main-container { display: flex; flex-grow: 1; overflow: hidden; }
-        .sidebar {
-            width: 280px; border-right: 1px solid var(--kaspa-teal);
-            padding: 15px; display: flex; flex-direction: column;
-            flex-shrink: 0; background: rgba(112, 199, 186, 0.05);
-        }
-        .viewport { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
-        .ascii-logo {
-            font-size: 8px; line-height: 9px; white-space: pre;
-            color: var(--kaspa-bright); text-align: center; 
-            margin-bottom: 25px; flex-shrink: 0;
-            text-shadow: 0 0 8px var(--kaspa-bright);
-        }
-        .content-area {
-            flex-grow: 1; border: 1px solid #222;
-            padding: 20px; background: #050505;
-            position: relative; overflow-y: auto;
-        }
-        .terminal-log {
-            height: 150px; border-top: 1px solid var(--kaspa-teal);
-            background: #000; padding: 10px; color: var(--kaspa-teal);
-            font-size: 0.8rem; overflow-y: auto; flex-shrink: 0;
-            line-height: 1.4;
-        }
-        .nav-btn {
-            background: transparent; border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-teal); padding: 8px; cursor: pointer;
-            text-align: left; font-family: inherit; font-size: 0.75rem; margin-bottom: 5px; width: 100%;
-        }
-        .nav-btn.active { background: var(--kaspa-teal); color: #000; font-weight: bold; }
-        .stat-group { border-top: 1px solid #333; padding-top: 10px; }
-        .stat-item { margin-bottom: 8px; }
-        .stat-label { color: var(--kaspa-bright); font-size: 0.65rem; display: block; letter-spacing: 1px; }
+    <title>CYPHERPUNK WARS | GATEWAY</title>
+    <link rel="stylesheet" href="style.css"> </head>
+<body class="bunker-frame">
+    <div class="viewport">
+        <div class="ascii-logo">...</div>
+        <div id="log" class="terminal-log">> INITIALIZING_GATEWAY_PROTOCOL...</div>
+    </div>
 
-        .page { display: none; }
-        .page.active { display: block; }
-
-        .input-terminal {
-            background: #000; border: 1px dashed var(--kaspa-teal);
-            color: var(--kaspa-bright); padding: 10px; width: 100%;
-            font-family: 'Courier New', monospace; margin: 10px 0;
-        }
-
-        .btn-execute {
-            background: var(--kaspa-bright); color: #000;
-            padding: 10px 20px; border: none; cursor: pointer;
-            font-family: inherit; font-weight: bold; margin-top: 10px;
-        }
+    <script type="module">
+        import { initKaspaFramework } from './kaspa.js';
         
-        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
-        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #222; border: 1px solid var(--kaspa-teal); transition: .4s;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: var(--kaspa-teal); transition: .4s;
-        }
-        input:checked + .slider:before { transform: translateX(16px); }
-
-        .readme-footer { margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333; }
-        .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
-    </style>
-</head>
-<body>
-
-<div class="bunker-frame">
-    <div class="header">
-        <div class="toggle-box">
-            <span>TN11</span>
-            <label class="switch"><input type="checkbox" id="netToggle" checked><span class="slider"></span></label>
-            <span>MAINNET</span>
-        </div>
-        <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
-        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
-    </div>
-
-    <div class="main-container">
-        <div class="sidebar">
-            <nav class="nav-menu">
-                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
-                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
-                <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
-                <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
-                <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
-                <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
-            </nav>
-
-            <div class="stat-group">
-                <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
-                <div class="stat-item"><span class="stat-label">FUEL ($KAS)</span><span id="sideKas">0.00</span></div>
-                <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
-                <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
-                <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
-                <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
-            </div>
-
-            <div class="readme-footer">
-                <a href="README.html" target="_blank">[ VIEW_PROTOCOL_SPEC ]</a>
-            </div>
-        </div>
-
-        <div class="viewport">
-            <div class="ascii-logo">
-    ____            _               _____             _     __          __            
-  / ____|          | |             |  __ \           | |    \ \        / /            
- | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
- | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
- | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
-  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
-         __/ | |                                                                      
-        |___/|_|                                                                      
-            </div>
-
-            <div class="content-area">
-                <div id="page-boot" class="page active">
-                    <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
-                    <p>Initialize your High-Entropy Operator Identity.</p>
-                    
-                    <input type="password" id="mnemonic-input" class="input-terminal" placeholder="PASTE_MNEMONIC_OR_FORGE_NEW...">
-                    
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-execute" onclick="handleForgeNew()">EXECUTE_HANDSHAKE</button>
-                        <button class="btn-execute" onclick="handleBunkerBoot()" style="background: var(--kaspa-teal);">BOOT_BUNKER</button>
-                    </div>
-                </div>
-
-                <div id="page-phish" class="page">
-                    <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
-                    <p>Scan the DAG for $PUNKW fragments. Costs 1 Entropy.</p>
-                    <button class="btn-execute" onclick="executePhish()">BROADCAST_PHISH</button>
-                </div>
-
-                <div id="page-build" class="page"><h3>CONSTRUCTION_DEFERRED</h3></div>
-                <div id="page-attack" class="page"><h3>OFFENSE_OFFLINE</h3></div>
-                <div id="page-research" class="page"><h3>R&D_ENCRYPTED</h3></div>
-                <div id="page-hack" class="page"><h3>MAINFRAME_LOCKED</h3></div>
-            </div>
-
-            <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...</div>
-        </div>
-    </div>
-</div>
-
-<script type="module">
-    // 1. Import the SDK from your root kaspa.js
-    import * as kaspa_wasm from './kaspa.js';
-
-    async function initBunker() {
-        try {
-            // 2. Initialize using the .wasm file in your root
-            const kaspa = await kaspa_wasm.default('./kaspa_bg.wasm');
+        window.addEventListener('load', async () => {
+            await initKaspaFramework(); // Bootstrap WASM
+            const savedId = localStorage.getItem('bunker_id');
             
-            // 3. Attach it to the window so wallet-gen.js can see it
-            window.kaspa = kaspa;
-            console.log("WASM_LOADED: Engine variable assigned to window.");
-
-            // 4. Load your logic files manually now that the engine is ready
-            const scripts = ['wallet-gen.js', 'initialize.js'];
-            for (const src of scripts) {
-                const s = document.createElement('script');
-                s.src = src;
-                s.async = false; // Keep them in order
-                document.body.appendChild(s);
+            if (savedId) {
+                // Scenario 4: Returning Operator
+                window.location.href = 'resume.html';
+            } else {
+                // Scenarios 1, 2, 3: New/Manual Entry
+                window.location.href = 'auth_choice.html'; // Or a choice div
             }
-        } catch (e) {
-            console.error("Bunker Boot Failed:", e);
-            const log = document.getElementById('log');
-            if(log) log.innerText += "\n> FATAL: WASM_LOAD_FAILURE - CHECK CONSOLE";
-        }
-    }
-
-    initBunker();
-</script>
-  
+        });
+    </script>
 </body>
 </html>

@@ -184,8 +184,33 @@
     </div>
 </div>
 
-<script src="wallet-gen.js"></script>    
-<script src="initialize.js"></script>
+<script type="module">
+    // 1. Import the SDK logic
+    import * as kaspa_wasm from './kaspa/kaspa-wasm.js';
+
+    async function initBunker() {
+        try {
+            // 2. Initialize the WASM engine (Point to your .wasm file location)
+            const kaspa = await kaspa_wasm.default('./kaspa/kaspa-wasm_bg.wasm');
+            
+            // 3. Make the engine available to your other files
+            window.kaspa = kaspa;
+            
+            // 4. Now load your logic files
+            const scripts = ['wallet-gen.js', 'initialize.js'];
+            for (const src of scripts) {
+                const s = document.createElement('script');
+                s.src = src;
+                document.body.appendChild(s);
+            }
+        } catch (e) {
+            console.error("Bunker Boot Failed:", e);
+            document.getElementById('log').innerText += "\n> FATAL: WASM_LOAD_FAILURE";
+        }
+    }
+
+    initBunker();
+</script>
   
 </body>
 </html>

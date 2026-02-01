@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Import</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Specific layout for the Import Inputs */
+        .import-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 20px 0;
+        }
+        .import-slot {
+            background: #000;
+            border: 1px solid rgba(0, 255, 159, 0.3);
+            display: flex;
+            align-items: center;
+            padding: 5px;
+        }
+        .import-slot input {
+            background: transparent;
+            border: none;
+            color: var(--kaspa-bright);
+            font-family: inherit;
+            font-size: 0.8rem;
+            width: 100%;
+            outline: none;
+        }
+        .import-num {
+            font-size: 0.6rem;
+            color: #555;
+            margin-right: 5px;
+            width: 20px;
+        }
+    </style>
+</head>
+<body class="bunker-frame">
+
+<div class="central-gate">
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">[02] IDENTITY_IMPORT_PROTOCOL</h2>
+        <p>Enter your 24-word recovery phrase to resync your bunker with the global grid.</p>
+
+        <div id="import-grid" class="import-grid">
+            <script>
+                const grid = document.currentScript.parentElement;
+                for (let i = 1; i <= 24; i++) {
+                    grid.innerHTML += `
+                        <div class="import-slot">
+                            <span class="import-num">${String(i).padStart(2, '0')}</span>
+                            <input type="password" class="seed-word" data-index="${i}" autocomplete="off" placeholder="...">
+                        </div>
+                    `;
+                }
+            </script>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn-execute" onclick="validateAndImport()">INITIATE_UPLINK</button>
+            <button class="btn-execute" style="border-color: #444; color: #444;" onclick="window.location.href='index.html'">ABORT_LOGIN</button>
+        </div>
+    </div>
+
+    <div id="log" class="terminal-log">> AWAITING_SEED_PHRASE_INPUT...</div>
+</div>
+
+<script src="kaspa.js"></script>
+<script src="wallet-gen.js"></script>
+<script>
+    async function validateAndImport() {
+        const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
+        const log = document.getElementById('log');
+
+        if (words.some(w => w === "")) {
+            log.innerHTML = `<span style="color: var(--hazard-yellow)">> ERROR: INCOMPLETE_IDENTITY. ALL 24 SLOTS MUST BE FILLED.</span>`;
+            return;
+        }
+
+        log.innerHTML = `> VALIDATING_ENTROPY...`;
+        
+        // This is where you'd call your library to check the mnemonic
+        // For now, we simulate success and save the first word as a dummy ID
+        try {
+            const mnemonic = words.join(' ');
+            // const address = await deriveAddressFromMnemonic(mnemonic);
+            
+            localStorage.setItem('bunker_id', 'imported_identity_placeholder'); 
+            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. REDIRECTING_TO_BUNKER...`;
+            
+            setTimeout(() => {
+                window.location.href = 'bunker.html';
+            }, 1500);
+        } catch (e) {
+            log.innerHTML += `<br><span style="color: var(--hazard-yellow)">> ERROR: INVALID_CHECKSUM. CHECK_WORD_ORDER.</span>`;
+        }
+    }
+</script>
+
+</body>
+</html>

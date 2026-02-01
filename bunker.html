@@ -33,42 +33,79 @@
 <body class="bunker-frame">
 
 <div class="viewport" style="width: 95%; max-width: 1200px;">
-    <table class="bunker-grid">
-        <tr class="header-row">
-            <td colspan="2">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.8rem;">OPERATOR: <span id="op-id" style="color: var(--kaspa-bright)">...</span></span>
-                    <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
-                    <span style="font-size: 0.8rem; color: var(--kaspa-bright);">STATUS: ONLINE</span>
-                </div>
-            </td>
-        </tr>
+   <table class="bunker-grid">
+    <tr>
+        <td colspan="2" class="ascii-row" style="text-align: center; border-bottom: 2px solid var(--kaspa-teal); padding: 20px 0;">
+            <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.5rem; line-height: 1; margin: 0 auto; display: inline-block; text-align: left;">
+  _____            _                                     _      __          __              
+ / ____|          | |                                   | |     \ \        / /              
+| |    _   _ _ __ | |__   ___ _ __ _ __  _   _ _ __ | | __   \ \  /\  / /_ _ _ __ ___ 
+| |   | | | | '_ \| '_ \ / _ \ '__| '_ \| | | | '_ \| |/ /    \ \/  \/ / _` | '__/ __|
+| |___| |_| | |_) | | | |  __/ |  | |_) | |_| | | | |   <      \  /\  / (_| | |  \__ \
+ \_____\__, | .__/|_| |_|\___|_|  | .__/ \__,_|_| |_|_|\_\      \/  \/ \__,_|_|  |___/
+        __/ | |                   | |                                                   
+       |___/|_|                   |_|                                                   
+            </pre>
+        </td>
+    </tr>
 
-        <tr>
-            <td class="sidebar-col">
-                <div class="stat-label">Grid Stability</div>
-                <span class="stat-val" id="sideGWh">0 GWh</span>
+    <tr class="header-row">
+        <td colspan="2">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.8rem;">OPERATOR: <span id="op-id" style="color: var(--kaspa-bright)">...</span></span>
+                <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
+                <span style="font-size: 0.8rem; color: var(--kaspa-bright);">STATUS: ONLINE</span>
+            </div>
+        </td>
+    </tr>
 
-                <div class="stat-label">War Chest</div>
-                <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
+    <tr>
+        <td class="sidebar-col" style="width: 250px; border-right: 1px solid rgba(0, 255, 159, 0.2);">
+            <div class="stat-label">Grid Stability</div>
+            <span class="stat-val" id="sideGWh">0 GWh</span>
+            <div class="stat-label">War Chest</div>
+            <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
+            <div class="stat-label">Infrastructure</div>
+            <span class="stat-val" id="sideSectors">1 SECTOR</span>
+            <div class="stat-label">Compute Load</div>
+            <span class="stat-val" id="sideCycles">10/10 CYC</span>
+            
+            <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
+            
+            <button class="nav-link" onclick="window.location.href='bunker.html'">> [01] COMMAND</button>
+            <button class="nav-link" onclick="window.location.href='attack.html'">> [02] ATTACK</button>
+            <button class="nav-link" onclick="window.location.href='research.html'">> [03] RESEARCH</button>
+            <button class="nav-link" onclick="window.location.href='leaderboard.html'">> [04] RANKINGS</button>
+        </td>
 
-                <div class="stat-label">Infrastructure</div>
-                <span class="stat-val" id="sideSectors">1 SECTOR</span>
+        <td>
+            <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
+            <p style="font-size: 0.85rem;">Allocate 1 Cycle and 1 GWh to scrape the BlockDAG for $PUNKW fragments.</p>
+            <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
+                <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+            </div>
+            <div id="log" class="terminal-log">> CONNECTION_STABLE. AWAITING_INSTRUCTION...</div>
+        </td>
+    </tr>
 
-                <div class="stat-label">Compute Load</div>
-                <span class="stat-val" id="sideCycles">10/10 CYC</span>
-
-                <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
-
-                <button class="nav-link" onclick="window.location.href='bunker.html'">> [01] COMMAND</button>
-                <button class="nav-link" onclick="window.location.href='attack.html'">> [02] ATTACK</button>
-                <button class="nav-link" onclick="window.location.href='research.html'">> [03] RESEARCH</button>
-                <button class="nav-link" onclick="window.location.href='leaderboard.html'">> [04] RANKINGS</button>
-            </td>
-
-            <td>
-                <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
-                <p style="font-size: 0.85rem;">Allocate 1 Cycle and 1 GWh to scrape the BlockDAG for $PUNKW fragments.</p>
-                
-                <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
-                    <button class="btn-execute" style="padding: 20px 50px; font-size: 1.2rem;" onclick="executePhish()">
+    <tr>
+        <td colspan="2" style="border-top: 2px solid var(--kaspa-teal); padding: 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="width: 33.33%; text-align: center; border-right: 1px solid rgba(0, 255, 159, 0.2); padding: 15px;">
+                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='documentation/gameplay.html'">[DOCS] GAMEPLAY</button>
+                    </td>
+                    <td style="width: 33.33%; text-align: center; border-right: 1px solid rgba(0, 255, 159, 0.2); padding: 15px;">
+                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='documentation/architecture.html'">[DOCS] ARCHITECTURE</button>
+                    </td>
+                    <td style="width: 33.33%; text-align: center; padding: 15px;">
+                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='documentation/whitepaper.html'">[DOCS] WHITEPAPER</button>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</div>
+</body>
+</html>

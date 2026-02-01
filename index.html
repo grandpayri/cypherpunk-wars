@@ -4,11 +4,32 @@
     <meta charset="UTF-8">
     <title>CYPHERPUNK WARS | LOGIN</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Specific layout for the Gateway Table */
+        .gateway-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid var(--kaspa-teal); /* The Green Frame */
+            background: rgba(0, 20, 20, 0.8);
+        }
+        .gateway-table td {
+            border: 1px solid rgba(0, 255, 159, 0.2);
+            padding: 20px;
+            vertical-align: top;
+        }
+        .ascii-row { text-align: center; background: #000; }
+        .welcome-row { text-align: center; }
+        .action-column { width: 33.33%; text-align: center; }
+        .help-text { font-size: 0.75rem; color: #888; margin-top: 10px; line-height: 1.4; }
+    </style>
 </head>
 <body class="bunker-frame">
 
 <div class="viewport central-gate">
-    <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.8rem; line-height: 1;">
+    <table class="gateway-table">
+        <tr>
+            <td colspan="3" class="ascii-row">
+                <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.7rem;">
     ____            _               _____             _     __          __            
   / ____|          | |             |  __ \           | |    \ \        / /            
  | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
@@ -16,46 +37,59 @@
  | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
   \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
          __/ | |                                                                      
-        |___/|_|                                                      
-    </pre>
+        |___/|_|                                               
+                </pre>
+            </td>
+        </tr>
 
-    <div class="welcome-text" style="text-align: center; margin-bottom: 30px;">
-        <h2 style="color: var(--kaspa-teal);">STATUS: CONNECTION_ESTABLISHED</h2>
-        <p>Welcome, Operator. Your high-energy AI hacking cluster is awaiting instructions.<br>
-        Access the global BlockDAG grid by authenticating your identity below.</p>
-    </div>
+        <tr>
+            <td colspan="3" class="welcome-row">
+                <h3 style="color: var(--kaspa-bright); margin: 0;">STATUS: GRID_LINK_AWAITING_AUTH</h3>
+                <p style="margin: 10px 0 0 0;">
+                    Welcome, Operator. Identify your cluster to initialize GWh allocation.
+                </p>
+            </td>
+        </tr>
 
-    <div class="auth-grid">
-        <div class="auth-card">
-            <button class="btn-execute" onclick="window.location.href='forge.html'">[01] FORGE_NEW_IDENTITY</button>
-            <p class="help-text">Select this if you are a new operator. We will generate a unique 24-word seed phrase to secure your bunker.</p>
-        </div>
+        <tr>
+            <td class="action-column">
+                <button class="btn-execute" onclick="window.location.href='forge.html'">FORGE_NEW</button>
+                <div class="help-text">Generate a 24-word High-Entropy key. Standard protocol for new bunkers.</div>
+            </td>
 
-        <div class="auth-card">
-            <button class="btn-execute" onclick="window.location.href='import.html'">[02] IMPORT_IDENTITY</button>
-            <p class="help-text">Select this to access an existing bunker using your 24-word recovery phrase.</p>
-        </div>
+            <td class="action-column">
+                <button class="btn-execute" onclick="window.location.href='import.html'">IMPORT_ID</button>
+                <div class="help-text">Recover access using an existing seed phrase. Resyncs data center to DAG.</div>
+            </td>
 
-        <div class="auth-card" id="resume-section" style="display:none;">
-            <button class="btn-execute" style="background: var(--kaspa-bright); color: #000;" onclick="window.location.href='resume.html'">
-                [03] RESUME_ACTIVE_SESSION
-            </button>
-            <p class="help-text">Local credentials detected. Re-authenticate to enter the Command Center immediately.</p>
-        </div>
-    </div>
+            <td class="action-column" id="resume-cell">
+                <div id="resume-content" style="opacity: 0.3;">
+                    <button class="btn-execute" disabled>RESUME</button>
+                    <div class="help-text">No active session detected in local cache.</div>
+                </div>
+            </td>
+        </tr>
+    </table>
 
-    <div id="log" class="terminal-log" style="margin-top: 40px;">
-        > AWAITING_OPERATOR_INPUT...
+    <div id="log" class="terminal-log" style="margin-top: 20px;">
+        > SYSTEM_READY. AWAITING_OPERATOR_SELECTION...
     </div>
 </div>
 
 <script>
-    // Simple logic to show the "Resume" button only if data exists
     window.addEventListener('load', () => {
         const savedId = localStorage.getItem('bunker_id');
         if (savedId) {
-            document.getElementById('resume-section').style.display = 'block';
-            document.getElementById('log').innerText = `> ACTIVE_ID_DETECTED: ${savedId.substring(0,12)}...`;
+            const resumeCell = document.getElementById('resume-content');
+            resumeCell.style.opacity = "1.0";
+            resumeCell.innerHTML = `
+                <button class="btn-execute" style="background: var(--kaspa-bright); color: #000;" 
+                        onclick="window.location.href='resume.html'">RESUME_SESSION</button>
+                <div class="help-text" style="color: var(--kaspa-bright)">
+                    ACTIVE_ID: ${savedId.substring(0,10)}... detected.
+                </div>
+            `;
+            document.getElementById('log').innerText = `> OPERATOR_RECOGNIZED. READY TO RESUME.`;
         }
     });
 </script>

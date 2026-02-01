@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration 10.0">
+    <meta name="version" content="Iteration 10.1">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -159,7 +159,8 @@
                     <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
                     <p>Initialize your 24-word High-Entropy Operator Identity.</p>
                     
-                    <button id="initBtn" class="btn-execute" onclick="performBoot()">EXECUTE_HANDSHAKE</button>
+                    <button onclick="handleForgeNew()">EXECUTE_HANDSHAKE</button>
+                    <button onclick="handleBunkerBoot()">BOOT_BUNKER</button>                    
                     
                     <div id="seedBackupArea" style="display:none; margin-top: 20px;">
                         <p style="color:#ff00ff; font-size: 0.7rem;">!! CRITICAL: RECORD MASTER KEY !!</p>
@@ -189,6 +190,12 @@
         const engineReady = await bootBunkerEngine();
         if (!engineReady) {
             updateStatus("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+        } else {
+            // Check if we have a saved Bunker ID to auto-load
+            const savedId = localStorage.getItem('bunker_id');
+            if (savedId) {
+                updateStatus(`RECON_COMPLETE: PREVIOUS_ID_${savedId.substring(0,8)}..._DETECTED`);
+            }
         }
     });
 
@@ -201,22 +208,21 @@
     }
 
     /**
-     * ACTION: FORGE_NEW_IDENTITY
+     * ACTION: FORGE_NEW_IDENTITY (Linked to Execute Handshake)
      */
     function handleForgeNew() {
         const newMnemonic = forgeNewIdentity();
         if (newMnemonic) {
             const inputField = document.getElementById('mnemonic-input');
-            inputField.value = newMnemonic;
-            updateStatus("NEW_IDENTITY_FORGED: WRITE_IT_DOWN_NOW");
-            
-            // Highlight the input so they see it
-            inputField.style.borderColor = "var(--kaspa-bright)";
+            if(inputField) {
+                inputField.value = newMnemonic;
+                updateStatus("NEW_IDENTITY_FORGED: RECORD_KEY_IMMEDIATELY");
+            }
         }
     }
 
     /**
-     * ACTION: BOOT_BUNKER (Sync/Login)
+     * ACTION: BOOT_BUNKER (Linked to Sync/Login)
      */
     async function handleBunkerBoot() {
         const mnemonicInput = document.getElementById('mnemonic-input').value.trim();
@@ -231,15 +237,18 @@
         try {
             const bunkerId = await syncBunkerIdentity(mnemonicInput);
             
-            // Success Logic
+            // Success: Update the Operator display
+            const opDisplay = document.getElementById('operator-display'); // Ensure this ID exists in your sidebar
+            if(opDisplay) opDisplay.innerText = bunkerId.substring(0,12) + "...";
+            
             updateStatus(`SUCCESS: BUNKER_${bunkerId.substring(0,10)}... ONLINE`);
             
-            // Transition UI: Hide Boot, Show Bunker
+            // Transition UI: Hide Handshake, Show Bunker
             setTimeout(() => {
-                document.getElementById('boot-screen').style.display = 'none';
-                document.getElementById('bunker-ui').style.display = 'block';
-                // Display the active Bunker ID in the UI
-                document.getElementById('display-bunker-id').innerText = bunkerId;
+                const handshakeScreen = document.getElementById('handshake-screen'); // or whatever your ID is
+                if(handshakeScreen) handshakeScreen.style.display = 'none';
+                
+                updateStatus("SYSTEM_INITIALIZED: STANDBY_FOR_PHISH_COMMAND");
             }, 1000);
             
         } catch (err) {

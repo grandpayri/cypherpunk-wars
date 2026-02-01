@@ -1,1 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Bunker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+<div class="bunker-frame">
+    <div class="header">
+        <div style="color: var(--kaspa-bright)">BUNKER_ID: <span id="op-address">LOADING...</span></div>
+        <div style="font-weight: bold; letter-spacing: 2px;">COMMAND_CENTER_v0.1</div>
+        <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">GRID_STABLE</div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="stat-group">
+                <div class="stat-item">
+                    <span class="stat-label">GRID_STABILITY (GWh)</span>
+                    <span id="sideGWh" style="font-size: 1.2rem; color: #fff;">0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">WAR_CHEST ($PUNKW)</span>
+                    <span id="sidePunkw" style="font-size: 1.2rem;">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">INFRASTRUCTURE (SECTORS)</span>
+                    <span id="sideSectors">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">COMPUTE_LOAD (CYCLES)</span>
+                    <span id="sideCycles">10/10</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu" style="margin-top: 20px;">
+                <button class="nav-btn active">[01] COMMAND</button>
+                <button class="nav-btn" onclick="window.location.href='research.html'">[02] R&D_HACKS</button>
+                <button class="nav-btn" onclick="window.location.href='leaderboard.html'">[03] LEADERBOARD</button>
+            </nav>
+        </div>
+
+        <div class="viewport">
+            <div class="content-area">
+                <h3 style="color: var(--kaspa-bright)">AI_INGESTION_MODULE</h3>
+                <p>Allocate 1 Cycle and 1 GWh to scrape the DAG for $PUNKW fragments.</p>
+                
+                <div class="action-card" style="border: 1px dashed var(--kaspa-teal); padding: 20px; text-align: center;">
+                    <button class="btn-execute" id="phish-btn" onclick="executePhish()" style="font-size: 1.5rem; width: 100%;">
+                        START_INGESTION_LOOP
+                    </button>
+                </div>
+
+                <div id="active-formula" style="font-size: 0.7rem; color: #555; margin-top: 10px;">
+                    ESTIMATED_YIELD: 10 - 50 $PUNKW (Based on 1 Sector)
+                </div>
+            </div>
+
+            <div id="log" class="terminal-log">> GRID_LINK_ESTABLISHED...</div>
+        </div>
+    </div>
+</div>
+
+<script src="kaspa.js"></script>
+<script src="wallet-gen.js"></script>
+<script src="bunker-logic.js"></script>
+</body>
+</html>

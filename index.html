@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="Iteration 10.1">
+    <meta name="version" content="Iteration 10.2">
     <title>CYPHERPUNK WARS | Command</title>
     <style>
         :root {
@@ -83,10 +82,14 @@
             font-family: inherit; font-weight: bold; margin-top: 10px;
             transition: all 0.3s ease;
         }
-        .btn-execute:disabled {
-            background: #222; color: var(--kaspa-teal);
-            cursor: wait; border: 1px solid var(--kaspa-teal);
+        .btn-execute:hover { background: #fff; box-shadow: 0 0 15px var(--kaspa-bright); }
+
+        .input-terminal {
+            background: #000; border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-bright); padding: 10px; width: 100%;
+            font-family: 'Courier New', monospace; margin: 10px 0;
         }
+
         .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--kaspa-bright); }
         .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -99,7 +102,6 @@
         }
         input:checked + .slider:before { transform: translateX(16px); }
 
-        /* Document Link Styling */
         .readme-footer { margin-top: auto; text-align: center; font-size: 0.7rem; padding-top: 10px; border-top: 1px solid #333; }
         .readme-footer a { color: var(--kaspa-bright); text-decoration: none; border-bottom: 1px dashed; }
     </style>
@@ -115,147 +117,3 @@
         </div>
         <div style="font-weight: bold; letter-spacing: 4px; color: var(--kaspa-bright);">CYPHERPUNK_WARS_v1.0</div>
         <div id="netIndicator" style="font-size: 0.7rem; border: 1px solid var(--kaspa-teal); padding: 2px 10px;">NET: STANDBY</div>
-    </div>
-
-    <div class="main-container">
-        <div class="sidebar">
-            <nav class="nav-menu">
-                <button class="nav-btn active" onclick="showPage('boot', this)">[00] BOOT_SEQUENCE</button>
-                <button class="nav-btn" onclick="showPage('phish', this)">[01] PHISH_NETWORK</button>
-                <button class="nav-btn" onclick="showPage('build', this)">[02] BUILD_INFRA</button>
-                <button class="nav-btn" onclick="showPage('attack', this)">[03] ATTACK_NODE</button>
-                <button class="nav-btn" onclick="showPage('research', this)">[04] R&D_HACKS</button>
-                <button class="nav-btn" onclick="showPage('hack', this)">[05] EXECUTE_HACK</button>
-            </nav>
-
-            <div class="stat-group">
-                <div class="stat-item"><span class="stat-label">OPERATOR</span><span id="sideId">NOT_SYNCED</span></div>
-                <div class="stat-item"><span class="stat-label">FUEL ($KAS)</span><span id="sideKas">0.00</span></div>
-                <div class="stat-item"><span class="stat-label">ENTROPY</span><span id="sideEntropy">10/10</span></div>
-                <div class="stat-item"><span class="stat-label">WAR_CHEST ($PUNKW)</span><span id="sideMeme">0</span></div>
-                <div class="stat-item"><span class="stat-label">SECTORS</span><span id="sideSectors">0</span></div>
-                <div class="stat-item"><span class="stat-label">DAEMONS</span><span id="sideDaemons">0</span></div>
-            </div>
-
-            <div class="readme-footer">
-                <a href="README.html" target="_blank">[ VIEW_PROTOCOL_SPEC ]</a>
-            </div>
-        </div>
-
-        <div class="viewport">
-            <div class="ascii-logo">
-   _____            _               _____             _     __          __            
-  / ____|          | |             |  __ \           | |    \ \        / /            
- | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
- | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
- | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
-  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
-         __/ | |                                                                      
-        |___/|_|                                                                      
-            </div>
-
-            <div class="content-area">
-                <div id="page-boot" class="page active">
-                    <h3 style="color: var(--kaspa-bright)">BUNKER_HANDSHAKE</h3>
-                    <p>Initialize your 24-word High-Entropy Operator Identity.</p>
-                    
-                    <button onclick="handleForgeNew()">EXECUTE_HANDSHAKE</button>
-                    <button onclick="handleBunkerBoot()">BOOT_BUNKER</button>                    
-                    
-                    <div id="seedBackupArea" style="display:none; margin-top: 20px;">
-                        <p style="color:#ff00ff; font-size: 0.7rem;">!! CRITICAL: RECORD MASTER KEY !!</p>
-                        <div id="seedDisplay" style="border:1px dashed #ff00ff; padding:10px; color:#ff00ff; font-size:0.8rem; word-break:break-all;"></div>
-                        <button class="btn-execute" style="background:#ff00ff; color:#000;" onclick="confirmBackup()">I_HAVE_RECORDED_KEY</button>
-                    </div>
-                </div>             
-                <div id="page-phish" class="page">
-                    <h3 style="color: var(--kaspa-bright)">PROTOCOL: PHISH_NETWORK</h3>
-                    <p>Scan the DAG for $PUNKW fragments. Costs 1 Entropy.</p>
-                    <button class="btn-execute" onclick="executePhish()">BROADCAST_PHISH</button>
-                </div>
-            </div>
-
-            <div id="log" class="terminal-log">> AWAITING_AUTHENTICATION...<br></div>
-        </div>
-    </div>
-</div>
-
-<script>
-    /**
-     * CYPHERPUNK WARS: MAIN OPERATOR INTERFACE
-     */
-
-    // Initialize the engine as soon as the window loads
-    window.addEventListener('load', async () => {
-        const engineReady = await bootBunkerEngine();
-        if (!engineReady) {
-            updateStatus("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
-        } else {
-            // Check if we have a saved Bunker ID to auto-load
-            const savedId = localStorage.getItem('bunker_id');
-            if (savedId) {
-                updateStatus(`RECON_COMPLETE: PREVIOUS_ID_${savedId.substring(0,8)}..._DETECTED`);
-            }
-        }
-    });
-
-    /**
-     * UI HELPER: Updates the terminal status text
-     */
-    function updateStatus(msg) {
-        const statusDisplay = document.getElementById('status-display');
-        if (statusDisplay) statusDisplay.innerText = `> ${msg}`;
-    }
-
-    /**
-     * ACTION: FORGE_NEW_IDENTITY (Linked to Execute Handshake)
-     */
-    function handleForgeNew() {
-        const newMnemonic = forgeNewIdentity();
-        if (newMnemonic) {
-            const inputField = document.getElementById('mnemonic-input');
-            if(inputField) {
-                inputField.value = newMnemonic;
-                updateStatus("NEW_IDENTITY_FORGED: RECORD_KEY_IMMEDIATELY");
-            }
-        }
-    }
-
-    /**
-     * ACTION: BOOT_BUNKER (Linked to Sync/Login)
-     */
-    async function handleBunkerBoot() {
-        const mnemonicInput = document.getElementById('mnemonic-input').value.trim();
-
-        if (!mnemonicInput) {
-            updateStatus("ERROR: IDENTITY_STRING_REQUIRED");
-            return;
-        }
-
-        updateStatus("STATUS: SYNCING_WITH_DAG...");
-        
-        try {
-            const bunkerId = await syncBunkerIdentity(mnemonicInput);
-            
-            // Success: Update the Operator display
-            const opDisplay = document.getElementById('operator-display'); // Ensure this ID exists in your sidebar
-            if(opDisplay) opDisplay.innerText = bunkerId.substring(0,12) + "...";
-            
-            updateStatus(`SUCCESS: BUNKER_${bunkerId.substring(0,10)}... ONLINE`);
-            
-            // Transition UI: Hide Handshake, Show Bunker
-            setTimeout(() => {
-                const handshakeScreen = document.getElementById('handshake-screen'); // or whatever your ID is
-                if(handshakeScreen) handshakeScreen.style.display = 'none';
-                
-                updateStatus("SYSTEM_INITIALIZED: STANDBY_FOR_PHISH_COMMAND");
-            }, 1000);
-            
-        } catch (err) {
-            updateStatus("ERROR: SYNC_FAILED. VERIFY_MNEMONIC.");
-            console.error(err);
-        }
-    }
-</script>
-</body>
-</html>

@@ -2,73 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CypherPunk Wars | System Architecture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Architecture</title>
+    <link rel="stylesheet" href="../style.css">
     <style>
-        :root {
-            --kaspa-teal: #70C7BA;
-            --kaspa-bright: #49EACB;
-            --kaspa-dark: #0A0A0A;
-            --kaspa-glow: rgba(112, 199, 186, 0.3);
-        }
-        body {
-            background-color: var(--kaspa-dark);
-            color: var(--kaspa-teal);
-            font-family: 'Courier New', monospace;
+        .manual-container {
+            width: 90%;
+            max-width: 800px;
+            border: 2px solid var(--kaspa-teal);
+            background: rgba(0, 20, 20, 0.9);
             padding: 40px;
-            max-width: 900px;
-            margin: auto;
-            border: 1px solid var(--kaspa-glow);
+            margin: 20px auto;
         }
-        h1, h2 { color: var(--kaspa-bright); text-transform: uppercase; border-bottom: 1px solid var(--kaspa-glow); }
-        .component { margin: 20px 0; padding: 20px; border: 1px dashed var(--kaspa-teal); }
-        .highlight { color: #fff; font-weight: bold; }
+        .arch-section { margin-bottom: 25px; }
+        .arch-title { color: var(--kaspa-bright); font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #1a332a; display: block; margin-bottom: 10px; }
+        code { background: #000; color: var(--kaspa-bright); padding: 2px 5px; }
     </style>
 </head>
-<body>
-    <nav style="margin-bottom: 20px; padding: 10px; border-bottom: 1px solid var(--kaspa-glow);">
-        <a href="../index.html" style="color: var(--kaspa-bright); text-decoration: none; font-weight: bold;">
-            [ < RETURN_TO_BUNKER ]
-        </a>
-        <span style="color: var(--kaspa-teal); margin: 0 15px;">|</span>
-        <a href="../README.html" style="color: var(--kaspa-teal); text-decoration: none;">[ SYSTEM_INDEX ]</a>
-    </nav>
-    <h1>Technical Architecture: The Decentralized Bunker</h1>
+<body class="bunker-frame">
 
-    <div class="component">
-        <h2>1. Frontend: Agnostic SPA Hosting</h2>
-        <p>CypherPunk Wars is built as a <span class="highlight">Single Page Application (SPA)</span>. While our Kaspathon demo is hosted on GitHub Pages, the architecture is compatible with any Node.js web server or decentralized hosting (IPFS/Arweave).</p>
-        <ul>
-            <li><strong>Zero Backend</strong>: There is no proprietary database or server-side logic.</li>
-            <li><strong>Portability</strong>: Any operator can host their own "Bunker Interface" by simply serving the static JS/WASM files.</li>
-        </ul>
+<div class="manual-container">
+    <h1 style="color: var(--kaspa-bright); border-bottom: 2px solid var(--kaspa-teal); padding-bottom: 10px;">
+        [MAN_02] SYSTEM_ARCHITECTURE
+    </h1>
+
+    <div class="arch-section">
+        <span class="arch-title">01. DECENTRALIZED_STACK</span>
+        <p>Cypherpunk Wars is a "Serverless" decentralized application (dApp). There is no central database. All game state—including your sectors, $PUNKW balance, and research progress—is derived from the Kaspa BlockDAG.</p>
     </div>
 
-    <div class="component">
-        <h2>2. Execution: Client-Side Web3 WASM</h2>
-        <p>The game logic is executed entirely <span class="highlight">Client-Side</span> using a Web3-compatible browser environment.</p>
-        <ul>
-            <li><strong>WASM Engine</strong>: High-performance cryptographic functions and key derivations are handled by the Kaspa WASM32 SDK.</li>
-            <li><strong>Sovereign Logic</strong>: Turns are processed locally and broadcast as authenticated proofs to the DAG.</li>
-        </ul>
+    
+
+    <div class="arch-section">
+        <span class="arch-title">02. KASPA-WASM_ENGINE</span>
+        <p>Your browser runs a <code>WebAssembly (WASM)</code> instance of the Kaspa core. This allows your bunker to perform 256-bit cryptographic signing and DAG interaction locally. Your 24-word seed phrase never leaves your machine.</p>
     </div>
 
-    <div class="component">
-        <h2>3. Data Layer: The BlockDAG as a Database</h2>
-        <p>CypherPunk Wars treats the <span class="highlight">Kaspa BlockDAG</span> as its primary persistent storage engine.</p>
-        <ul>
-            <li><strong>State Management</strong>: Player metadata, War Chest ($PUNKW) balances, and Sector claims are stored on-chain.</li>
-            <li><strong>Pruning Resistance</strong>: Vital game state is maintained through a combination of UTXO metadata and permanent transaction records.</li>
-        </ul>
+    <div class="arch-section">
+        <span class="arch-title">03. DATA_PERSISTENCE (VPROGS)</span>
+        <p>Game actions are broadcast as transactions with specialized <code>OP_RETURN</code> memos. The game client scans these "vprogs" (Virtual Programs) to reconstruct the global state of the war in real-time.</p>
     </div>
 
-    <div class="component">
-        <h2>4. Connectivity: Direct RPC/WebSocket</h2>
-        <p>The SPA maintains a direct <span class="highlight">WebSocket connection</span> to public Kaspa RPC nodes. This ensures the game remains "Immortal"—as long as one Kaspa node is running, the CypherPunk Wars continue.</p>
+    <div class="arch-section">
+        <span class="arch-title">04. LOCAL_STORAGE_CACHE</span>
+        <p>While the truth lives on the DAG, your browser uses <code>localStorage</code> to cache your Bunker ID and UI preferences for rapid session resumption.</p>
     </div>
 
-    <footer style="margin-top:50px; text-align:center; font-size:0.8rem;">
-        CYPHERPUNK WARS | ARCHITECTURE SPEC V1.0 | KASPATHON 2026
-    </footer>
+    <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
+        <button class="btn-execute" onclick="window.location.href='../bunker.html'">
+            RETURN_TO_COMMAND_CENTER
+        </button>
+    </div>
+</div>
+
+<div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
+    > ARCHITECTURE_SCHEMATICS_LOADED...
+</div>
 
 </body>
 </html>

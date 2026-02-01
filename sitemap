@@ -1,0 +1,14 @@
+\index.html This page is the landing page. It will detect from browser storage if the operator has a saved session or not. If there is a save session log the user into bunker.html forcing an authentication on the client side.
+\forge.html This page will assist the new operator in 'forging' a new identity. It will creat a new kaspa wallet with 24 word passphrase.
+\import.html This page will assist an operator to access there identity by entering a 24 word passphrase
+\resume.html This page will assist an operator who has their identity stored in their browser cache to reauthenticate and enter the bunker
+\initialize.html This page will allow an operator to send there first CPW transaction to their wallet and generate their initial 1000 $PUNKW
+\bunker.html This page will support the primary game play loop. Has the operators meta information and log of recent activities. In the bunker the operator can Phish to general more $PUNKW without navigating to another screen. Clicking the Phish button expends one cycle and generates a random amount of $PUNKW based on a formula which includes the number of sectors they have and the highest level hack they have researched.
+\leaderboard.html This page will list (wallets) operators with a CPW memo transaction, ranking them by various facets of the game metrics. Sectors, PUNKW, Total Unit Strength
+\attack.html This page supports the operator in initializing an attack on another operator
+\research.html This page supports the operator in investing cycles into discovery new hacks
+\hack.html This page supports casting hacks previously researched. The most important of which is armageddon which if successfully cast resets the season.
+\documentation Directory which contains all the html files which explain the game but are not pertinent to actually executing gameplay.
+\documentation\gameplay.html help page that explains the game. It defines terms such as Cycles, Hacks, Sectors, $PUNKW. It explains the overall seasonal meta (seasons end when the armageddon ddos is initiated by an operator and has run to completion without interuption). Etc..
+\documentation\architecture.html help page that explains how the game is constructed as an html web site, integrated with Kaspa using Kaspa-WASM. How the data is stored in the DAG. How the game logic is verified decentralized. 
+\documentation\whitepaper.html help page explaining the Kaspathon genesis, the nod to Archmage, and how rebuilding Archmage as a decentralized project became a fascinating way to showcase the ideas for vprogs.

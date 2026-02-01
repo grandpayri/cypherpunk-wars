@@ -1,0 +1,16 @@
+<div class="content-area">
+    <h3>PROTOCOL: IDENTITY_FORGE</h3>
+    <p>Generating 24-word High-Entropy Key. Ensure no one is watching your screen.</p>
+    
+    <div id="mnemonic-display" class="input-terminal">
+        [ CLICK_GENERATE_BELOW ]
+    </div>
+
+    <button class="btn-execute" onclick="generate24Words()">GENERATE_IDENTITY</button>
+    
+    <div id="save-warning" style="display:none; color: #ff0000; margin-top: 15px;">
+        WARNING: Losing these words means permanent loss of your data center.
+        <br>
+        <button class="btn-execute" onclick="proceedToFunding()">I_HAVE_SAVED_MY_KEY</button>
+    </div>
+</div>

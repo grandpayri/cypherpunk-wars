@@ -2,29 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CYPHERPUNK WARS | GATEWAY</title>
-    <link rel="stylesheet" href="style.css"> </head>
+    <title>CYPHERPUNK WARS | LOGIN</title>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body class="bunker-frame">
-    <div class="viewport">
-        <div class="ascii-logo">...</div>
-        <div id="log" class="terminal-log">> INITIALIZING_GATEWAY_PROTOCOL...</div>
+
+<div class="viewport central-gate">
+    <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.8rem; line-height: 1;">
+  _____            _                                     _      __          __              
+ / ____|          | |                                   | |     \ \        / /              
+| |    _   _ _ __ | |__   ___ _ __ _ __  _   _ _ __ | | __   \ \  /\  / /_ _ _ __ ___ 
+| |   | | | | '_ \| '_ \ / _ \ '__| '_ \| | | | '_ \| |/ /    \ \/  \/ / _` | '__/ __|
+| |___| |_| | |_) | | | |  __/ |  | |_) | |_| | | | |   <      \  /\  / (_| | |  \__ \
+ \_____\__, | .__/|_| |_|\___|_|  | .__/ \__,_|_| |_|_|\_\      \/  \/ \__,_|_|  |___/
+        __/ | |                   | |                                                   
+       |___/|_|                   |_|                                                   
+    </pre>
+
+    <div class="welcome-text" style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: var(--kaspa-teal);">STATUS: CONNECTION_ESTABLISHED</h2>
+        <p>Welcome, Operator. Your high-energy AI hacking cluster is awaiting instructions.<br>
+        Access the global BlockDAG grid by authenticating your identity below.</p>
     </div>
 
-    <script type="module">
-        import { initKaspaFramework } from './kaspa.js';
-        
-        window.addEventListener('load', async () => {
-            await initKaspaFramework(); // Bootstrap WASM
-            const savedId = localStorage.getItem('bunker_id');
-            
-            if (savedId) {
-                // Scenario 4: Returning Operator
-                window.location.href = 'resume.html';
-            } else {
-                // Scenarios 1, 2, 3: New/Manual Entry
-                window.location.href = 'auth_choice.html'; // Or a choice div
-            }
-        });
-    </script>
+    <div class="auth-grid">
+        <div class="auth-card">
+            <button class="btn-execute" onclick="window.location.href='forge.html'">[01] FORGE_NEW_IDENTITY</button>
+            <p class="help-text">Select this if you are a new operator. We will generate a unique 24-word seed phrase to secure your bunker.</p>
+        </div>
+
+        <div class="auth-card">
+            <button class="btn-execute" onclick="window.location.href='import.html'">[02] IMPORT_IDENTITY</button>
+            <p class="help-text">Select this to access an existing bunker using your 24-word recovery phrase.</p>
+        </div>
+
+        <div class="auth-card" id="resume-section" style="display:none;">
+            <button class="btn-execute" style="background: var(--kaspa-bright); color: #000;" onclick="window.location.href='resume.html'">
+                [03] RESUME_ACTIVE_SESSION
+            </button>
+            <p class="help-text">Local credentials detected. Re-authenticate to enter the Command Center immediately.</p>
+        </div>
+    </div>
+
+    <div id="log" class="terminal-log" style="margin-top: 40px;">
+        > AWAITING_OPERATOR_INPUT...
+    </div>
+</div>
+
+<script>
+    // Simple logic to show the "Resume" button only if data exists
+    window.addEventListener('load', () => {
+        const savedId = localStorage.getItem('bunker_id');
+        if (savedId) {
+            document.getElementById('resume-section').style.display = 'block';
+            document.getElementById('log').innerText = `> ACTIVE_ID_DETECTED: ${savedId.substring(0,12)}...`;
+        }
+    });
+</script>
+
 </body>
 </html>

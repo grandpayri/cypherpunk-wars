@@ -66,6 +66,8 @@
 
             <div class="stat-label">TKAS Balance</div>
             <span class="stat-val" id="sideBalance">0.00 TKAS</span>
+            <div class="stat-label">Turns Available (at ~0.205 TKAS/turn)</div>
+            <span class="stat-val" id="sideTurns">0</span>
             <div class="stat-label">War Chest</div>
             <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
             <div class="stat-label">Infrastructure</div>
@@ -116,11 +118,15 @@
     import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, getAddressBalance } from './kaspa-client.js';
 
     // Small fixed tag amount per Phish -- "1 GWh" of the docs' lore, drawn from real TKAS.
-    // Confirmed live: an amount too small relative to the wallet's remaining change (0.01 KAS
-    // against ~4999 KAS) triggers KIP-9's storage mass rule ("Storage mass exceeds maximum") --
-    // that rule uses the harmonic mean of output values, which is extremely sensitive to small
-    // outputs. Matching Genesis's already-proven 0.2 KAS tag avoids this.
+    // ~0.1-0.2 KAS is a hard floor for this transaction shape (one big balance -> one small
+    // tag + one large change output), confirmed directly against KIP-9's own spec text: storage
+    // mass for this shape reduces to approximately C/v where v is the smallest output value,
+    // *regardless of wallet size* -- the spec's own worked example is a "millionaire buying a
+    // 0.1 KAS ice cream cone from a 1000 KAS wallet" hitting this exact wall. Going lower needs
+    // a pre-fragmented spending UTXO or a covenant-based pool -- not attempted yet.
     const PHISH_TAG_AMOUNT_SOMPI = 20000000n; // 0.2 KAS
+    const ESTIMATED_FEE_SOMPI = 500000n; // ~0.005 KAS typical priority fee buffer
+    const COST_PER_TURN_SOMPI = PHISH_TAG_AMOUNT_SOMPI + ESTIMATED_FEE_SOMPI;
 
     function logLine(msg) {
         const log = document.getElementById('log');
@@ -140,6 +146,9 @@
         const balanceSompi = await getAddressBalance(bunkerId);
         const balanceKas = Number(balanceSompi) / 100000000;
         document.getElementById('sideBalance').innerText = `${balanceKas.toFixed(2)} TKAS`;
+
+        const turnsAvailable = balanceSompi / COST_PER_TURN_SOMPI; // BigInt division, floors automatically
+        document.getElementById('sideTurns').innerText = turnsAvailable.toString();
     }
 
     window.addEventListener('load', async () => {

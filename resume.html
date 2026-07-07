@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Resume</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .import-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 20px 0;
+        }
+        .import-slot {
+            background: #000;
+            border: 1px solid rgba(0, 255, 159, 0.3);
+            display: flex;
+            align-items: center;
+            padding: 5px;
+        }
+        .import-slot input {
+            background: transparent;
+            border: none;
+            color: var(--kaspa-bright);
+            font-family: inherit;
+            font-size: 0.8rem;
+            width: 100%;
+            outline: none;
+        }
+        .import-num {
+            font-size: 0.6rem;
+            color: #555;
+            margin-right: 5px;
+            width: 20px;
+        }
+    </style>
+</head>
+<body class="bunker-frame">
+
+<div class="central-gate">
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">[03] SESSION_RESUME_PROTOCOL</h2>
+        <p>Reauthenticating cached bunker identity against the local engine.</p>
+
+        <div style="border: 1px inset var(--kaspa-teal); background: #000; padding: 20px; margin: 20px 0;">
+            <div style="font-size: 0.7rem; color: #555; text-transform: uppercase;">Cached Operator ID</div>
+            <div id="cached-id" style="color: var(--kaspa-bright); font-size: 0.9rem; margin-top: 5px;">...</div>
+        </div>
+
+        <div id="quick-resume-area" style="display: none; justify-content: space-between; align-items: center;">
+            <button class="btn-execute" onclick="window.location.href='index.html'" style="border-color: #444; color: #444;">ABORT</button>
+            <button class="btn-execute" onclick="quickResume()">REAUTHENTICATE_AND_ENTER</button>
+        </div>
+
+        <div id="reverify-area" style="display: none;">
+            <p style="color: var(--hazard-yellow); font-size: 0.8rem;">
+                SESSION_KEY_EXPIRED (browser was closed/reopened). Re-enter your 24-word phrase to sign back in.
+            </p>
+            <div id="reverify-grid" class="import-grid"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn-execute" onclick="window.location.href='index.html'" style="border-color: #444; color: #444;">ABORT</button>
+                <button class="btn-execute" onclick="reverifyAndResume()">REVERIFY_AND_ENTER</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="log" class="terminal-log">> CHECKING_LOCAL_CACHE...</div>
+</div>
+
+<script type="module">
+    import { bootBunkerEngine, syncBunkerIdentity, hasSessionKey } from './wallet-gen.js';
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    const bunkerId = localStorage.getItem('bunker_id');
+
+    if (!bunkerId) {
+        logLine("ERROR: NO_CACHED_IDENTITY_FOUND. REDIRECTING...");
+        setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+    } else {
+        document.getElementById('cached-id').innerText = bunkerId;
+
+        if (hasSessionKey()) {
+            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. SESSION_KEY_VALID.`);
+            document.getElementById('quick-resume-area').style.display = 'flex';
+        } else {
+            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. SESSION_KEY_MISSING.`);
+            document.getElementById('reverify-area').style.display = 'block';
+            const grid = document.getElementById('reverify-grid');
+            for (let i = 1; i <= 24; i++) {
+                grid.innerHTML += `
+                    <div class="import-slot">
+                        <span class="import-num">${String(i).padStart(2, '0')}</span>
+                        <input type="password" class="seed-word" data-index="${i}" autocomplete="off" placeholder="...">
+                    </div>
+                `;
+            }
+        }
+    }
+
+    window.quickResume = async function () {
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+            return;
+        }
+        logLine("SUCCESS: REAUTHENTICATED. ENTERING_BUNKER...");
+        window.location.href = 'bunker.html';
+    };
+
+    window.reverifyAndResume = async function () {
+        const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
+        if (words.some(w => w === "")) {
+            logLine("ERROR: INCOMPLETE_IDENTITY. ALL 24 SLOTS MUST BE FILLED.");
+            return;
+        }
+
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+            return;
+        }
+
+        try {
+            const mnemonic = words.join(' ');
+            const derivedId = await syncBunkerIdentity(mnemonic);
+            if (derivedId !== bunkerId) {
+                logLine("ERROR: PHRASE_DOES_NOT_MATCH_CACHED_IDENTITY.");
+                return;
+            }
+            logLine("SUCCESS: REVERIFIED. ENTERING_BUNKER...");
+            window.location.href = 'bunker.html';
+        } catch (err) {
+            logLine("ERROR: SYNC_FAILED. VERIFY_MNEMONIC.");
+        }
+    };
+</script>
+
+</body>
+</html>

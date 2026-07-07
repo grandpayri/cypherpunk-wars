@@ -37,7 +37,52 @@
     <div id="log" class="terminal-log">> STANDBY: AWAITING_OPERATOR_COMMAND...</div>
 </div>
 
-<script src="kaspa.js"></script>
-<script src="wallet-gen.js"></script>
+<script type="module">
+    import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity } from './wallet-gen.js';
+
+    let currentMnemonic = null;
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    window.generateIdentity = async function () {
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+            return;
+        }
+
+        currentMnemonic = forgeNewIdentity();
+        if (!currentMnemonic) {
+            logLine("ERROR: ENTROPY_GENERATION_FAILED");
+            return;
+        }
+
+        const words = currentMnemonic.split(' ');
+        const grid = document.getElementById('mnemonic-grid');
+        grid.innerHTML = words.map((word, i) =>
+            `<div class="word-slot"><span class="word-num">${String(i + 1).padStart(2, '0')}</span> ${word}</div>`
+        ).join('');
+
+        document.getElementById('security-warning').style.display = 'block';
+        document.getElementById('confirm-area').style.display = 'block';
+        logLine("NEW_IDENTITY_FORGED: RECORD_KEY_IMMEDIATELY");
+    };
+
+    window.saveAndProceed = async function () {
+        if (!currentMnemonic) return;
+        try {
+            const bunkerId = await syncBunkerIdentity(currentMnemonic);
+            logLine(`SUCCESS: BUNKER_${bunkerId.substring(0, 10)}... ONLINE`);
+            window.location.href = 'initialize.html';
+        } catch (err) {
+            logLine("ERROR: IDENTITY_SYNC_FAILED");
+        }
+    };
+</script>
 </body>
 </html>

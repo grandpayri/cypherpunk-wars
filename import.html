@@ -67,10 +67,12 @@
     <div id="log" class="terminal-log">> AWAITING_SEED_PHRASE_INPUT...</div>
 </div>
 
-<script src="kaspa.js"></script>
-<script src="wallet-gen.js"></script>
-<script>
-    async function validateAndImport() {
+<script type="module">
+    import { bootBunkerEngine, syncBunkerIdentity } from './wallet-gen.js';
+
+    window.addEventListener('load', () => { bootBunkerEngine(); });
+
+    window.validateAndImport = async function () {
         const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
         const log = document.getElementById('log');
 
@@ -80,23 +82,20 @@
         }
 
         log.innerHTML = `> VALIDATING_ENTROPY...`;
-        
-        // This is where you'd call your library to check the mnemonic
-        // For now, we simulate success and save the first word as a dummy ID
+
         try {
             const mnemonic = words.join(' ');
-            // const address = await deriveAddressFromMnemonic(mnemonic);
-            
-            localStorage.setItem('bunker_id', 'imported_identity_placeholder'); 
-            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. REDIRECTING_TO_BUNKER...`;
-            
+            const bunkerId = await syncBunkerIdentity(mnemonic);
+
+            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId.substring(0, 10)}... REDIRECTING_TO_BUNKER...`;
+
             setTimeout(() => {
                 window.location.href = 'bunker.html';
             }, 1500);
         } catch (e) {
             log.innerHTML += `<br><span style="color: var(--hazard-yellow)">> ERROR: INVALID_CHECKSUM. CHECK_WORD_ORDER.</span>`;
         }
-    }
+    };
 </script>
 
 </body>

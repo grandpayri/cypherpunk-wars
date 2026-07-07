@@ -1,11 +1,100 @@
-<div class="content-area">
-    <h3>BUNKER_INITIALIZATION</h3>
-    <p>New Identity Detected: <span id="op-id">...</span></p>
-    <p>To claim your 1,000 $PUNKW, broadcast a Genesis Transaction.</p>
-    
-    <div class="stat-group">
-        <div class="stat-item">GRID_STABILITY: <span id="current-gwh">0 GWh</span></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Initialize</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bunker-frame">
+
+<div class="central-gate">
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">[02] BUNKER_INITIALIZATION</h2>
+        <p>New Identity Detected: <span id="op-id" style="color: var(--kaspa-bright);">...</span></p>
+        <p>To claim your 1,000 $PUNKW, broadcast a Genesis Transaction to the network registry.</p>
+
+        <p style="font-size: 0.75rem; color: #999;">
+            Runs on KASPA_TESTNET-10. Need TKAS to broadcast? Get free funds from the
+            <a href="https://faucet-tn10.kaspanet.io/" target="_blank" rel="noopener" style="color: var(--kaspa-bright);">TN-10 faucet</a>
+            first, then claim below.
+        </p>
+
+        <div style="border: 1px inset var(--kaspa-teal); background: #000; padding: 20px; margin: 20px 0;">
+            <div style="font-size: 0.7rem; color: #555; text-transform: uppercase;">Registry Address</div>
+            <div id="registry-address" style="color: var(--kaspa-teal); font-size: 0.8rem; margin-top: 5px;">...</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn-execute" style="border-color: #444; color: #444;" onclick="window.location.href='index.html'">ABORT</button>
+            <button id="claim-btn" class="btn-execute" onclick="executeGenesis()">CLAIM_1000_PUNKW</button>
+        </div>
     </div>
 
-    <button id="claim-btn" class="btn-execute disabled" onclick="executeGenesis()">CLAIM_1000_PUNKW</button>
+    <div id="log" class="terminal-log">> AWAITING_OPERATOR_HANDSHAKE...</div>
 </div>
+
+<script type="module">
+    import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
+    import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction } from './kaspa-client.js';
+
+    // kaspaToSompi(0.2) equivalent -- small fixed tagging amount, not a real balance transfer.
+    const GENESIS_TAG_AMOUNT_SOMPI = 20000000n;
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    document.getElementById('registry-address').innerText = REGISTRY_ADDRESS;
+
+    const bunkerId = localStorage.getItem('bunker_id');
+    if (!bunkerId) {
+        logLine("ERROR: NO_IDENTITY_FOUND. REDIRECTING...");
+        setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+    } else {
+        document.getElementById('op-id').innerText = bunkerId.substring(0, 10) + "...";
+    }
+
+    window.addEventListener('load', async () => {
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+        }
+    });
+
+    window.executeGenesis = async function () {
+        if (!bunkerId) return;
+
+        let privateKey;
+        try {
+            privateKey = getSessionPrivateKey();
+        } catch (err) {
+            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
+            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+            return;
+        }
+
+        logLine("ALLOCATING_GIGAWATTS...");
+        try {
+            const txid = await sendTaggedTransaction({
+                fromAddress: bunkerId,
+                privateKey,
+                toAddress: REGISTRY_ADDRESS,
+                amountSompi: GENESIS_TAG_AMOUNT_SOMPI,
+                actionType: ActionType.GENESIS,
+            });
+            logLine(`SUCCESS: GENESIS_BROADCAST_${txid.substring(0, 10)}...`);
+            logLine("ENTERING_BUNKER...");
+            setTimeout(() => { window.location.href = 'bunker.html'; }, 1500);
+        } catch (err) {
+            console.error("GENESIS_ERROR:", err);
+            logLine(`ERROR: GENESIS_FAILED. ${err.message || err}`);
+        }
+    };
+</script>
+
+</body>
+</html>

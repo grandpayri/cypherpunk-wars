@@ -8,13 +8,87 @@
  * what this uses. "vprogs" (mentioned in this game's own lore docs) are a real but
  * not-yet-live Kaspa roadmap concept -- nothing here depends on them existing.
  */
-import { RpcClient, Resolver, Generator } from './kaspa.js';
+import { RpcClient, Resolver, Generator, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from './kaspa.js';
 
 export const CPW_NETWORK_ID = "testnet-10";
 
 // Fixed, well-known address every Genesis transaction pays into. Anyone can discover
 // all operators by reading this address's transaction history (see leaderboard.js).
 export const REGISTRY_ADDRESS = "kaspatest:qrgtl9dfseyvydnwuj3sqjq5recfcdxt8f9e8p0mlrvx3jfaqj3jqep87s4mm";
+
+// --- Faucet covenant vault ---
+// A Toccata covenant (KIP-10 introspection opcodes), NOT a plain address -- funded once
+// from the registry treasury (4500 TKAS) and self-perpetuating from then on. The redeem
+// script requires no signature at all: anyone (including this client, with no private
+// key) can trigger a grant as long as the resulting transaction has exactly 2 outputs,
+// the grant output is <= FAUCET_GRANT_CAP_SOMPI, and the change output returns to this
+// same covenant script. Verified live on testnet-10: a compliant spend is accepted, and
+// one that misdirects the change is rejected by the network with "false stack entry at
+// end of script execution" -- real script-engine enforcement, not just convention.
+//
+// These opcodes aren't yet named in this SDK's `Opcodes` export (checked: our vendored
+// kaspa.js and the freshest official v2.0.1 download both lack them), so the numeric
+// values below are taken directly from rusty-kaspa's source
+// (crypto/txscript/src/wasm/opcodes.rs) rather than guessed.
+const OpTxOutputCount = 0xb4;
+const OpTxOutputAmount = 0xc2;
+const OpTxInputIndex = 0xb9;
+const OpTxInputSpk = 0xbf;
+const OpTxOutputSpk = 0xc3;
+
+export const FAUCET_GRANT_CAP_SOMPI = 1000000000n; // 10 KAS per grant, matches the vault's own script
+export const FAUCET_VAULT_ADDRESS = "kaspatest:pp3ca46urjyyx6jhc6xsu4xj2pdvzvltyk2r0lvaslv806hnjefa77293fg20";
+
+function buildFaucetRedeemScript() {
+    return new ScriptBuilder()
+        .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+        .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+        .addI64(1n).addOp(OpTxOutputSpk)
+        .addOp(Opcodes.OpEqual);
+}
+
+// Requests a starter grant from the faucet vault for a brand-new player -- no private
+// key needed, since the covenant itself (not a signature) authorizes the spend.
+export async function requestFaucetGrant(destAddress, grantAmountSompi = FAUCET_GRANT_CAP_SOMPI, priorityFee = 500000n) {
+    if (grantAmountSompi > FAUCET_GRANT_CAP_SOMPI) {
+        throw new Error(`GRANT_EXCEEDS_CAP: requested ${grantAmountSompi}, cap is ${FAUCET_GRANT_CAP_SOMPI}`);
+    }
+
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+    if (!entries || entries.length === 0) {
+        throw new Error("FAUCET_VAULT_EMPTY");
+    }
+
+    const totalInput = entries.reduce((sum, e) => sum + BigInt(e.amount), 0n);
+    const changeAmount = totalInput - grantAmountSompi - priorityFee;
+    if (changeAmount < 0n) {
+        throw new Error("FAUCET_VAULT_INSUFFICIENT_FOR_FEE");
+    }
+
+    const redeemScript = buildFaucetRedeemScript();
+    const redeemScriptHex = redeemScript.toString();
+
+    const tx = createTransaction(
+        entries,
+        [
+            { address: destAddress, amount: grantAmountSompi },
+            { address: FAUCET_VAULT_ADDRESS, amount: changeAmount },
+        ],
+        priorityFee,
+        undefined,
+        undefined
+    );
+
+    const sigScriptHex = new ScriptBuilder().addData(redeemScriptHex).toString();
+    for (let i = 0; i < tx.inputs.length; i++) {
+        tx.inputs[i].signatureScript = sigScriptHex;
+    }
+
+    const result = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    return result.transactionId;
+}
 
 const MAGIC = "CPW1";
 

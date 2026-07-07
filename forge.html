@@ -39,6 +39,7 @@
 
 <script type="module">
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity } from './wallet-gen.js';
+    import { requestFaucetGrant } from './kaspa-client.js';
 
     let currentMnemonic = null;
 
@@ -78,6 +79,16 @@
         try {
             const bunkerId = await syncBunkerIdentity(currentMnemonic);
             logLine(`SUCCESS: BUNKER_${bunkerId.substring(0, 10)}... ONLINE`);
+
+            logLine("REQUESTING_STARTER_GRANT_FROM_FAUCET...");
+            try {
+                await requestFaucetGrant(bunkerId);
+                logLine("SUCCESS: STARTER_GRANT_RECEIVED. READY_FOR_GENESIS.");
+            } catch (faucetErr) {
+                console.error("FAUCET_GRANT_ERROR:", faucetErr);
+                logLine("WARNING: FAUCET_GRANT_FAILED. FUND_MANUALLY_VIA_TN-10_FAUCET_IF_NEEDED.");
+            }
+
             window.location.href = 'initialize.html';
         } catch (err) {
             logLine("ERROR: IDENTITY_SYNC_FAILED");

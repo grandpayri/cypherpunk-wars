@@ -1,0 +1,2 @@
+# Wallet mnemonics/private keys (testnet or otherwise) -- never commit these.
+.secrets/

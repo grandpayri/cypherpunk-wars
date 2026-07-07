@@ -107,5 +107,79 @@
     </tr>
 </table>
 </div>
+
+<script type="module">
+    import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
+    import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, getAddressBalance } from './kaspa-client.js';
+
+    // Small fixed tag amount per Phish -- "1 GWh" of the docs' lore, drawn from real TKAS.
+    // Confirmed live: an amount too small relative to the wallet's remaining change (0.01 KAS
+    // against ~4999 KAS) triggers KIP-9's storage mass rule ("Storage mass exceeds maximum") --
+    // that rule uses the harmonic mean of output values, which is extremely sensitive to small
+    // outputs. Matching Genesis's already-proven 0.2 KAS tag avoids this.
+    const PHISH_TAG_AMOUNT_SOMPI = 20000000n; // 0.2 KAS
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    const bunkerId = localStorage.getItem('bunker_id');
+    if (!bunkerId) {
+        window.location.href = 'index.html';
+    } else {
+        document.getElementById('op-id').innerText = bunkerId.substring(0, 10) + "...";
+    }
+
+    async function refreshBunkerStats() {
+        const balanceSompi = await getAddressBalance(bunkerId);
+        const balanceKas = Number(balanceSompi) / 100000000;
+        document.getElementById('sideGWh').innerText = `${balanceKas.toFixed(2)} GWh`;
+    }
+
+    window.addEventListener('load', async () => {
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+            return;
+        }
+        await refreshBunkerStats();
+    });
+
+    window.executePhish = async function () {
+        if (!bunkerId) return;
+
+        let privateKey;
+        try {
+            privateKey = getSessionPrivateKey();
+        } catch (err) {
+            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
+            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+            return;
+        }
+
+        logLine("ALLOCATING_GIGAWATTS...");
+        try {
+            const txid = await sendTaggedTransaction({
+                fromAddress: bunkerId,
+                privateKey,
+                toAddress: REGISTRY_ADDRESS,
+                amountSompi: PHISH_TAG_AMOUNT_SOMPI,
+                actionType: ActionType.PHISH,
+            });
+            const yieldAmount = Math.floor(Math.random() * 40) + 10;
+            logLine(`SUCCESS: PHISH_BROADCAST_${txid.substring(0, 10)}... INGESTED ${yieldAmount} $PUNKW FRAGMENTS.`);
+            // The RPC's UTXO view needs a moment to catch up after submit() resolves --
+            // an immediate refresh shows the stale pre-spend balance.
+            setTimeout(refreshBunkerStats, 2500);
+        } catch (err) {
+            console.error("PHISH_ERROR:", err);
+            logLine(`ERROR: GRID_FAILURE. ${err.message || err}`);
+        }
+    };
+</script>
+
 </body>
 </html>

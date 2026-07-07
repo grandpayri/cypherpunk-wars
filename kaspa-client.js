@@ -94,6 +94,7 @@ const MAGIC = "CPW1";
 
 export const ActionType = Object.freeze({
     GENESIS: 0x01,
+    PHISH: 0x02,
 });
 
 export function encodePayload(actionType, extraBytes = new Uint8Array(0)) {
@@ -130,7 +131,7 @@ export async function connectRpc() {
 export async function getAddressBalance(address) {
     const rpc = await connectRpc();
     const { entries } = await rpc.getUtxosByAddresses([address]);
-    return entries.reduce((sum, e) => sum + BigInt(e.utxoEntry.amount), 0n);
+    return entries.reduce((sum, e) => sum + BigInt(e.amount), 0n);
 }
 
 // Confirmed live against the real network: the Generator's settings object does not

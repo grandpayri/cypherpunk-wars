@@ -54,22 +54,25 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 0.8rem;">OPERATOR: <span id="op-id" style="color: var(--kaspa-bright)">...</span></span>
                 <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
-                <span style="font-size: 0.8rem; color: var(--kaspa-bright);">STATUS: ONLINE</span>
+                <span style="font-size: 0.8rem; color: var(--kaspa-bright);">STATUS: ONLINE // TESTNET-10</span>
             </div>
         </td>
     </tr>
 
     <tr>
         <td class="sidebar-col" style="width: 250px; border-right: 1px solid rgba(0, 255, 159, 0.2);">
-            <div class="stat-label">Grid Stability</div>
-            <span class="stat-val" id="sideGWh">0 GWh</span>
+            <div class="stat-label">Operator Address</div>
+            <div id="fullAddress" style="font-size: 0.65rem; color: var(--kaspa-teal); word-break: break-all; margin-bottom: 15px;">...</div>
+
+            <div class="stat-label">TKAS Balance</div>
+            <span class="stat-val" id="sideBalance">0.00 TKAS</span>
             <div class="stat-label">War Chest</div>
             <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
             <div class="stat-label">Infrastructure</div>
             <span class="stat-val" id="sideSectors">1 SECTOR</span>
             <div class="stat-label">Compute Load</div>
             <span class="stat-val" id="sideCycles">10/10 CYC</span>
-            
+
             <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
             
             <button class="nav-link" onclick="window.location.href='bunker.html'">> [01] COMMAND</button>
@@ -130,12 +133,13 @@
         window.location.href = 'index.html';
     } else {
         document.getElementById('op-id').innerText = bunkerId.substring(0, 10) + "...";
+        document.getElementById('fullAddress').innerText = bunkerId;
     }
 
     async function refreshBunkerStats() {
         const balanceSompi = await getAddressBalance(bunkerId);
         const balanceKas = Number(balanceSompi) / 100000000;
-        document.getElementById('sideGWh').innerText = `${balanceKas.toFixed(2)} GWh`;
+        document.getElementById('sideBalance').innerText = `${balanceKas.toFixed(2)} TKAS`;
     }
 
     window.addEventListener('load', async () => {

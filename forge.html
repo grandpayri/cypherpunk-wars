@@ -8,6 +8,8 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="central-gate">
     <div class="forge-container">
         <h2 style="margin-top: 0; color: var(--kaspa-bright);">[01] IDENTITY_FORGE_PROTOCOL</h2>
@@ -40,6 +42,9 @@
 <script type="module">
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity } from './wallet-gen.js';
     import { requestFaucetGrant } from './kaspa-client.js';
+    import { renderAppHeader } from './shared-header.js';
+
+    renderAppHeader();
 
     let currentMnemonic = null;
 

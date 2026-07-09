@@ -32,36 +32,19 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="viewport" style="width: 95%; max-width: 1200px;">
    <table class="bunker-grid">
-    <tr>
-        <td colspan="2" class="ascii-row" style="text-align: center; border-bottom: 2px solid var(--kaspa-teal); padding: 20px 0;">
-            <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.5rem; line-height: 1; margin: 0 auto; display: inline-block; text-align: left;">
-    ____            _               _____             _     __          __            
-  / ____|          | |             |  __ \           | |    \ \        / /            
- | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
- | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
- | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
-  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
-         __/ | |                                                                      
-        |___/|_|                                                    
-            </pre>
-        </td>
-    </tr>
-
     <tr class="header-row">
         <td colspan="2">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 0.8rem;">OPERATOR: <span id="op-id" style="color: var(--kaspa-bright)">...</span></span>
-                <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
-                <span style="font-size: 0.8rem; color: var(--kaspa-bright);">STATUS: ONLINE // TESTNET-10</span>
-            </div>
+            <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
         </td>
     </tr>
 
     <tr>
         <td class="sidebar-col" style="width: 250px; border-right: 1px solid rgba(0, 255, 159, 0.2);">
-            <div class="stat-label">Operator Address</div>
+            <div class="stat-label">Full Address</div>
             <div id="fullAddress" style="font-size: 0.65rem; color: var(--kaspa-teal); word-break: break-all; margin-bottom: 15px;">...</div>
 
             <div class="stat-label">TKAS Balance</div>
@@ -116,6 +99,9 @@
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
     import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, getAddressBalance } from './kaspa-client.js';
+    import { renderAppHeader } from './shared-header.js';
+
+    renderAppHeader();
 
     // Small fixed tag amount per Phish -- "1 GWh" of the docs' lore, drawn from real TKAS.
     // ~0.1-0.2 KAS is a hard floor for this transaction shape (one big balance -> one small
@@ -138,7 +124,6 @@
     if (!bunkerId) {
         window.location.href = 'index.html';
     } else {
-        document.getElementById('op-id').innerText = bunkerId.substring(0, 10) + "...";
         document.getElementById('fullAddress').innerText = bunkerId;
     }
 

@@ -13,7 +13,44 @@ body.bunker-frame {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
+    padding-top: 100px;
+    box-sizing: border-box;
+}
+
+/* Shared app header (ASCII logo + operator/network status), fixed to the
+   top of every page so the app reads as one consistent system. */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    background: var(--bunker-bg);
+    border-bottom: 2px solid var(--kaspa-teal);
+    box-sizing: border-box;
+}
+
+.app-header .ascii-logo {
+    color: var(--kaspa-bright);
+    font-size: 0.4rem;
+    line-height: 1.1;
+    margin: 0;
+    padding: 6px 0 4px;
+    text-align: center;
+}
+
+.app-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    padding: 6px 20px;
+    background: #000;
+}
+
+.app-status-value {
+    color: var(--kaspa-bright);
 }
 
 .central-gate {

@@ -8,6 +8,8 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="central-gate">
     <div class="forge-container">
         <h2 style="margin-top: 0; color: var(--kaspa-bright);">[02] BUNKER_INITIALIZATION</h2>
@@ -37,6 +39,9 @@
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
     import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction } from './kaspa-client.js';
+    import { renderAppHeader } from './shared-header.js';
+
+    renderAppHeader();
 
     // kaspaToSompi(0.2) equivalent -- small fixed tagging amount, not a real balance transfer.
     const GENESIS_TAG_AMOUNT_SOMPI = 20000000n;

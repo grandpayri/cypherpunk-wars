@@ -39,6 +39,8 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="central-gate">
     <div class="forge-container">
         <h2 style="margin-top: 0; color: var(--kaspa-bright);">[02] IDENTITY_IMPORT_PROTOCOL</h2>
@@ -69,7 +71,9 @@
 
 <script type="module">
     import { bootBunkerEngine, syncBunkerIdentity } from './wallet-gen.js';
+    import { renderAppHeader } from './shared-header.js';
 
+    renderAppHeader();
     window.addEventListener('load', () => { bootBunkerEngine(); });
 
     window.validateAndImport = async function () {

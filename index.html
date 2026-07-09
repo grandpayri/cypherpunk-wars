@@ -17,7 +17,6 @@
             padding: 20px;
             vertical-align: top;
         }
-        .ascii-row { text-align: center; background: #000; }
         .welcome-row { text-align: center; }
         .action-column { width: 33.33%; text-align: center; }
         .help-text { font-size: 0.75rem; color: #888; margin-top: 10px; line-height: 1.4; }
@@ -25,23 +24,10 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="viewport central-gate">
     <table class="gateway-table">
-        <tr>
-            <td colspan="3" class="ascii-row">
-                <pre class="ascii-logo" style="color: var(--kaspa-bright); font-size: 0.7rem;">
-    ____            _               _____             _     __          __            
-  / ____|          | |             |  __ \           | |    \ \        / /            
- | |    _   _ _ __ | |__   ___ _ __| |__) |   _ _ __ | | __  \ \  /\  / /_ _ _ __ ___ 
- | |   | | | | '_ \| '_ \ / _ \ '__|  ___/ | | | '_ \| |/ /   \ \/  \/ / _` | '__/ __|
- | |___| |_| | |_) | | | |  __/ |  | |   | |_| | | | |   <     \  /\  / (_| | |  \__ \
-  \_____\__, | .__/|_| |_|\___|_|  |_|    \__,_|_| |_|_|\_\     \/  \/ \__,_|_|  |___/
-         __/ | |                                                                      
-        |___/|_|                                               
-                </pre>
-            </td>
-        </tr>
-
         <tr>
             <td colspan="3" class="welcome-row">
                 <h3 style="color: var(--kaspa-bright); margin: 0;">STATUS: GRID_LINK_AWAITING_AUTH</h3>
@@ -86,6 +72,11 @@
         > SYSTEM_READY. AWAITING_OPERATOR_SELECTION...
     </div>
 </div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+    renderAppHeader();
+</script>
 
 <script>
     window.addEventListener('load', () => {

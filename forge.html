@@ -32,7 +32,23 @@
         </div>
 
         <div id="confirm-area" style="display: none; margin-top: 30px; text-align: center; border-top: 1px dashed #333; padding-top: 20px;">
-            <button class="btn-execute btn-danger" onclick="saveAndProceed()">I_HAVE_SECURED_MY_KEY_ENTERING_BUNKER</button>
+            <button class="btn-execute btn-danger" onclick="showPasswordSetup()">I_HAVE_SECURED_MY_KEY_ENTERING_BUNKER</button>
+        </div>
+
+        <div id="password-setup-area" style="display: none; margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px;">
+            <p style="font-size: 0.8rem;">
+                Set an unlock password for this device. It encrypts your 24-word phrase locally so future
+                sessions can resume with just this password instead of re-entering all 24 words. This
+                password cannot be recovered -- if you forget it, you'll need your 24-word phrase to
+                re-import instead.
+            </p>
+            <input type="password" id="vault-password" placeholder="UNLOCK_PASSWORD (min 8 chars)"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 10px;">
+            <input type="password" id="vault-password-confirm" placeholder="CONFIRM_PASSWORD"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+                <button class="btn-execute" onclick="saveAndProceed()">SET_PASSWORD_AND_ENTER_BUNKER</button>
+            </div>
         </div>
     </div>
 
@@ -43,6 +59,7 @@
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity } from './wallet-gen.js';
     import { requestFaucetGrant } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
+    import { createVault } from './vault.js';
 
     renderAppHeader();
 
@@ -79,11 +96,31 @@
         logLine("NEW_IDENTITY_FORGED: RECORD_KEY_IMMEDIATELY");
     };
 
+    window.showPasswordSetup = function () {
+        document.getElementById('confirm-area').style.display = 'none';
+        document.getElementById('password-setup-area').style.display = 'block';
+    };
+
     window.saveAndProceed = async function () {
         if (!currentMnemonic) return;
+
+        const password = document.getElementById('vault-password').value;
+        const confirmPassword = document.getElementById('vault-password-confirm').value;
+        if (password.length < 8) {
+            logLine("ERROR: PASSWORD_TOO_SHORT. MIN_8_CHARACTERS.");
+            return;
+        }
+        if (password !== confirmPassword) {
+            logLine("ERROR: PASSWORDS_DO_NOT_MATCH.");
+            return;
+        }
+
         try {
             const bunkerId = await syncBunkerIdentity(currentMnemonic);
             logLine(`SUCCESS: BUNKER_${bunkerId.substring(0, 10)}... ONLINE`);
+
+            await createVault(currentMnemonic, password);
+            logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");
 
             logLine("REQUESTING_STARTER_GRANT_FROM_FAUCET...");
             try {
@@ -96,6 +133,7 @@
 
             window.location.href = 'initialize.html';
         } catch (err) {
+            console.error("SAVE_AND_PROCEED_ERROR:", err);
             logLine("ERROR: IDENTITY_SYNC_FAILED");
         }
     };

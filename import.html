@@ -60,9 +60,24 @@
             </script>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="import-action-area" style="display: flex; justify-content: space-between; align-items: center;">
             <button class="btn-execute" onclick="validateAndImport()">INITIATE_UPLINK</button>
             <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT_LOGIN</button>
+        </div>
+
+        <div id="password-setup-area" style="display: none; margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px;">
+            <p style="font-size: 0.8rem;">
+                Set an unlock password for this device. It encrypts your 24-word phrase locally so future
+                sessions can resume with just this password instead of re-entering all 24 words. This
+                password cannot be recovered -- if you forget it, you'll need your 24-word phrase again.
+            </p>
+            <input type="password" id="vault-password" placeholder="UNLOCK_PASSWORD (min 8 chars)"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 10px;">
+            <input type="password" id="vault-password-confirm" placeholder="CONFIRM_PASSWORD"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+                <button class="btn-execute" onclick="setPasswordAndProceed()">SET_PASSWORD_AND_ENTER_BUNKER</button>
+            </div>
         </div>
     </div>
 
@@ -72,9 +87,18 @@
 <script type="module">
     import { bootBunkerEngine, syncBunkerIdentity } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { createVault } from './vault.js';
 
     renderAppHeader();
     window.addEventListener('load', () => { bootBunkerEngine(); });
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    let pendingMnemonic = null;
 
     window.validateAndImport = async function () {
         const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
@@ -91,14 +115,37 @@
             const mnemonic = words.join(' ');
             const bunkerId = await syncBunkerIdentity(mnemonic);
 
-            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId.substring(0, 10)}... REDIRECTING_TO_BUNKER...`;
+            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId.substring(0, 10)}... DETECTED.`;
 
-            setTimeout(() => {
-                window.location.href = 'bunker.html';
-            }, 1500);
+            pendingMnemonic = mnemonic;
+            document.getElementById('import-action-area').style.display = 'none';
+            document.getElementById('password-setup-area').style.display = 'block';
         } catch (e) {
             log.innerHTML += `<br><span style="color: var(--hazard-yellow)">> ERROR: INVALID_CHECKSUM. CHECK_WORD_ORDER.</span>`;
         }
+    };
+
+    window.setPasswordAndProceed = async function () {
+        if (!pendingMnemonic) return;
+
+        const password = document.getElementById('vault-password').value;
+        const confirmPassword = document.getElementById('vault-password-confirm').value;
+        if (password.length < 8) {
+            logLine("ERROR: PASSWORD_TOO_SHORT. MIN_8_CHARACTERS.");
+            return;
+        }
+        if (password !== confirmPassword) {
+            logLine("ERROR: PASSWORDS_DO_NOT_MATCH.");
+            return;
+        }
+
+        await createVault(pendingMnemonic, password);
+        logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");
+        logLine("REDIRECTING_TO_BUNKER...");
+
+        setTimeout(() => {
+            window.location.href = 'bunker.html';
+        }, 1200);
     };
 </script>
 

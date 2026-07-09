@@ -55,14 +55,41 @@
             <button class="btn-execute" onclick="quickResume()">REAUTHENTICATE_AND_ENTER</button>
         </div>
 
+        <div id="vault-unlock-area" style="display: none;">
+            <p style="font-size: 0.8rem;">Enter your unlock password to resume -- no need for the full 24-word phrase.</p>
+            <input type="password" id="unlock-password" placeholder="UNLOCK_PASSWORD"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT</button>
+                <button class="btn-execute" onclick="unlockWithPassword()">UNLOCK_AND_ENTER</button>
+            </div>
+            <p style="font-size: 0.7rem; color: #666; margin-top: 15px;">
+                Forgot your password? <a href="#" onclick="showReverify(); return false;" style="color: var(--kaspa-teal);">Use your 24-word phrase instead</a>.
+            </p>
+        </div>
+
         <div id="reverify-area" style="display: none;">
             <p style="color: var(--hazard-yellow); font-size: 0.8rem;">
-                SESSION_KEY_EXPIRED (browser was closed/reopened). Re-enter your 24-word phrase to sign back in.
+                Re-enter your 24-word phrase to sign back in.
             </p>
             <div id="reverify-grid" class="import-grid"></div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT</button>
                 <button class="btn-execute" onclick="reverifyAndResume()">REVERIFY_AND_ENTER</button>
+            </div>
+        </div>
+
+        <div id="post-reverify-vault-area" style="display: none; margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px;">
+            <p style="font-size: 0.8rem;">
+                Set an unlock password now so you don't need the full 24-word phrase next time.
+            </p>
+            <input type="password" id="vault-password" placeholder="UNLOCK_PASSWORD (min 8 chars)"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 10px;">
+            <input type="password" id="vault-password-confirm" placeholder="CONFIRM_PASSWORD"
+                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn-execute btn-muted" onclick="window.location.href='bunker.html'">SKIP_FOR_NOW</button>
+                <button class="btn-execute" onclick="setPasswordThenEnter()">SET_PASSWORD_AND_ENTER</button>
             </div>
         </div>
     </div>
@@ -73,6 +100,7 @@
 <script type="module">
     import { bootBunkerEngine, syncBunkerIdentity, hasSessionKey } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { hasVault, unlockVault, createVault } from './vault.js';
 
     renderAppHeader();
 
@@ -81,6 +109,25 @@
         log.innerHTML += `<br>> ${msg}`;
         log.scrollTop = log.scrollHeight;
     }
+
+    function buildReverifyGrid() {
+        const grid = document.getElementById('reverify-grid');
+        if (grid.childElementCount > 0) return;
+        for (let i = 1; i <= 24; i++) {
+            grid.innerHTML += `
+                <div class="import-slot">
+                    <span class="import-num">${String(i).padStart(2, '0')}</span>
+                    <input type="password" class="seed-word" data-index="${i}" autocomplete="off" placeholder="...">
+                </div>
+            `;
+        }
+    }
+
+    window.showReverify = function () {
+        document.getElementById('vault-unlock-area').style.display = 'none';
+        document.getElementById('reverify-area').style.display = 'block';
+        buildReverifyGrid();
+    };
 
     const bunkerId = localStorage.getItem('bunker_id');
 
@@ -93,18 +140,13 @@
         if (hasSessionKey()) {
             logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. SESSION_KEY_VALID.`);
             document.getElementById('quick-resume-area').style.display = 'flex';
+        } else if (hasVault()) {
+            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. LOCAL_VAULT_FOUND.`);
+            document.getElementById('vault-unlock-area').style.display = 'block';
         } else {
-            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. SESSION_KEY_MISSING.`);
+            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. NO_VAULT_ON_THIS_DEVICE.`);
             document.getElementById('reverify-area').style.display = 'block';
-            const grid = document.getElementById('reverify-grid');
-            for (let i = 1; i <= 24; i++) {
-                grid.innerHTML += `
-                    <div class="import-slot">
-                        <span class="import-num">${String(i).padStart(2, '0')}</span>
-                        <input type="password" class="seed-word" data-index="${i}" autocomplete="off" placeholder="...">
-                    </div>
-                `;
-            }
+            buildReverifyGrid();
         }
     }
 
@@ -118,6 +160,43 @@
         logLine("SUCCESS: REAUTHENTICATED. ENTERING_BUNKER...");
         window.location.href = 'bunker.html';
     };
+
+    window.unlockWithPassword = async function () {
+        const password = document.getElementById('unlock-password').value;
+        if (!password) {
+            logLine("ERROR: PASSWORD_REQUIRED.");
+            return;
+        }
+
+        logLine("DECRYPTING_LOCAL_VAULT...");
+        try {
+            const mnemonic = await unlockVault(password);
+
+            logLine("BOOTING_ENGINE...");
+            const ready = await bootBunkerEngine();
+            if (!ready) {
+                logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+                return;
+            }
+
+            const derivedId = await syncBunkerIdentity(mnemonic);
+            if (derivedId !== bunkerId) {
+                logLine("ERROR: VAULT_DOES_NOT_MATCH_CACHED_IDENTITY.");
+                return;
+            }
+            logLine("SUCCESS: VAULT_UNLOCKED. ENTERING_BUNKER...");
+            window.location.href = 'bunker.html';
+        } catch (err) {
+            if (err.message === 'INVALID_PASSWORD') {
+                logLine("ERROR: INCORRECT_PASSWORD.");
+            } else {
+                console.error("VAULT_UNLOCK_ERROR:", err);
+                logLine("ERROR: VAULT_UNLOCK_FAILED.");
+            }
+        }
+    };
+
+    let reverifiedMnemonic = null;
 
     window.reverifyAndResume = async function () {
         const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
@@ -140,11 +219,33 @@
                 logLine("ERROR: PHRASE_DOES_NOT_MATCH_CACHED_IDENTITY.");
                 return;
             }
-            logLine("SUCCESS: REVERIFIED. ENTERING_BUNKER...");
-            window.location.href = 'bunker.html';
+            logLine("SUCCESS: REVERIFIED.");
+
+            reverifiedMnemonic = mnemonic;
+            document.getElementById('reverify-area').style.display = 'none';
+            document.getElementById('post-reverify-vault-area').style.display = 'block';
         } catch (err) {
             logLine("ERROR: SYNC_FAILED. VERIFY_MNEMONIC.");
         }
+    };
+
+    window.setPasswordThenEnter = async function () {
+        if (!reverifiedMnemonic) return;
+
+        const password = document.getElementById('vault-password').value;
+        const confirmPassword = document.getElementById('vault-password-confirm').value;
+        if (password.length < 8) {
+            logLine("ERROR: PASSWORD_TOO_SHORT. MIN_8_CHARACTERS.");
+            return;
+        }
+        if (password !== confirmPassword) {
+            logLine("ERROR: PASSWORDS_DO_NOT_MATCH.");
+            return;
+        }
+
+        await createVault(reverifiedMnemonic, password);
+        logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. ENTERING_BUNKER...");
+        window.location.href = 'bunker.html';
     };
 </script>
 

@@ -118,6 +118,47 @@ body.bunker-frame {
     color: #000;
 }
 
+/* Secondary/low-emphasis actions (abort, cancel) -- previously copy-pasted
+   inline as style="border-color: #444; color: #444;" with no hover state
+   on every page that needed a "quiet" button. */
+.btn-muted {
+    border-color: #444;
+    color: #444;
+}
+
+.btn-muted:hover {
+    border-color: #777;
+    color: #777;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Standout/recommended action (filled instead of outlined) -- previously
+   copy-pasted inline as style="background: var(--kaspa-bright); color: #000;" */
+.btn-highlight {
+    background: var(--kaspa-bright);
+    color: #000;
+    border-color: var(--kaspa-bright);
+}
+
+.btn-highlight:hover {
+    background: var(--kaspa-teal);
+    border-color: var(--kaspa-teal);
+    box-shadow: 0 0 10px var(--kaspa-teal);
+}
+
+.btn-execute:disabled {
+    border-color: #333;
+    color: #333;
+    cursor: not-allowed;
+}
+
+.btn-execute:disabled:hover {
+    background: transparent;
+    color: #333;
+    box-shadow: none;
+}
+
 /* Terminal Log at bottom */
 .terminal-log {
     font-size: 0.8rem;

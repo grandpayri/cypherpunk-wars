@@ -99,6 +99,7 @@
     }
 
     let pendingMnemonic = null;
+    let pendingBunkerId = null;
 
     window.validateAndImport = async function () {
         const words = Array.from(document.querySelectorAll('.seed-word')).map(input => input.value.trim().toLowerCase());
@@ -118,6 +119,7 @@
             log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId.substring(0, 10)}... DETECTED.`;
 
             pendingMnemonic = mnemonic;
+            pendingBunkerId = bunkerId;
             document.getElementById('import-action-area').style.display = 'none';
             document.getElementById('password-setup-area').style.display = 'block';
         } catch (e) {
@@ -139,7 +141,7 @@
             return;
         }
 
-        await createVault(pendingMnemonic, password);
+        await createVault(pendingBunkerId, pendingMnemonic, password);
         logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");
         logLine("REDIRECTING_TO_BUNKER...");
 

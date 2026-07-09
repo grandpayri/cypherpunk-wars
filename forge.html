@@ -119,7 +119,7 @@
             const bunkerId = await syncBunkerIdentity(currentMnemonic);
             logLine(`SUCCESS: BUNKER_${bunkerId.substring(0, 10)}... ONLINE`);
 
-            await createVault(currentMnemonic, password);
+            await createVault(bunkerId, currentMnemonic, password);
             logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");
 
             logLine("REQUESTING_STARTER_GRANT_FROM_FAUCET...");

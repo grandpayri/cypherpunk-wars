@@ -75,20 +75,25 @@
 
 <script type="module">
     import { renderAppHeader } from './shared-header.js';
-    renderAppHeader();
-</script>
+    import { listVaultAddresses } from './vault.js';
 
-<script>
+    renderAppHeader();
+
     window.addEventListener('load', () => {
         const savedId = localStorage.getItem('bunker_id');
-        if (savedId) {
+        const knownCount = listVaultAddresses().length;
+
+        if (savedId || knownCount > 0) {
             const resumeCell = document.getElementById('resume-content');
             resumeCell.style.opacity = "1.0";
+            const label = knownCount > 1
+                ? `${knownCount} saved identities detected.`
+                : `ACTIVE_ID: ${(savedId || listVaultAddresses()[0]).substring(0, 10)}... detected.`;
             resumeCell.innerHTML = `
                 <button class="btn-execute btn-highlight"
                         onclick="window.location.href='resume.html'">RESUME_SESSION</button>
                 <div class="help-text" style="color: var(--kaspa-bright)">
-                    ACTIVE_ID: ${savedId.substring(0,10)}... detected.
+                    ${label}
                 </div>
             `;
             document.getElementById('log').innerText = `> OPERATOR_RECOGNIZED. READY TO RESUME.`;

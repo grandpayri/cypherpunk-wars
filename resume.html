@@ -34,6 +34,46 @@
             margin-right: 5px;
             width: 20px;
         }
+        .identity-card {
+            border: 1px inset var(--kaspa-teal);
+            background: #000;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .identity-address {
+            color: var(--kaspa-teal);
+            font-size: 0.75rem;
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+        .identity-active-tag {
+            color: var(--kaspa-bright);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+        .identity-password-row {
+            display: flex;
+            gap: 8px;
+        }
+        .identity-password-row input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-bright);
+            font-family: inherit;
+            padding: 8px;
+        }
+        .vault-password-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: #000;
+            border: 1px solid var(--kaspa-teal);
+            color: var(--kaspa-bright);
+            font-family: inherit;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body class="bunker-frame">
@@ -43,38 +83,17 @@
 <div class="central-gate">
     <div class="forge-container">
         <h2 style="margin-top: 0; color: var(--kaspa-bright);">[03] SESSION_RESUME_PROTOCOL</h2>
-        <p>Reauthenticating cached bunker identity against the local engine.</p>
+        <p>Select which bunker identity to reauthenticate against the local engine.</p>
 
-        <div style="border: 1px inset var(--kaspa-teal); background: #000; padding: 20px; margin: 20px 0;">
-            <div style="font-size: 0.7rem; color: #555; text-transform: uppercase;">Cached Operator ID</div>
-            <div id="cached-id" style="color: var(--kaspa-bright); font-size: 0.9rem; margin-top: 5px;">...</div>
-        </div>
-
-        <div id="quick-resume-area" style="display: none; justify-content: space-between; align-items: center;">
-            <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT</button>
-            <button class="btn-execute" onclick="quickResume()">REAUTHENTICATE_AND_ENTER</button>
-        </div>
-
-        <div id="vault-unlock-area" style="display: none;">
-            <p style="font-size: 0.8rem;">Enter your unlock password to resume -- no need for the full 24-word phrase.</p>
-            <input type="password" id="unlock-password" placeholder="UNLOCK_PASSWORD"
-                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT</button>
-                <button class="btn-execute" onclick="unlockWithPassword()">UNLOCK_AND_ENTER</button>
-            </div>
-            <p style="font-size: 0.7rem; color: #666; margin-top: 15px;">
-                Forgot your password? <a href="#" onclick="showReverify(); return false;" style="color: var(--kaspa-teal);">Use your 24-word phrase instead</a>.
-            </p>
-        </div>
+        <div id="identity-list"></div>
 
         <div id="reverify-area" style="display: none;">
             <p style="color: var(--hazard-yellow); font-size: 0.8rem;">
-                Re-enter your 24-word phrase to sign back in.
+                No local vault for this identity. Re-enter its 24-word phrase to sign back in.
             </p>
             <div id="reverify-grid" class="import-grid"></div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button class="btn-execute btn-muted" onclick="window.location.href='index.html'">ABORT</button>
+                <button class="btn-execute btn-muted" onclick="cancelReverify()">CANCEL</button>
                 <button class="btn-execute" onclick="reverifyAndResume()">REVERIFY_AND_ENTER</button>
             </div>
         </div>
@@ -83,14 +102,18 @@
             <p style="font-size: 0.8rem;">
                 Set an unlock password now so you don't need the full 24-word phrase next time.
             </p>
-            <input type="password" id="vault-password" placeholder="UNLOCK_PASSWORD (min 8 chars)"
-                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 10px;">
-            <input type="password" id="vault-password-confirm" placeholder="CONFIRM_PASSWORD"
-                   style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
+            <input type="password" id="vault-password" class="vault-password-input" placeholder="UNLOCK_PASSWORD (min 8 chars)">
+            <input type="password" id="vault-password-confirm" class="vault-password-input" placeholder="CONFIRM_PASSWORD">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <button class="btn-execute btn-muted" onclick="window.location.href='bunker.html'">SKIP_FOR_NOW</button>
                 <button class="btn-execute" onclick="setPasswordThenEnter()">SET_PASSWORD_AND_ENTER</button>
             </div>
+        </div>
+
+        <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px; text-align: center;">
+            <p style="font-size: 0.75rem; color: #888;">Don't see the identity you want?</p>
+            <button class="btn-execute" onclick="window.location.href='forge.html'">FORGE_NEW</button>
+            <button class="btn-execute" onclick="window.location.href='import.html'">IMPORT_ID</button>
         </div>
     </div>
 
@@ -98,9 +121,9 @@
 </div>
 
 <script type="module">
-    import { bootBunkerEngine, syncBunkerIdentity, hasSessionKey } from './wallet-gen.js';
+    import { bootBunkerEngine, syncBunkerIdentity, hasSessionKey, deriveAddressFromMnemonic } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
-    import { hasVault, unlockVault, createVault } from './vault.js';
+    import { listVaultAddresses, hasVault, unlockVault, createVault } from './vault.js';
 
     renderAppHeader();
 
@@ -110,9 +133,56 @@
         log.scrollTop = log.scrollHeight;
     }
 
+    const activeBunkerId = localStorage.getItem('bunker_id');
+    const vaultAddresses = listVaultAddresses();
+
+    // Everything with a saved vault, plus the currently-active identity if it
+    // somehow has no vault yet (legacy/orphaned case) so it's never hidden.
+    const knownAddresses = [...vaultAddresses];
+    if (activeBunkerId && !knownAddresses.includes(activeBunkerId)) {
+        knownAddresses.push(activeBunkerId);
+    }
+
+    if (knownAddresses.length === 0) {
+        logLine("ERROR: NO_KNOWN_IDENTITIES_ON_THIS_DEVICE. REDIRECTING...");
+        setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+    } else {
+        logLine(`${knownAddresses.length} KNOWN_IDENTITY(IES) FOUND ON THIS DEVICE.`);
+        renderIdentityList();
+    }
+
+    function renderIdentityList() {
+        const list = document.getElementById('identity-list');
+        list.innerHTML = knownAddresses.map((address, i) => {
+            const isActive = address === activeBunkerId;
+            const canQuickResume = isActive && hasSessionKey();
+            const cardHasVault = hasVault(address);
+
+            let actionHtml;
+            if (canQuickResume) {
+                actionHtml = `<button class="btn-execute" onclick="window.quickResume('${address}')">QUICK_RESUME</button>`;
+            } else if (cardHasVault) {
+                actionHtml = `
+                    <div class="identity-password-row">
+                        <input type="password" id="unlock-password-${i}" placeholder="UNLOCK_PASSWORD">
+                        <button class="btn-execute" onclick="window.unlockWithPassword('${address}', ${i})">UNLOCK</button>
+                    </div>`;
+            } else {
+                actionHtml = `<button class="btn-execute btn-muted" onclick="window.startReverify('${address}')">REVERIFY_WITH_24_WORDS</button>`;
+            }
+
+            return `
+                <div class="identity-card">
+                    <div class="identity-address">${address}${isActive ? '<span class="identity-active-tag">[ACTIVE_SESSION]</span>' : ''}</div>
+                    ${actionHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
     function buildReverifyGrid() {
         const grid = document.getElementById('reverify-grid');
-        if (grid.childElementCount > 0) return;
+        grid.innerHTML = '';
         for (let i = 1; i <= 24; i++) {
             grid.innerHTML += `
                 <div class="import-slot">
@@ -123,54 +193,43 @@
         }
     }
 
-    window.showReverify = function () {
-        document.getElementById('vault-unlock-area').style.display = 'none';
+    let reverifyTargetAddress = null;
+
+    window.startReverify = function (address) {
+        reverifyTargetAddress = address;
+        document.getElementById('identity-list').style.display = 'none';
         document.getElementById('reverify-area').style.display = 'block';
         buildReverifyGrid();
     };
 
-    const bunkerId = localStorage.getItem('bunker_id');
+    window.cancelReverify = function () {
+        reverifyTargetAddress = null;
+        document.getElementById('reverify-area').style.display = 'none';
+        document.getElementById('identity-list').style.display = 'block';
+    };
 
-    if (!bunkerId) {
-        logLine("ERROR: NO_CACHED_IDENTITY_FOUND. REDIRECTING...");
-        setTimeout(() => { window.location.href = 'index.html'; }, 1500);
-    } else {
-        document.getElementById('cached-id').innerText = bunkerId;
-
-        if (hasSessionKey()) {
-            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. SESSION_KEY_VALID.`);
-            document.getElementById('quick-resume-area').style.display = 'flex';
-        } else if (hasVault()) {
-            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. LOCAL_VAULT_FOUND.`);
-            document.getElementById('vault-unlock-area').style.display = 'block';
-        } else {
-            logLine(`CACHED_ID_${bunkerId.substring(0, 10)}... DETECTED. NO_VAULT_ON_THIS_DEVICE.`);
-            document.getElementById('reverify-area').style.display = 'block';
-            buildReverifyGrid();
-        }
-    }
-
-    window.quickResume = async function () {
+    window.quickResume = async function (address) {
         logLine("BOOTING_ENGINE...");
         const ready = await bootBunkerEngine();
         if (!ready) {
             logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
             return;
         }
+        localStorage.setItem('bunker_id', address);
         logLine("SUCCESS: REAUTHENTICATED. ENTERING_BUNKER...");
         window.location.href = 'bunker.html';
     };
 
-    window.unlockWithPassword = async function () {
-        const password = document.getElementById('unlock-password').value;
+    window.unlockWithPassword = async function (address, cardIndex) {
+        const password = document.getElementById(`unlock-password-${cardIndex}`).value;
         if (!password) {
             logLine("ERROR: PASSWORD_REQUIRED.");
             return;
         }
 
-        logLine("DECRYPTING_LOCAL_VAULT...");
+        logLine(`DECRYPTING_VAULT_FOR_${address.substring(0, 10)}...`);
         try {
-            const mnemonic = await unlockVault(password);
+            const mnemonic = await unlockVault(address, password);
 
             logLine("BOOTING_ENGINE...");
             const ready = await bootBunkerEngine();
@@ -180,8 +239,8 @@
             }
 
             const derivedId = await syncBunkerIdentity(mnemonic);
-            if (derivedId !== bunkerId) {
-                logLine("ERROR: VAULT_DOES_NOT_MATCH_CACHED_IDENTITY.");
+            if (derivedId !== address) {
+                logLine("ERROR: VAULT_DOES_NOT_MATCH_EXPECTED_IDENTITY.");
                 return;
             }
             logLine("SUCCESS: VAULT_UNLOCKED. ENTERING_BUNKER...");
@@ -215,8 +274,8 @@
         try {
             const mnemonic = words.join(' ');
             const derivedId = await syncBunkerIdentity(mnemonic);
-            if (derivedId !== bunkerId) {
-                logLine("ERROR: PHRASE_DOES_NOT_MATCH_CACHED_IDENTITY.");
+            if (derivedId !== reverifyTargetAddress) {
+                logLine("ERROR: PHRASE_DOES_NOT_MATCH_EXPECTED_IDENTITY.");
                 return;
             }
             logLine("SUCCESS: REVERIFIED.");
@@ -230,7 +289,7 @@
     };
 
     window.setPasswordThenEnter = async function () {
-        if (!reverifiedMnemonic) return;
+        if (!reverifiedMnemonic || !reverifyTargetAddress) return;
 
         const password = document.getElementById('vault-password').value;
         const confirmPassword = document.getElementById('vault-password-confirm').value;
@@ -243,7 +302,7 @@
             return;
         }
 
-        await createVault(reverifiedMnemonic, password);
+        await createVault(reverifyTargetAddress, reverifiedMnemonic, password);
         logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. ENTERING_BUNKER...");
         window.location.href = 'bunker.html';
     };

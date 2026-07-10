@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "static-site",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$Root='.'; $l=New-Object System.Net.HttpListener; $l.Prefixes.Add('http://localhost:8421/'); $l.Start(); Write-Host 'Serving on 8421'; while($l.IsListening){$c=$l.GetContext();$req=$c.Request;$res=$c.Response;try{$p=[Uri]::UnescapeDataString($req.Url.AbsolutePath); if($p -eq '/'){$p='/index.html'}; $fp=Join-Path $Root ($p.TrimStart('/')); if(Test-Path $fp -PathType Leaf){$ext=[IO.Path]::GetExtension($fp).ToLower(); $mime=switch($ext){'.html'{'text/html'};'.js'{'application/javascript'};'.mjs'{'application/javascript'};'.css'{'text/css'};'.wasm'{'application/wasm'};'.json'{'application/json'};'.png'{'image/png'};'.svg'{'image/svg+xml'};'.ico'{'image/x-icon'};default{'application/octet-stream'}}; $res.ContentType=$mime; $b=[IO.File]::ReadAllBytes($fp); $res.ContentLength64=$b.Length; $res.OutputStream.Write($b,0,$b.Length)}else{$res.StatusCode=404}}catch{$res.StatusCode=500}finally{$res.Close()}}"],
+      "port": 8421
+    }
+  ]
+}

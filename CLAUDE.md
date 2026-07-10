@@ -31,16 +31,16 @@ Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 2
 
 ## State & persistence
 
-- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else.
-- All other stats currently shown in `bunker.html` (GWh, $PUNKW, sectors, cycles) are placeholders/random values (see `refreshBunkerStats`/`executePhish` in `bunker-logic.js`) pending real DAG-derived state per the architecture doc.
+- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`) kept in sync with the full game-state snapshot written into every Genesis/Phish payload.
+- Sectors are a real planned mechanic (Phase 6, not yet built) shown as a fixed placeholder in the sidebar; there is no GWh or Cycles system — those were an earlier, incorrect design pass and have been removed from both the docs and the UI.
 
 ## Game terminology (needed to work on gameplay logic)
 
 Defined in `gameplay.html`:
-- **GWh** — energy cost of one on-chain action (1 GWh per action, drawn from KAS reserves).
-- **Cycles** — AI cluster compute capacity; 1 Cycle = 1 unit of work (e.g. one Phish).
-- **Sectors** — infrastructure that scales $PUNKW yield.
-- **Armageddon Meta** — a global season reset triggered by a successful high-level "hack".
+- **Turns** — each turn is a real Kaspa transaction, spent from the player's covenant-locked Gameplay Vault (see `kaspa-client.js`'s `spendFromRestrictedWallet`). Not a fictional resource; the network itself enforces what a turn can pay for.
+- **$PUNKW (War Chest)** — earned by Phishing. Every Genesis/Phish transaction writes the operator's *entire* current game state (a fixed-width, versioned 42-byte struct — $PUNKW, sectors, node specialization, research tier, turn count, season, unit/item counts) into that transaction's payload (`encodeGameStateSnapshot`/`decodeGameStateSnapshot` in `kaspa-client.js`), not just $PUNKW or an action tag. Fields not backed by real gameplay yet are written as `0`.
+- **Sectors** — planned (Phase 6, not built): built by spending $PUNKW, increasing Phishing efficiency.
+- **Armageddon** — planned (Phase 7, not built): a covenant-verifiable season-ending reset, cast like other future hack/DOS payloads.
 
 ## Visual/UI conventions
 

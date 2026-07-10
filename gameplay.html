@@ -7,7 +7,10 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .term-definition { margin-bottom: 20px; border-left: 3px solid var(--kaspa-teal); padding-left: 15px; }
+        .term-definition.planned { border-left-color: var(--hazard-yellow); }
         .term-title { color: var(--kaspa-bright); font-weight: bold; text-transform: uppercase; }
+        .planned .term-title { color: var(--hazard-yellow); }
+        .planned-tag { font-size: 0.65rem; color: var(--hazard-yellow); text-transform: uppercase; margin-left: 8px; }
     </style>
 </head>
 <body class="bunker-frame">
@@ -26,23 +29,28 @@
                     </h1>
 
                     <div class="term-definition">
-                        <span class="term-title">GWh (Gigawatt-Hours)</span>
-                        <p>The energy required to broadcast data to the Kaspa BlockDAG. Every action consumes 1 GWh, which is drawn from your KAS reserves.</p>
+                        <span class="term-title">Turns</span>
+                        <p>Each turn is a real Kaspa transaction, spent from your covenant-locked Gameplay Vault (see Command Center &gt; Phish). The network itself enforces what a turn can pay for -- not a client-side counter.</p>
                     </div>
 
                     <div class="term-definition">
-                        <span class="term-title">Cycles</span>
-                        <p>Your AI cluster's compute capacity. 1 Cycle represents 1 execution unit of work.</p>
+                        <span class="term-title">Plain Wallet vs. Gameplay Vault</span>
+                        <p>Your Plain Wallet holds ordinary TKAS, spendable however you like. Your Gameplay Vault is a Toccata covenant: funds there can only leave via a real CPW-tagged transaction, never a free-form send -- see the Transfer page's demo of the network rejecting a non-compliant spend.</p>
                     </div>
 
                     <div class="term-definition">
-                        <span class="term-title">Sectors</span>
-                        <p>Physical server rack infrastructure. Expanding your sectors increases the efficiency and yield of your $PUNKW ingestion.</p>
+                        <span class="term-title">$PUNKW (War Chest)</span>
+                        <p>Earned by Phishing. Every Genesis and Phish transaction writes your current $PUNKW total directly into that transaction's on-chain payload -- a real state snapshot, not just a log message -- so the sidebar's War Chest total reflects what's actually recorded on-chain for that action.</p>
                     </div>
 
-                    <div class="term-definition">
-                        <span class="term-title">The Armageddon Meta</span>
-                        <p>A global reset initiated by an operator. The season ends when a high-level hack successfully executes a total system wipe.</p>
+                    <div class="term-definition planned">
+                        <span class="term-title">Sectors<span class="planned-tag">[PLANNED]</span></span>
+                        <p>Built by spending $PUNKW, making your Phishing more efficient. The economy for this (Phase 6) isn't built yet -- the sidebar currently shows a fixed starting value, not a real purchase.</p>
+                    </div>
+
+                    <div class="term-definition planned">
+                        <span class="term-title">Units, Items &amp; DOS Attacks<span class="planned-tag">[PLANNED]</span></span>
+                        <p>Later phases add unit types (daemons/processes run on the network), items, and DOS payloads operators can cast against each other -- including Armageddon, a covenant-verifiable season-ending reset. None of this exists yet; see Attack and Research for current status.</p>
                     </div>
 
                     <div style="margin-top: 40px; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">

@@ -32,6 +32,37 @@ const NAV_LINKS_HTML = (activePageId) => NAV_ITEMS.map((item) =>
 
 let currentBunkerId = null;
 
+// $PUNKW and turnCount aren't derived from the chain yet (no indexer -- see Phase 5), so
+// these are local caches per identity, kept in sync with the state-snapshot written into
+// every Genesis/Phish payload (see kaspa-client.js's encodeGameStateSnapshot). Same trust
+// model already established for Phish yield: client-computed and displayed today, not yet
+// chain-verified.
+function punkwStorageKey(bunkerId) {
+    return `punkw_balance_${bunkerId}`;
+}
+
+export function getPunkwBalance(bunkerId) {
+    const raw = localStorage.getItem(punkwStorageKey(bunkerId));
+    return raw ? parseInt(raw, 10) : 0;
+}
+
+export function setPunkwBalance(bunkerId, value) {
+    localStorage.setItem(punkwStorageKey(bunkerId), String(value));
+}
+
+function turnCountStorageKey(bunkerId) {
+    return `turn_count_${bunkerId}`;
+}
+
+export function getTurnCount(bunkerId) {
+    const raw = localStorage.getItem(turnCountStorageKey(bunkerId));
+    return raw ? parseInt(raw, 10) : 0;
+}
+
+export function setTurnCount(bunkerId, value) {
+    localStorage.setItem(turnCountStorageKey(bunkerId), String(value));
+}
+
 export async function renderSidebar(containerId, activePageId) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -65,11 +96,9 @@ export async function renderSidebar(containerId, activePageId) {
         <div class="stat-label">Turns Available (at ~${costPerTurnKas} TKAS/turn)</div>
         <span class="stat-val" id="sidebarTurns">...</span>
         <div class="stat-label">War Chest</div>
-        <span class="stat-val">0 $PUNKW</span>
-        <div class="stat-label">Infrastructure</div>
+        <span class="stat-val" id="sidebarPunkw">${getPunkwBalance(bunkerId)} $PUNKW</span>
+        <div class="stat-label">Infrastructure (Sectors -- planned, not yet buildable)</div>
         <span class="stat-val">1 SECTOR</span>
-        <div class="stat-label">Compute Load</div>
-        <span class="stat-val">10/10 CYC</span>
 
         <hr class="sidebar-divider">
 
@@ -85,6 +114,9 @@ export async function renderSidebar(containerId, activePageId) {
 
 export async function refreshSidebarStats() {
     if (!currentBunkerId) return;
+
+    const punkwEl = document.getElementById('sidebarPunkw');
+    if (punkwEl) punkwEl.innerText = `${getPunkwBalance(currentBunkerId)} $PUNKW`;
 
     try {
         const balanceSompi = await getAddressBalance(currentBunkerId);

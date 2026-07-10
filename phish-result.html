@@ -56,6 +56,7 @@
         <div class="yield-display">
             <span class="yield-label">$PUNKW Fragments Ingested</span>
             <span class="yield-amount" id="yieldAmount">0</span>
+            <span class="yield-label" style="margin-top: 10px; display: block;">New War Chest Total: <span id="newTotal" style="color: var(--kaspa-teal);">0</span> $PUNKW</span>
         </div>
 
         <div class="verification-note">
@@ -95,6 +96,7 @@
     } else {
         const result = JSON.parse(raw);
         document.getElementById('yieldAmount').innerText = result.yieldAmount;
+        document.getElementById('newTotal').innerText = result.newPunkwTotal;
         document.getElementById('txid').innerText = result.txid;
         sessionStorage.removeItem('lastPhishResult');
     }

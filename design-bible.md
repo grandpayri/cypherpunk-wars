@@ -41,7 +41,7 @@ via covenants is a Phase 7 design question, not decided yet.)
 
 | Legacy Spell | CPW Payload | Effect |
 |---|---|---|
-| Meteor Storm | **Cascading Hardware Failure** | Persistent heavy-bandwidth malware degrading an opponent's Sector efficiency over time; costs continuous GWh to sustain (matches legacy's constant mana drain on the caster) |
+| Meteor Storm | **Cascading Hardware Failure** | Persistent heavy-bandwidth malware degrading an opponent's Sector efficiency over time; costs continuous $PUNKW upkeep to sustain (matches legacy's constant mana drain on the caster) |
 | Chain Lightning | **Distributed Denial of Service (DDoS)** | Severe damage to one target, weaker bleed-over to secondary infrastructure |
 | Platinum Hand of Healing / Regeneration | **Data Scrubbing & Backup Restore** | Restores corrupted operational data from local backups; brings disconnected servers back online |
 | Disintegrate | **Zero-Day Exploit** | Instantly wipes a specific enemy daemon; unblockable, highly targeted |
@@ -54,7 +54,7 @@ Items become hardware expansions, firmware upgrades, or cryptographic keys insta
 | Legacy Item | CPW Item | Effect |
 |---|---|---|
 | Coffin | **Pre-Packaged Botnet Drive** | Randomly grants ~2,000 hijacked devices (Zombie-tier), ~1,000 (Ghoul-tier), or 20 (Lich-tier) without manual compiling |
-| Potion of Valor | **Overclock Firmware** | +20% offensive execution cycles (AP), temporary |
+| Potion of Valor | **Overclock Firmware** | +20% offensive output (AP), temporary |
 | Bubble Wine | **Thermal Paste Syringe** | +10% offense, +30% effective HP (advanced cooling lets hardware run hotter, take more punishment) |
 | Blood Stained Map | **Compromised Routing Ledger** | Cumulative +15% chance to discover rare, decentralized nodes (legacy: Holy Grails) |
 | Oil Flasks & Pixie Dust | **Firewall Degradants** | Permanently lowers a target's cryptographic resistance to subsequent inbound attacks |
@@ -66,8 +66,8 @@ The physical kingdom layout maps to the physical data center layout.
 | Legacy System | CPW System | Notes |
 |---|---|---|
 | Workshops & Build Rate | **Compiling Nodes** | Dictates how fast new Sectors can be spun up |
-| Guilds & Nodes | **Validator Network** | Generates incoming GWh fuel reserves (Kaspa validator setups) |
-| Upkeep (Mana/Gold) | **Power Consumption (GWh / $PUNKW)** | Failing to maintain upkeep disbands units/payloads, same as legacy TR |
+| Guilds & Nodes | **Validator Network** | Generates incoming $PUNKW yield (Kaspa validator setups) |
+| Upkeep (Mana/Gold) | **$PUNKW Upkeep** | Failing to maintain upkeep disbands units/payloads, same as legacy TR |
 
 ## Open questions for implementation (not yet decided)
 
@@ -76,7 +76,7 @@ The physical kingdom layout maps to the physical data center layout.
   from payload-tagged transactions (Phase 4-6 pattern, following Genesis/Phish)? Likely: high-stakes combat
   outcomes (Attack payloads, Zero-Day Exploit) warrant covenant enforcement; passive economy (Infrastructure,
   upkeep ticking) probably doesn't.
-- Exact numeric balancing (AP/HP values, costs in GWh/Cycles/$PUNKW, drop rates) is not specified here and
+- Exact numeric balancing (AP/HP values, costs in $PUNKW, drop rates) is not specified here and
   needs its own pass once a system is actually being built.
 - How Node Specialization (the five alignments) is chosen/locked-in per operator, and whether it's
   changeable, isn't decided.

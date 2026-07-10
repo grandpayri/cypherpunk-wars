@@ -17,7 +17,7 @@
 
             <div class="bunker-main">
                 <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
-                <p style="font-size: 0.85rem;">Allocate 1 Cycle and 1 GWh to scrape the BlockDAG for $PUNKW fragments.</p>
+                <p style="font-size: 0.85rem;">Spend one Turn (a real Kaspa transaction from your Gameplay Vault) to scrape the BlockDAG for $PUNKW fragments.</p>
                 <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
                     <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
                 </div>
@@ -31,9 +31,9 @@
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
-    import { deriveRestrictedWalletAddress, spendFromRestrictedWallet, ActionType } from './kaspa-client.js';
+    import { deriveRestrictedWalletAddress, spendFromRestrictedWallet, ActionType, encodeGameStateSnapshot } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
-    import { renderSidebar } from './shared-sidebar.js';
+    import { renderSidebar, refreshSidebarStats, getPunkwBalance, setPunkwBalance, getTurnCount, setTurnCount } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
@@ -76,7 +76,14 @@
             return;
         }
 
-        logLine("ALLOCATING_GIGAWATTS...");
+        logLine("SCRAPING_BLOCKDAG...");
+        // Computed before broadcasting since the new total needs to go INTO this
+        // transaction's payload (a real state snapshot, not just an action tag) -- but
+        // only persisted locally after the network actually accepts the spend, so the
+        // local cache never gets ahead of a transaction that didn't land.
+        const yieldAmount = Math.floor(Math.random() * 40) + 10;
+        const newPunkwTotal = getPunkwBalance(bunkerId) + yieldAmount;
+        const newTurnCount = getTurnCount(bunkerId) + 1;
         try {
             const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
             const result = await spendFromRestrictedWallet({
@@ -84,12 +91,15 @@
                 playerPrivateKey: privateKey,
                 playerPubkeyHex: pubkey,
                 actionType: ActionType.PHISH,
-                extraBytes: new Uint8Array(0),
+                extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, turnCount: newTurnCount }),
             });
-            const yieldAmount = Math.floor(Math.random() * 40) + 10;
+            setPunkwBalance(bunkerId, newPunkwTotal);
+            setTurnCount(bunkerId, newTurnCount);
+            refreshSidebarStats();
             sessionStorage.setItem('lastPhishResult', JSON.stringify({
                 txid: result.txid,
                 yieldAmount,
+                newPunkwTotal,
                 rewardAmountSompi: result.outputs.reward.toString(),
                 changeAmountSompi: result.outputs.change.toString(),
             }));

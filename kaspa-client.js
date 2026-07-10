@@ -95,6 +95,10 @@ const MAGIC = "CPW1";
 export const ActionType = Object.freeze({
     GENESIS: 0x01,
     PHISH: 0x02,
+    ATTACK: 0x03,     // reserved, Phase 7 -- not wired up yet
+    RESEARCH: 0x04,   // reserved, Phase 6 -- not wired up yet
+    HACK: 0x05,       // reserved, Phase 7 (includes Armageddon casts) -- not wired up yet
+    BUY_TURNS: 0x06,  // reserved -- buyTurns() doesn't tag a payload yet, open question
 });
 
 export function encodePayload(actionType, extraBytes = new Uint8Array(0)) {
@@ -111,6 +115,74 @@ export function decodePayload(bytes) {
     const magic = new TextDecoder().decode(bytes.slice(0, 4));
     if (magic !== MAGIC) return null;
     return { actionType: bytes[4], extra: bytes.slice(5) };
+}
+
+// State-snapshot payload, not just an action tag: every Genesis/Phish payload's extraBytes
+// carries the operator's *entire* current game state at that point (not a delta), so an
+// indexer can read it directly off an operator's most recent transaction instead of
+// replaying their whole history. Fixed-width, versioned struct -- see the plan doc's
+// "Extended economics & payload design" section (1a) for the full field-by-field rationale.
+// Every slot not yet backed by real gameplay is written as 0, same honesty convention
+// already used for $PUNKW before Phish existed.
+export const GAME_STATE_SCHEMA_VERSION = 1;
+export const GAME_STATE_BODY_BYTES = 42;
+
+export const NodeSpecialization = Object.freeze({
+    UNSET: 0,
+    CONSENSUS: 1,
+    INFRASTRUCTURE: 2,
+    OVERCLOCKING: 3,
+    PHANTOM: 4,
+    DARKNET: 5,
+});
+
+// Fixed roster order -- matches documentation/design-bible.md section 02.
+export const UNIT_TYPES = [
+    'whiteHatProxies', 'mainframeBricks', 'scrapingScripts', 'botnetsSleeperAgents', 'aiSentinels',
+];
+// Fixed roster order -- matches documentation/design-bible.md section 04.
+export const ITEM_TYPES = [
+    'botnetDrive', 'overclockFirmware', 'thermalPasteSyringe', 'compromisedRoutingLedger', 'firewallDegradants',
+];
+
+export function encodeGameStateSnapshot(state = {}) {
+    const buf = new ArrayBuffer(GAME_STATE_BODY_BYTES);
+    const view = new DataView(buf);
+    let o = 0;
+    view.setUint8(o, GAME_STATE_SCHEMA_VERSION); o += 1;
+    view.setBigUint64(o, BigInt(state.punkw ?? 0), true); o += 8;
+    view.setUint16(o, state.sectors ?? 0, true); o += 2;
+    view.setUint8(o, state.nodeSpec ?? NodeSpecialization.UNSET); o += 1;
+    view.setUint8(o, state.researchTier ?? 0); o += 1;
+    view.setUint32(o, state.turnCount ?? 0, true); o += 4;
+    view.setUint16(o, state.season ?? 0, true); o += 2;
+    for (const key of UNIT_TYPES) {
+        view.setUint16(o, state.units?.[key] ?? 0, true); o += 2;
+    }
+    for (const key of ITEM_TYPES) {
+        view.setUint8(o, state.items?.[key] ?? 0); o += 1;
+    }
+    // remaining bytes (reserved trailer) left zeroed by ArrayBuffer's default init
+    return new Uint8Array(buf);
+}
+
+export function decodeGameStateSnapshot(extraBytes) {
+    if (!extraBytes || extraBytes.length < GAME_STATE_BODY_BYTES) return null;
+    const view = new DataView(extraBytes.buffer, extraBytes.byteOffset, extraBytes.byteLength);
+    let o = 0;
+    const schemaVersion = view.getUint8(o); o += 1;
+    if (schemaVersion !== GAME_STATE_SCHEMA_VERSION) return null;
+    const punkw = Number(view.getBigUint64(o, true)); o += 8;
+    const sectors = view.getUint16(o, true); o += 2;
+    const nodeSpec = view.getUint8(o); o += 1;
+    const researchTier = view.getUint8(o); o += 1;
+    const turnCount = view.getUint32(o, true); o += 4;
+    const season = view.getUint16(o, true); o += 2;
+    const units = {};
+    for (const key of UNIT_TYPES) { units[key] = view.getUint16(o, true); o += 2; }
+    const items = {};
+    for (const key of ITEM_TYPES) { items[key] = view.getUint8(o); o += 1; }
+    return { schemaVersion, punkw, sectors, nodeSpec, researchTier, turnCount, season, units, items };
 }
 
 let rpcClient = null;

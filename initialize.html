@@ -40,15 +40,17 @@
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
-    import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction } from './kaspa-client.js';
+    import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, encodeGameStateSnapshot } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
+    import { setPunkwBalance, setTurnCount } from './shared-sidebar.js';
 
     renderAppHeader();
     renderFooter();
 
     // kaspaToSompi(0.2) equivalent -- small fixed tagging amount, not a real balance transfer.
     const GENESIS_TAG_AMOUNT_SOMPI = 20000000n;
+    const GENESIS_PUNKW_GRANT = 1000;
 
     function logLine(msg) {
         const log = document.getElementById('log');
@@ -86,7 +88,7 @@
             return;
         }
 
-        logLine("ALLOCATING_GIGAWATTS...");
+        logLine("BROADCASTING_GENESIS_TURN...");
         try {
             const txid = await sendTaggedTransaction({
                 fromAddress: bunkerId,
@@ -94,7 +96,10 @@
                 toAddress: REGISTRY_ADDRESS,
                 amountSompi: GENESIS_TAG_AMOUNT_SOMPI,
                 actionType: ActionType.GENESIS,
+                extraBytes: encodeGameStateSnapshot({ punkw: GENESIS_PUNKW_GRANT, turnCount: 1 }),
             });
+            setPunkwBalance(bunkerId, GENESIS_PUNKW_GRANT);
+            setTurnCount(bunkerId, 1);
             logLine(`SUCCESS: GENESIS_BROADCAST_${txid.substring(0, 10)}...`);
             logLine("ENTERING_BUNKER...");
             setTimeout(() => { window.location.href = 'bunker.html'; }, 1500);

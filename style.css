@@ -331,6 +331,128 @@ body.bunker-frame {
     border-right-color: var(--kaspa-bright);
 }
 
+/* Command Center action grid (bunker.html) -- every action a player can take (Phish,
+   Build Infrastructure, Attack, Research) lives here as a card, rather than Attack/Research
+   being separate persistent-nav destinations. Cards for systems that aren't built yet
+   (Build Infrastructure, Attack, Research) render .disabled with a .coming-soon-tag,
+   matching gameplay.html's planned/[PLANNED] convention. */
+.action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.action-card {
+    border: 1px dashed var(--kaspa-teal);
+    padding: 20px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.action-card h4 {
+    color: var(--kaspa-bright);
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+}
+
+.action-card p {
+    font-size: 0.75rem;
+    color: #888;
+    margin: 0 0 15px;
+    min-height: 45px;
+}
+
+.action-card.disabled {
+    border-color: #333;
+}
+
+.action-card.disabled h4 {
+    color: #666;
+}
+
+/* Every address/txid links out to a real explorer (see explorer-links.js) instead of
+   being inert text -- styled to read as "this is clickable" without shouting over the
+   surrounding terminal-green text. */
+.explorer-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--kaspa-teal);
+}
+
+.explorer-link:hover {
+    color: var(--kaspa-bright);
+    border-bottom-color: var(--kaspa-bright);
+}
+
+/* Shared text-input face -- previously copy-pasted inline in send.html's own <style>
+   block; now also used by history.html's address-lookup field. */
+.send-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #000;
+    border: 1px solid var(--kaspa-teal);
+    color: var(--kaspa-bright);
+    font-family: inherit;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+/* CPW History (history.html) -- decoded move list. */
+.history-note {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 15px;
+    word-break: break-all;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.history-row {
+    display: flex;
+    align-items: baseline;
+    gap: 15px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 2px solid var(--kaspa-teal);
+    font-size: 0.8rem;
+}
+
+.history-time {
+    color: #888;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    width: 150px;
+}
+
+.history-desc {
+    flex: 1;
+    color: var(--kaspa-bright);
+}
+
+.history-txid {
+    color: #555;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.coming-soon-tag {
+    font-size: 0.6rem;
+    color: var(--hazard-yellow);
+    border: 1px solid var(--hazard-yellow);
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    white-space: nowrap;
+    display: inline-block;
+}
+
 @media (max-width: 700px) {
     .bunker-shell {
         flex-direction: column;
@@ -353,5 +475,8 @@ body.bunker-frame {
     .docs-footer .nav-link-active {
         border-right-color: transparent;
         border-bottom-color: var(--kaspa-bright);
+    }
+    .action-grid {
+        grid-template-columns: 1fr;
     }
 }

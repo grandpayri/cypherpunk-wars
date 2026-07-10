@@ -6,6 +6,8 @@
  * mount point present on every page (<div id="app-header"></div>), so the
  * whole app reads as one system instead of independently-styled pages.
  */
+import { addressLinkHtml } from './explorer-links.js';
+
 const ASCII_LOGO_LINES = [
     "    ____            _               _____             _     __          __            ",
     "  / ____|          | |             |  __ \\           | |    \\ \\        / /            ",
@@ -26,7 +28,7 @@ export function renderAppHeader(containerId = "app-header") {
     // Show the complete address until a real name (e.g. KNS) resolves to replace it. The
     // copy button is what makes "full, untruncated" actually convenient to use.
     const bunkerId = localStorage.getItem("bunker_id");
-    const operatorDisplay = bunkerId || "UNIDENTIFIED";
+    const operatorDisplay = bunkerId ? addressLinkHtml(bunkerId) : "UNIDENTIFIED";
     const copyButton = bunkerId
         ? `<button class="copy-btn" onclick="window.copyOperatorAddress(this)">[COPY]</button>`
         : "";

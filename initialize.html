@@ -44,6 +44,7 @@
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
     import { setPunkwBalance, setTurnCount } from './shared-sidebar.js';
+    import { addressLinkHtml, txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -58,14 +59,14 @@
         log.scrollTop = log.scrollHeight;
     }
 
-    document.getElementById('registry-address').innerText = REGISTRY_ADDRESS;
+    document.getElementById('registry-address').innerHTML = addressLinkHtml(REGISTRY_ADDRESS);
 
     const bunkerId = localStorage.getItem('bunker_id');
     if (!bunkerId) {
         logLine("ERROR: NO_IDENTITY_FOUND. REDIRECTING...");
         setTimeout(() => { window.location.href = 'index.html'; }, 1500);
     } else {
-        document.getElementById('op-id').innerText = bunkerId;
+        document.getElementById('op-id').innerHTML = addressLinkHtml(bunkerId);
     }
 
     window.addEventListener('load', async () => {
@@ -100,7 +101,7 @@
             });
             setPunkwBalance(bunkerId, GENESIS_PUNKW_GRANT);
             setTurnCount(bunkerId, 1);
-            logLine(`SUCCESS: GENESIS_BROADCAST_${txid.substring(0, 10)}...`);
+            logLine(`SUCCESS: GENESIS_BROADCAST_${txLinkHtml(txid, txid.substring(0, 10) + '...')}`);
             logLine("ENTERING_BUNKER...");
             setTimeout(() => { window.location.href = 'bunker.html'; }, 1500);
         } catch (err) {

@@ -16,11 +16,35 @@
             <div id="sidebar" class="bunker-sidebar"></div>
 
             <div class="bunker-main">
-                <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
-                <p style="font-size: 0.85rem;">Spend one Turn (a real Kaspa transaction from your Gameplay Vault) to scrape the BlockDAG for $PUNKW fragments.</p>
-                <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
-                    <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+                <h3 style="color: var(--kaspa-bright); margin-top: 0;">COMMAND_CENTER</h3>
+                <p style="font-size: 0.85rem;">Select an operation. Every live action here is a real Kaspa transaction, spent from your covenant-locked Gameplay Vault.</p>
+
+                <div class="action-grid">
+                    <div class="action-card">
+                        <h4>PHISH</h4>
+                        <p>Scrape the BlockDAG for $PUNKW fragments. Spends one Turn.</p>
+                        <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+                    </div>
+
+                    <div class="action-card disabled">
+                        <h4>BUILD_INFRASTRUCTURE<span class="coming-soon-tag">Coming Soon</span></h4>
+                        <p>Spend $PUNKW to build Sectors, making future Phishing more efficient.</p>
+                        <button class="btn-execute" disabled>BUILD_SECTOR</button>
+                    </div>
+
+                    <div class="action-card disabled">
+                        <h4>ATTACK<span class="coming-soon-tag">Coming Soon</span></h4>
+                        <p>Target another operator's bunker; combat resolved by an on-chain covenant.</p>
+                        <button class="btn-execute" disabled>INITIATE_ATTACK</button>
+                    </div>
+
+                    <div class="action-card disabled">
+                        <h4>RESEARCH<span class="coming-soon-tag">Coming Soon</span></h4>
+                        <p>Spend $PUNKW to unlock new hack/payload tiers.</p>
+                        <button class="btn-execute" disabled>RESEARCH_HACK</button>
+                    </div>
                 </div>
+
                 <div id="log" class="terminal-log">> CONNECTION_STABLE. AWAITING_INSTRUCTION...</div>
             </div>
         </div>

@@ -20,7 +20,7 @@ Navigation is plain `window.location.href = '...'` between standalone HTML files
 
 Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 24-word identity) **or** `import.html` (recover from existing seed) → `initialize.html` (claim genesis 1,000 $PUNKW) → `bunker.html` (main command-center loop, e.g. `executePhish()` in `bunker-logic.js`).
 
-`sitemap` in the repo root is the authoritative page-by-page design doc — read it before adding a new page. It documents pages that **do not exist yet** and are referenced as nav links/planned features but have no file: `resume.html`, `leaderboard.html`, `attack.html`, `research.html`, `hack.html`. `bunker.html`'s sidebar already links to some of these.
+`sitemap` in the repo root is the authoritative page-by-page design doc — read it before adding a new page. `hack.html` is referenced there as a planned feature but has no file yet. `attack.html`/`research.html` exist as unlinked COMING_SOON placeholders — the persistent sidebar (`shared-sidebar.js`) no longer links to them, since Attack/Research are now options inside `bunker.html`'s Command Center action grid rather than separate nav destinations; the standalone pages are reserved for whenever those systems' actual interaction flow gets built.
 
 ## Kaspa/WASM integration
 
@@ -33,6 +33,46 @@ Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 2
 
 - The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`) kept in sync with the full game-state snapshot written into every Genesis/Phish payload.
 - Sectors are a real planned mechanic (Phase 6, not yet built) shown as a fixed placeholder in the sidebar; there is no GWh or Cycles system — those were an earlier, incorrect design pass and have been removed from both the docs and the UI.
+
+## Explorer links
+
+Every address and transaction ID displayed anywhere in the UI must be a clickable link out
+to `https://tn10.kaspa.stream` (opens in a new tab, `target="_blank" rel="noopener"`) —
+never inert text. Use `explorer-links.js`'s `addressLinkHtml(address, displayText?)` /
+`txLinkHtml(txid, displayText?)` rather than hand-rolling an `<a>` tag; both accept an
+optional truncated `displayText` while still linking the full value. Styled via the shared
+`.explorer-link` class in `style.css`. If you add a new place that shows an address or
+txid, wire it through these helpers rather than displaying raw text.
+
+## CPW History (`history.html`)
+
+Decodes an address's on-chain `CPW1` payloads into plain-language moves (e.g. "Executed
+Phishing Attack -- Earned 47 $PUNKW"). Defaults to the operator's own Plain Wallet +
+Gameplay Vault merged (Genesis lives on the former, Phish/Attack/Research on the latter);
+can also look up any other address, though for a non-owned address there's no way to also
+derive its Gameplay Vault without that operator's public key.
+
+**Design credit:** both the state-snapshot payload model and this decode-your-own-history
+approach were directly inspired by the ingenuity of the [Kasia](https://github.com/K-Kluster/Kasia)
+team (K-Kluster) — an encrypted P2P messenger built on raw Kaspa transaction payloads. Their
+public architecture (read real payload data straight off the chain; their own indexer is an
+optional convenience for cross-device sync, not a hard requirement for basic use) is the
+pattern this page follows, minus Kasia's own message encryption, which this game doesn't need.
+
+**Why it needs two data sources, not one:** the testnet-10 REST indexer
+(`api-tn10.kaspa.org`) has a full historical transaction list per address but runs
+`simply-kaspa-indexer` with `--exclude-fields=tx_payload` — `payload` is always `null` from
+it, confirmed empirically (even with `?fields=payload` requested explicitly), not fixable by
+querying differently. Direct RPC (`rpc.getBlock`) *does* return real payload bytes, but Kaspa
+nodes prune old blocks, so it only reaches back a limited, shrinking window. `kaspa-client.js`'s
+`fetchAddressTransactionList()` (REST, for the list) + `fetchTransactionPayloadBytes()` (RPC,
+best-effort per-entry decode) combine both: full decode for anything recent, graceful
+"undecodable (pruned)" fallback for older entries — zero new backend infrastructure needed.
+
+`fetchTransactionPayloadBytes()` returns `undefined` (RPC couldn't check) as distinct from a
+zero-length `Uint8Array` (RPC checked fine, transaction genuinely has no payload — e.g. a
+plain send or a `buyTurns()` deposit). Conflating the two mislabels ordinary non-CPW
+transactions as pruned — a real bug hit once while building this; don't reintroduce it.
 
 ## Game terminology (needed to work on gameplay logic)
 

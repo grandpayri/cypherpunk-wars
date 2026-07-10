@@ -84,6 +84,7 @@
 <script type="module">
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
+    import { txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -97,7 +98,7 @@
         const result = JSON.parse(raw);
         document.getElementById('yieldAmount').innerText = result.yieldAmount;
         document.getElementById('newTotal').innerText = result.newPunkwTotal;
-        document.getElementById('txid').innerText = result.txid;
+        document.getElementById('txid').innerHTML = txLinkHtml(result.txid);
         sessionStorage.removeItem('lastPhishResult');
     }
 </script>

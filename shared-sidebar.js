@@ -18,12 +18,15 @@
 import { getSessionPublicKey } from './wallet-gen.js';
 import { getAddressBalance, deriveRestrictedWalletAddress, COST_PER_TURN_SOMPI } from './kaspa-client.js';
 
+// Attack and Research used to be their own persistent nav destinations (separate
+// COMING_SOON pages) -- they're now options inside the Command Center's action grid
+// instead (bunker.html), so they've come off this list. attack.html/research.html still
+// exist as unlinked placeholders for whenever those systems are actually built.
 const NAV_ITEMS = [
-    { id: 'command', label: '[01] COMMAND', href: 'bunker.html' },
-    { id: 'attack', label: '[02] ATTACK', href: 'attack.html' },
-    { id: 'research', label: '[03] RESEARCH', href: 'research.html' },
-    { id: 'rankings', label: '[04] RANKINGS', href: 'leaderboard.html' },
-    { id: 'transfer', label: '[05] TRANSFER', href: 'send.html' },
+    { id: 'wallet', label: '[01] WALLET_MANAGEMENT', href: 'send.html' },
+    { id: 'command', label: '[02] COMMAND', href: 'bunker.html' },
+    { id: 'rankings', label: '[03] RANKINGS', href: 'leaderboard.html' },
+    { id: 'history', label: '[04] CPW_HISTORY', href: 'history.html' },
 ];
 
 const NAV_LINKS_HTML = (activePageId) => NAV_ITEMS.map((item) =>

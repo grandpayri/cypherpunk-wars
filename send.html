@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYPHERPUNK WARS | Transfer</title>
+    <title>CYPHERPUNK WARS | Wallet Management</title>
     <link rel="stylesheet" href="style.css">
     <style>
         .source-toggle {
@@ -28,16 +28,6 @@
             color: var(--kaspa-bright);
             font-size: 1.1rem;
             margin-top: 6px;
-        }
-        .send-input {
-            width: 100%;
-            box-sizing: border-box;
-            background: #000;
-            border: 1px solid var(--kaspa-teal);
-            color: var(--kaspa-bright);
-            font-family: inherit;
-            padding: 10px;
-            margin-bottom: 10px;
         }
         .covenant-note {
             font-size: 0.75rem;
@@ -73,7 +63,7 @@
             <div id="sidebar" class="bunker-sidebar"></div>
 
             <div class="bunker-main">
-                <h2 style="margin-top: 0; color: var(--kaspa-bright);">TRANSFER_PROTOCOL</h2>
+                <h2 style="margin-top: 0; color: var(--kaspa-bright);">WALLET_MANAGEMENT</h2>
                 <p style="font-size: 0.85rem;">
                     Send TKAS to any address. Choose a source below -- notice that the Gameplay
                     Vault is a Toccata covenant, not a plain wallet: it will only let you spend from
@@ -139,6 +129,7 @@
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
+    import { txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -185,7 +176,7 @@
             return;
         }
 
-        await renderSidebar('sidebar', 'transfer');
+        await renderSidebar('sidebar', 'wallet');
 
         try {
             const plainBalance = await getAddressBalance(bunkerId);
@@ -241,7 +232,7 @@
                     destAddress,
                     amountSompi,
                 });
-                logLine(`SUCCESS: TRANSFER_BROADCAST_${txid.substring(0, 10)}...`);
+                logLine(`SUCCESS: TRANSFER_BROADCAST_${txLinkHtml(txid, txid.substring(0, 10) + '...')}`);
                 setTimeout(refreshSidebarStats, 2500);
             } catch (err) {
                 console.error("SEND_ERROR:", err);
@@ -258,7 +249,7 @@
                     destAddress,
                     amountSompi,
                 });
-                logLine(`UNEXPECTED: TRANSFER_ACCEPTED_${txid.substring(0, 10)}... (COVENANT_DID_NOT_ENFORCE)`);
+                logLine(`UNEXPECTED: TRANSFER_ACCEPTED_${txLinkHtml(txid, txid.substring(0, 10) + '...')} (COVENANT_DID_NOT_ENFORCE)`);
             } catch (err) {
                 console.error("VAULT_SEND_REJECTED (expected):", err);
                 logLine(`COVENANT_ENFORCEMENT: REJECTED_BY_NETWORK.`);
@@ -297,7 +288,7 @@
             const vaultKas = (Number(result.breakdown.vault) / 1e8).toFixed(2);
             const faucetKas = (Number(result.breakdown.faucet) / 1e8).toFixed(2);
             const hostKas = (Number(result.breakdown.host) / 1e8).toFixed(2);
-            logLine(`SUCCESS: TOPUP_BROADCAST_${result.txid.substring(0, 10)}...`);
+            logLine(`SUCCESS: TOPUP_BROADCAST_${txLinkHtml(result.txid, result.txid.substring(0, 10) + '...')}`);
             logLine(`ONE ATOMIC TX PAID: ${vaultKas} TKAS -> YOUR_VAULT, ${faucetKas} TKAS -> FAUCET_VAULT, ${hostKas} TKAS -> HOST.`);
 
             // The RPC's UTXO view needs a moment to catch up after submit() resolves --

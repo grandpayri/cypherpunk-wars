@@ -501,3 +501,68 @@ export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositA
     }
     return { txid, breakdown: { vault: vaultAmount, faucet: FAUCET_CONTRIB_SOMPI, host: HOST_FEE_SOMPI } };
 }
+
+// --- CPW History (Phase 5 groundwork) ---
+//
+// Two data sources, neither alone sufficient, combined here:
+// 1. The community-run testnet-10 REST indexer (api-tn10.kaspa.org) has a full historical
+//    transaction list per address (real txids/timestamps/amounts, reaching back to an
+//    address's first transaction) -- but it runs simply-kaspa-indexer with
+//    --exclude-fields=tx_payload (confirmed empirically: every payload comes back null,
+//    even with ?fields=payload requested explicitly), so it can never decode a move.
+// 2. Direct RPC (rpc.getBlock) DOES return real payload bytes (confirmed empirically
+//    against this same indexer's own transaction_id/block_hash) -- but Kaspa nodes prune
+//    old blocks, so this only reaches back a limited window (confirmed empirically: 3 of 8
+//    ~4-day-old test blocks already came back "cannot find header" against the resolver's
+//    node). This mirrors the K-Kluster/Kasia messaging app's own architecture: their README
+//    describes their own indexer as "not required" for live use but needed for historical
+//    catch-up, for the same underlying reason.
+//
+// So: use the REST indexer for the list, then best-effort RPC for each entry's payload --
+// decodes fully for anything recent, degrades to "undecodable" once a block's been pruned.
+const REST_API_BASE = "https://api-tn10.kaspa.org";
+
+function hexToBytes(hex) {
+    if (!hex) return new Uint8Array(0);
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+// Real, indexer-backed list -- works for any address, arbitrarily far back, but carries
+// no payload data (see above). blockTime is epoch-millis.
+export async function fetchAddressTransactionList(address, limit = 25) {
+    const url = `${REST_API_BASE}/addresses/${encodeURIComponent(address)}/full-transactions?limit=${limit}&resolve_previous_outpoints=no`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`INDEXER_REQUEST_FAILED: ${resp.status}`);
+    const txs = await resp.json();
+    return txs.map((tx) => ({
+        txid: tx.transaction_id,
+        blockHash: tx.block_hash?.[0] ?? null,
+        blockTime: tx.block_time ?? null,
+        outputs: tx.outputs ?? [],
+    }));
+}
+
+// Best-effort: returns the raw payload bytes for one transaction via direct RPC.
+// Returns `undefined` (distinct from an empty/zero-length Uint8Array!) if the node has
+// already pruned that block or the transaction couldn't be located -- an expected,
+// aging-dependent gap the caller should render as "undecodable", not a real failure.
+// A transaction that resolves fine but genuinely has no payload (not a CPW1 transaction
+// at all) correctly returns a zero-length Uint8Array, NOT undefined -- callers must not
+// conflate "couldn't check" with "checked, and there's nothing there".
+export async function fetchTransactionPayloadBytes(txid, blockHash) {
+    if (!blockHash) return undefined;
+    const rpc = await connectRpc();
+    let result;
+    try {
+        result = await rpc.getBlock({ hash: blockHash, includeTransactions: true });
+    } catch (err) {
+        return undefined; // pruned ("cannot find header") or otherwise unreachable
+    }
+    const tx = (result.block?.transactions || []).find((t) => t.verboseData?.transactionId === txid);
+    if (!tx) return undefined;
+    return hexToBytes(tx.payload);
+}

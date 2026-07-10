@@ -127,6 +127,7 @@
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
     import { listVaultAddresses, hasVault, unlockVault, createVault } from './vault.js';
+    import { addressLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -177,7 +178,7 @@
 
             return `
                 <div class="identity-card">
-                    <div class="identity-address">${address}${isActive ? '<span class="identity-active-tag">[ACTIVE_SESSION]</span>' : ''}</div>
+                    <div class="identity-address">${addressLinkHtml(address)}${isActive ? '<span class="identity-active-tag">[ACTIVE_SESSION]</span>' : ''}</div>
                     ${actionHtml}
                 </div>
             `;

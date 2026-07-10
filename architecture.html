@@ -40,6 +40,7 @@
                         <span class="arch-title">03. DATA_PERSISTENCE</span>
                         <p>Game actions are broadcast as transactions carrying a tagged <code>payload</code> field -- a native byte field on every Kaspa transaction, not a memo bolted on after the fact. The game client scans these <code>CPW1</code>-tagged payloads to reconstruct the global state of the war in real-time.</p>
                         <p>Kaspa's own roadmap describes a longer-term architecture called <code>vProgs</code> (Verifiable Programs) for richer on-chain program execution. It is not live yet -- this bunker's current systems run on tagged payloads and Toccata covenants, not vProgs. Consider it the shape of things to come, not what's under the hood today.</p>
+                        <p>The state-snapshot payload design and the CPW History decode-your-own-moves view were both directly inspired by the ingenuity of <a href="https://github.com/K-Kluster/Kasia" target="_blank" rel="noopener" class="explorer-link">Kasia</a>, the encrypted P2P messenger built by the K-Kluster team on top of raw Kaspa transaction payloads. Their public architecture -- reading real payload data straight off the chain, with their own indexer as an optional convenience rather than a hard requirement -- is the pattern this bunker's history view follows, without needing Kasia's own message encryption.</p>
                     </div>
 
                     <div class="arch-section">

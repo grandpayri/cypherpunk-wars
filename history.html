@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | CPW History</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bunker-frame">
+
+<div class="viewport">
+    <div id="app-header" class="app-header"></div>
+
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
+
+            <div class="bunker-main">
+                <h2 style="margin-top: 0; color: var(--kaspa-bright);">CPW_HISTORY</h2>
+                <p style="font-size: 0.85rem;">
+                    Decoded moves from an address's on-chain CPW1 payloads -- defaults to your
+                    own wallet, or look up any other operator's address.
+                </p>
+
+                <div style="display: flex; gap: 10px; margin: 15px 0;">
+                    <input type="text" id="lookupAddress" class="send-input" style="flex: 1; margin-bottom: 0;" placeholder="kaspatest:... (defaults to your own wallet)">
+                    <button class="btn-execute" onclick="lookupAddress()">LOOKUP</button>
+                    <button class="btn-muted" onclick="lookupSelf()">MY_HISTORY</button>
+                </div>
+
+                <div class="history-note" id="scopeNote"></div>
+
+                <div id="historyList" class="history-list"></div>
+
+                <div id="log" class="terminal-log">> AWAITING_LOOKUP...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="docs-footer" class="docs-footer"></div>
+</div>
+
+<script type="module">
+    import { bootBunkerEngine, getSessionPublicKey } from './wallet-gen.js';
+    import {
+        ActionType, deriveRestrictedWalletAddress, fetchAddressTransactionList,
+        fetchTransactionPayloadBytes, decodePayload, decodeGameStateSnapshot,
+    } from './kaspa-client.js';
+    import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
+    import { addressLinkHtml, txLinkHtml } from './explorer-links.js';
+
+    renderAppHeader();
+    renderFooter();
+
+    function logLine(msg) {
+        const log = document.getElementById('log');
+        log.innerHTML += `<br>> ${msg}`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    const bunkerId = localStorage.getItem('bunker_id');
+    if (!bunkerId) {
+        window.location.href = 'index.html';
+    }
+
+    const MOVE_LABELS = {
+        [ActionType.GENESIS]: 'ESTABLISHED_BUNKER',
+        [ActionType.PHISH]: 'EXECUTED_PHISHING_ATTACK',
+        [ActionType.ATTACK]: 'INITIATED_ATTACK',
+        [ActionType.RESEARCH]: 'RESEARCHED_HACK_TIER',
+        [ActionType.HACK]: 'CAST_HACK',
+        [ActionType.BUY_TURNS]: 'BOUGHT_TURNS',
+    };
+
+    function describeMove(actionType, state, prevPunkw) {
+        const label = MOVE_LABELS[actionType] || `UNKNOWN_ACTION_0x${actionType.toString(16)}`;
+        if (actionType === ActionType.GENESIS) {
+            return `${label} -- Claimed Genesis Grant (+${state.punkw} $PUNKW)`;
+        }
+        if (actionType === ActionType.PHISH) {
+            const delta = prevPunkw !== null ? state.punkw - prevPunkw : null;
+            return (delta !== null && delta >= 0)
+                ? `${label} -- Earned ${delta} $PUNKW`
+                : `${label} -- War Chest now ${state.punkw} $PUNKW`;
+        }
+        return `${label} (not yet implemented -- payload decoded but no move logic exists yet)`;
+    }
+
+    // Fetches one address's most recent raw transactions (real, indexer-backed, reaches
+    // back to the address's first transaction) and best-effort decodes each one's payload
+    // via direct RPC (works for anything recent; degrades to "undecodable" once a node has
+    // pruned that block -- see the long comment above fetchTransactionPayloadBytes in
+    // kaspa-client.js for why neither data source alone is enough).
+    async function fetchDecodedEntries(address, limit) {
+        const txs = await fetchAddressTransactionList(address, limit);
+        const decoded = await Promise.all(txs.map(async (tx) => {
+            const payloadBytes = await fetchTransactionPayloadBytes(tx.txid, tx.blockHash);
+            if (payloadBytes === undefined) {
+                return { ...tx, kind: 'undecodable' };
+            }
+            const parsed = decodePayload(payloadBytes);
+            if (!parsed) {
+                return { ...tx, kind: 'non-cpw' };
+            }
+            const state = decodeGameStateSnapshot(parsed.extra);
+            if (!state) {
+                return { ...tx, kind: 'undecodable' };
+            }
+            return { ...tx, kind: 'cpw', actionType: parsed.actionType, state };
+        }));
+        return decoded;
+    }
+
+    function renderHistory(entries, scopeLabelHtml) {
+        document.getElementById('scopeNote').innerHTML = scopeLabelHtml;
+
+        // Chronological pass (oldest first) to compute $PUNKW deltas between consecutive
+        // Phish moves, then reversed for display (newest first, standard activity-feed order).
+        const chronological = [...entries].sort((a, b) => (a.blockTime ?? 0) - (b.blockTime ?? 0));
+        let prevPunkw = null;
+        const rows = chronological.map((entry) => {
+            let desc;
+            if (entry.kind === 'cpw') {
+                desc = describeMove(entry.actionType, entry.state, prevPunkw);
+                prevPunkw = entry.state.punkw;
+            } else if (entry.kind === 'non-cpw') {
+                desc = 'Non-CPW transaction (plain send/receive, no game payload)';
+            } else {
+                desc = 'UNDECODABLE -- node has pruned this block and the indexer excludes payload data';
+            }
+            return { ...entry, desc };
+        });
+        rows.reverse();
+
+        const listEl = document.getElementById('historyList');
+        if (rows.length === 0) {
+            listEl.innerHTML = '<div class="history-row"><span class="history-desc">No transactions found for this address.</span></div>';
+            return;
+        }
+        listEl.innerHTML = rows.map((r) => {
+            const time = r.blockTime ? new Date(r.blockTime).toLocaleString() : 'UNKNOWN_TIME';
+            return `
+                <div class="history-row">
+                    <span class="history-time">${time}</span>
+                    <span class="history-desc">${r.desc}</span>
+                    <span class="history-txid">${txLinkHtml(r.txid, r.txid.substring(0, 16) + '...')}</span>
+                </div>
+            `;
+        }).join('\n');
+    }
+
+    window.lookupAddress = async function () {
+        const address = document.getElementById('lookupAddress').value.trim();
+        if (!address) {
+            logLine("ERROR: ENTER_AN_ADDRESS_OR_USE_MY_HISTORY.");
+            return;
+        }
+        logLine(`FETCHING_HISTORY_FOR_${address.substring(0, 16)}...`);
+        try {
+            const entries = await fetchDecodedEntries(address, 25);
+            renderHistory(entries, `Showing ${addressLinkHtml(address)}'s own last ${entries.length} transactions. Their Genesis and their Phish/Attack/Research moves live on two DIFFERENT addresses (plain wallet vs. derived Gameplay Vault) -- without their public key we can only see whichever one you entered.`);
+            logLine(`DONE. ${entries.length} TRANSACTION(S) FOUND.`);
+        } catch (err) {
+            console.error("HISTORY_LOOKUP_ERROR:", err);
+            logLine(`ERROR: LOOKUP_FAILED. ${err.message || err}`);
+        }
+    };
+
+    window.lookupSelf = async function () {
+        document.getElementById('lookupAddress').value = '';
+        logLine("FETCHING_YOUR_OWN_HISTORY (PLAIN_WALLET + GAMEPLAY_VAULT)...");
+        try {
+            const pubkey = getSessionPublicKey();
+            const vaultAddress = deriveRestrictedWalletAddress(pubkey);
+            const [plainEntries, vaultEntries] = await Promise.all([
+                fetchDecodedEntries(bunkerId, 25),
+                fetchDecodedEntries(vaultAddress, 25),
+            ]);
+            const merged = [...plainEntries, ...vaultEntries]
+                .sort((a, b) => (b.blockTime ?? 0) - (a.blockTime ?? 0))
+                .slice(0, 25);
+            renderHistory(merged, `Showing your last ${merged.length} CPW transactions, merged from your Plain Wallet (${addressLinkHtml(bunkerId)}, Genesis lives here) and your Gameplay Vault (${addressLinkHtml(vaultAddress)}, Phish/Attack/Research live here).`);
+            logLine(`DONE. ${merged.length} TRANSACTION(S) FOUND.`);
+        } catch (err) {
+            console.error("SELF_HISTORY_ERROR:", err);
+            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
+            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+        }
+    };
+
+    window.addEventListener('load', async () => {
+        logLine("BOOTING_ENGINE...");
+        const ready = await bootBunkerEngine();
+        if (!ready) {
+            logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
+            return;
+        }
+        await renderSidebar('sidebar', 'history');
+        await window.lookupSelf();
+    });
+</script>
+
+</body>
+</html>

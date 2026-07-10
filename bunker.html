@@ -47,9 +47,11 @@
             <div class="stat-label">Full Address</div>
             <div id="fullAddress" style="font-size: 0.65rem; color: var(--kaspa-teal); word-break: break-all; margin-bottom: 15px;">...</div>
 
-            <div class="stat-label">TKAS Balance</div>
+            <div class="stat-label">Plain Wallet (TKAS)</div>
             <span class="stat-val" id="sideBalance">0.00 TKAS</span>
-            <div class="stat-label">Turns Available (at ~0.205 TKAS/turn)</div>
+            <div class="stat-label">Gameplay Vault (Restricted -- Covenant-Locked)</div>
+            <span class="stat-val" id="sideVaultBalance">0.00 TKAS</span>
+            <div class="stat-label">Turns Available (at ~1.505 TKAS/turn)</div>
             <span class="stat-val" id="sideTurns">0</span>
             <div class="stat-label">War Chest</div>
             <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
@@ -59,11 +61,12 @@
             <span class="stat-val" id="sideCycles">10/10 CYC</span>
 
             <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
-            
+
             <button class="nav-link" onclick="window.location.href='bunker.html'">> [01] COMMAND</button>
             <button class="nav-link" onclick="window.location.href='attack.html'">> [02] ATTACK</button>
             <button class="nav-link" onclick="window.location.href='research.html'">> [03] RESEARCH</button>
             <button class="nav-link" onclick="window.location.href='leaderboard.html'">> [04] RANKINGS</button>
+            <button class="nav-link" onclick="window.location.href='send.html'">> [05] TRANSFER</button>
 
             <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
 
@@ -101,22 +104,23 @@
 </div>
 
 <script type="module">
-    import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
-    import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, getAddressBalance } from './kaspa-client.js';
+    import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
+    import {
+        getAddressBalance, deriveRestrictedWalletAddress, spendFromRestrictedWallet,
+        ActionType, FAUCET_CONTRIB_SOMPI, PRIZE_CONTRIB_SOMPI, HOST_FEE_SOMPI,
+    } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
 
     renderAppHeader();
 
-    // Small fixed tag amount per Phish -- "1 GWh" of the docs' lore, drawn from real TKAS.
-    // ~0.1-0.2 KAS is a hard floor for this transaction shape (one big balance -> one small
-    // tag + one large change output), confirmed directly against KIP-9's own spec text: storage
-    // mass for this shape reduces to approximately C/v where v is the smallest output value,
-    // *regardless of wallet size* -- the spec's own worked example is a "millionaire buying a
-    // 0.1 KAS ice cream cone from a 1000 KAS wallet" hitting this exact wall. Going lower needs
-    // a pre-fragmented spending UTXO or a covenant-based pool -- not attempted yet.
-    const PHISH_TAG_AMOUNT_SOMPI = 20000000n; // 0.2 KAS
-    const ESTIMATED_FEE_SOMPI = 500000n; // ~0.005 KAS typical priority fee buffer
-    const COST_PER_TURN_SOMPI = PHISH_TAG_AMOUNT_SOMPI + ESTIMATED_FEE_SOMPI;
+    // Cost of one Phish turn, spent from the restricted-wallet covenant (not the plain
+    // address) -- three fixed tagged outputs (faucet vault refill / prize vault / host fee)
+    // plus a priority fee buffer. Each output sits well above the ~0.2 KAS single-output
+    // KIP-9 floor established in Phase 4, since a 4-output shape (3 tagged + change) needs
+    // meaningfully more per output to clear storage mass -- confirmed empirically (0.2 KAS
+    // each hit "Storage mass exceeds maximum"; 0.5 KAS each cleared it).
+    const RESTRICTED_WALLET_PRIORITY_FEE_SOMPI = 500000n;
+    const COST_PER_TURN_SOMPI = FAUCET_CONTRIB_SOMPI + PRIZE_CONTRIB_SOMPI + HOST_FEE_SOMPI + RESTRICTED_WALLET_PRIORITY_FEE_SOMPI;
 
     function logLine(msg) {
         const log = document.getElementById('log');
@@ -131,13 +135,31 @@
         document.getElementById('fullAddress').innerText = bunkerId;
     }
 
+    // Recomputed each refresh from the session pubkey rather than cached, matching how
+    // getSessionPrivateKey() is re-derived on demand elsewhere in this codebase.
+    function currentRestrictedWalletAddress() {
+        const pubkey = getSessionPublicKey();
+        return deriveRestrictedWalletAddress(pubkey);
+    }
+
     async function refreshBunkerStats() {
         const balanceSompi = await getAddressBalance(bunkerId);
         const balanceKas = Number(balanceSompi) / 100000000;
         document.getElementById('sideBalance').innerText = `${balanceKas.toFixed(2)} TKAS`;
 
-        const turnsAvailable = balanceSompi / COST_PER_TURN_SOMPI; // BigInt division, floors automatically
-        document.getElementById('sideTurns').innerText = turnsAvailable.toString();
+        try {
+            const restrictedAddr = currentRestrictedWalletAddress();
+            const vaultBalanceSompi = await getAddressBalance(restrictedAddr);
+            const vaultBalanceKas = Number(vaultBalanceSompi) / 100000000;
+            document.getElementById('sideVaultBalance').innerText = `${vaultBalanceKas.toFixed(2)} TKAS`;
+
+            const turnsAvailable = vaultBalanceSompi / COST_PER_TURN_SOMPI; // BigInt division, floors automatically
+            document.getElementById('sideTurns').innerText = turnsAvailable.toString();
+        } catch (err) {
+            // No session key yet (e.g. page just loaded before boot finished) -- leave
+            // vault stats at their placeholder values, executePhish() will redirect to
+            // resume.html if this is a real session-key problem.
+        }
     }
 
     window.addEventListener('load', async () => {
@@ -153,9 +175,10 @@
     window.executePhish = async function () {
         if (!bunkerId) return;
 
-        let privateKey;
+        let privateKey, pubkey;
         try {
             privateKey = getSessionPrivateKey();
+            pubkey = getSessionPublicKey();
         } catch (err) {
             logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
             setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
@@ -164,15 +187,20 @@
 
         logLine("ALLOCATING_GIGAWATTS...");
         try {
-            const txid = await sendTaggedTransaction({
-                fromAddress: bunkerId,
-                privateKey,
-                toAddress: REGISTRY_ADDRESS,
-                amountSompi: PHISH_TAG_AMOUNT_SOMPI,
+            const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
+            const result = await spendFromRestrictedWallet({
+                playerAddress: restrictedAddr,
+                playerPrivateKey: privateKey,
+                playerPubkeyHex: pubkey,
                 actionType: ActionType.PHISH,
+                extraBytes: new Uint8Array(0),
             });
             const yieldAmount = Math.floor(Math.random() * 40) + 10;
-            logLine(`SUCCESS: PHISH_BROADCAST_${txid.substring(0, 10)}... INGESTED ${yieldAmount} $PUNKW FRAGMENTS.`);
+            logLine(`SUCCESS: PHISH_BROADCAST_${result.txid.substring(0, 10)}... INGESTED ${yieldAmount} $PUNKW FRAGMENTS.`);
+            const faucetKas = (Number(result.outputs.faucet) / 1e8).toFixed(2);
+            const prizeKas = (Number(result.outputs.prize) / 1e8).toFixed(2);
+            const hostKas = (Number(result.outputs.host) / 1e8).toFixed(2);
+            logLine(`ONE ATOMIC TX PAID: ${faucetKas} TKAS -> FAUCET_VAULT, ${prizeKas} TKAS -> PRIZE_VAULT, ${hostKas} TKAS -> HOST.`);
             // The RPC's UTXO view needs a moment to catch up after submit() resolves --
             // an immediate refresh shows the stale pre-spend balance.
             setTimeout(refreshBunkerStats, 2500);

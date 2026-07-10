@@ -8,7 +8,7 @@
  * what this uses. "vprogs" (mentioned in this game's own lore docs) are a real but
  * not-yet-live Kaspa roadmap concept -- nothing here depends on them existing.
  */
-import { RpcClient, Resolver, Generator, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from './kaspa.js';
+import { RpcClient, Resolver, Generator, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey, payToAddressScript, createInputSignature, payToScriptHashSignatureScript, SighashType } from './kaspa.js';
 
 export const CPW_NETWORK_ID = "testnet-10";
 
@@ -172,6 +172,221 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
     let txid;
     while ((pendingTransaction = await generator.next())) {
         pendingTransaction.transaction.payload = payload;
+        await pendingTransaction.sign([privateKey]);
+        txid = await pendingTransaction.submit(rpc);
+    }
+    return txid;
+}
+
+// --- Restricted-spend player wallet (per-player covenant) + 3-way fee split ---
+//
+// Unlike the faucet vault (a communal covenant needing no signature), this covenant is
+// derived per-player from their own public key: only that player can authorize a spend
+// (via a real OP_CHECKSIGVERIFY), but the covenant *also* restricts what a valid spend can
+// look like -- exactly 4 outputs paying the faucet vault / prize vault / host a fixed
+// amount each, with change returning to this same covenant. This is what makes "faucet
+// funds can only be used on CPW transactions" a real, network-enforced guarantee rather
+// than a UI convention: a plain send from this address (any shape other than the one
+// below) fails script verification regardless of how valid the signature is.
+//
+// Reuses only opcodes already proven live by the faucet vault above (output count/amount/
+// spk introspection, self-referencing change) plus OpCheckSigVerify, a standard pre-Toccata
+// opcode -- deliberately avoids the payload-inspection opcodes (OpTxPayloadLen/Substr)
+// since their exact stack semantics were never actually exercised in this codebase.
+
+// 0.5 KAS each, not the ~0.2 KAS single-output floor established in Phase 4 -- a 4-output
+// transaction (3 tagged + 1 change) needs each output meaningfully above that floor to
+// clear KIP-9 storage mass. Confirmed empirically: 0.2 KAS/output hit "Storage mass
+// exceeds maximum" via the Generator; 0.5 KAS/output cleared it. The formula penalizes
+// multiple small outputs more than a single one, so this isn't just "the same floor again."
+export const FAUCET_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- refills the faucet vault
+export const PRIZE_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- season prize pool
+// Adjustable creator/host fee, explicitly called out per the game's design notes: a fork
+// hosting their own instance can redirect this by changing these two constants. Not yet
+// supporting a true zero fee -- that needs the covenant to accept a variable output count/
+// shape (omitting this output entirely), which is a bigger lift than this demo covers.
+export const HOST_FEE_SOMPI = 50000000n; // 0.5 KAS
+export const HOST_FEE_ADDRESS = REGISTRY_ADDRESS;
+
+// Prize vault: a single fixed P2SH address, locked by a plain OP_CHECKSIG against the
+// registry wallet's own pubkey. Deliberately minimal for this phase -- it's a genuine
+// script-locked address (not a plain wallet address), proving the "paid the prize vault
+// covenant" part of the demo, but the algorithmic top-N-payout logic is still future work
+// (see the roadmap's Phase 7 notes). Nothing spends from it in this phase, so it only
+// needs to safely accumulate funds.
+export const PRIZE_VAULT_ADDRESS = "kaspatest:pr9r88pnpwgfc9xn7j8vspu8xx6v4gvr5drywt5lvvdum3rgeqle6l5hw0jev";
+
+// Lazily computed and memoized on first use, NOT at module load time -- payToAddressScript()
+// calls into the WASM engine, which isn't initialized yet when this module is first
+// imported (bootBunkerEngine()'s init() runs later, on page load). Computing these eagerly
+// as top-level consts throws "Cannot read properties of undefined
+// (reading '__wbindgen_add_to_stack_pointer')" -- caught via an in-browser smoke test
+// before this ever reached forge.html/bunker.html.
+// OpTxOutputSpk/OpTxInputSpk push the *full* serialized ScriptPublicKey (a 2-byte
+// version field, observed as 0x0000 for standard scripts, followed by the script bytes),
+// not just the bare script bytes .script returns -- confirmed empirically after an
+// initial version-less attempt was rejected on-chain with "script ran, but verification
+// failed" (valid opcodes, wrong comparison value). ScriptPublicKey.version/.script
+// confirm the struct has both fields (kaspa.js:8603-8652); this reconstructs the same
+// wire format for comparison literals.
+let _spkCache = null;
+function getFixedSpkHex() {
+    if (!_spkCache) {
+        const withVersion = (spk) => "0000" + spk.script;
+        _spkCache = {
+            faucet: withVersion(payToAddressScript(FAUCET_VAULT_ADDRESS)),
+            prize: withVersion(payToAddressScript(PRIZE_VAULT_ADDRESS)),
+            host: withVersion(payToAddressScript(HOST_FEE_ADDRESS)),
+        };
+    }
+    return _spkCache;
+}
+
+// playerPubkeyHex must be the 32-byte x-only hex from wallet-gen.js's
+// derivePublicKeyFromMnemonic()/getSessionPublicKey() -- NOT PublicKey.toString()'s raw
+// 33-byte compressed form, which includes a parity prefix byte Kaspa's native P2PK/
+// OpCheckSig scripts don't use (confirmed by decoding a known address's own
+// scriptPublicKey and round-tripping it against a manually-built script).
+function buildRestrictedWalletRedeemScript(playerPubkeyHex) {
+    const spk = getFixedSpkHex();
+    return new ScriptBuilder()
+        .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
+        .addOp(OpTxOutputCount).addI64(4n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputSpk).addData(spk.faucet).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_CONTRIB_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(1n).addOp(OpTxOutputSpk).addData(spk.prize).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(1n).addOp(OpTxOutputAmount).addI64(PRIZE_CONTRIB_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(2n).addOp(OpTxOutputSpk).addData(spk.host).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(2n).addOp(OpTxOutputAmount).addI64(HOST_FEE_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+        .addI64(3n).addOp(OpTxOutputSpk)
+        .addOp(Opcodes.OpEqual);
+}
+
+export function deriveRestrictedWalletAddress(playerPubkeyHex) {
+    const redeemScript = buildRestrictedWalletRedeemScript(playerPubkeyHex);
+    const spk = redeemScript.createPayToScriptHashScript();
+    return addressFromScriptPublicKey(spk, CPW_NETWORK_ID).toString();
+}
+
+// Same KIP-9 storage-mass reasoning as PAYLOAD_FEE_BUFFER_SOMPI above, sized up for the
+// extra outputs plus payload.
+const RESTRICTED_WALLET_PRIORITY_FEE_SOMPI = 500000n;
+
+// Manually signing a P2SH covenant input needs raw createTransaction() + createInputSignature()
+// (the Generator's own .sign() only knows how to do standard P2PK signing for addresses it
+// recognizes). But raw createTransaction() explicitly does "no mass limit checks" -- when a
+// payload is attached afterward, the resulting signature silently stops matching what the
+// network verifies against (confirmed empirically: identical setup succeeds with no payload,
+// then fails with "script ran, but verification failed" / "false stack entry" once a payload
+// is added, even after manually calling updateTransactionMass() first). The fix: build the
+// transaction shape via the Generator (which correctly finalizes mass internally, the same
+// path sendTaggedTransaction already relies on), set payload on the resulting
+// pendingTransaction.transaction, and ONLY THEN take over signing manually -- instead of
+// calling pendingTransaction.sign(). This was verified working live on testnet-10 before
+// being wired in here.
+async function buildRestrictedWalletSpend({ playerAddress, playerPubkeyHex, outputs, priorityFee }) {
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    const generator = new Generator({
+        entries,
+        changeAddress: playerAddress,
+        outputs,
+        priorityFee,
+        networkId: CPW_NETWORK_ID,
+    });
+    const pendingTransaction = await generator.next();
+    return { rpc, pendingTransaction, redeemScriptHex: buildRestrictedWalletRedeemScript(playerPubkeyHex).toString() };
+}
+
+function signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex) {
+    const tx = pendingTransaction.transaction;
+    for (let i = 0; i < tx.inputs.length; i++) {
+        const sigHex = createInputSignature(tx, i, playerPrivateKey, SighashType.All);
+        tx.inputs[i].signatureScript = payToScriptHashSignatureScript(redeemScriptHex, sigHex);
+    }
+    return tx;
+}
+
+// The real Phish-shaped spend: one atomic transaction that writes the CPW game-state
+// payload on-chain AND pays all three covenant/host recipients, with change returning to
+// the same restricted wallet (added automatically by the Generator as output 3, since the
+// 3 tagged outputs below don't consume the full input). playerPrivateKey/playerPubkeyHex
+// must belong to the same player who controls playerAddress (see wallet-gen.js).
+export async function spendFromRestrictedWallet({ playerAddress, playerPrivateKey, playerPubkeyHex, actionType, extraBytes }) {
+    const { rpc, pendingTransaction, redeemScriptHex } = await buildRestrictedWalletSpend({
+        playerAddress,
+        playerPubkeyHex,
+        outputs: [
+            { address: FAUCET_VAULT_ADDRESS, amount: FAUCET_CONTRIB_SOMPI },
+            { address: PRIZE_VAULT_ADDRESS, amount: PRIZE_CONTRIB_SOMPI },
+            { address: HOST_FEE_ADDRESS, amount: HOST_FEE_SOMPI },
+        ],
+        priorityFee: RESTRICTED_WALLET_PRIORITY_FEE_SOMPI,
+    });
+
+    pendingTransaction.transaction.payload = encodePayload(actionType, extraBytes);
+    const tx = signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex);
+
+    const changeOutput = tx.outputs[3];
+    const result = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    return {
+        txid: result.transactionId,
+        outputs: {
+            faucet: FAUCET_CONTRIB_SOMPI,
+            prize: PRIZE_CONTRIB_SOMPI,
+            host: HOST_FEE_SOMPI,
+            change: changeOutput ? changeOutput.value : 0n,
+        },
+    };
+}
+
+// Deliberately non-compliant: builds a plain [destination, change] spend from the
+// restricted wallet instead of the required 4-output CPW shape. The signature is
+// genuinely valid, but the covenant's structural checks aren't satisfied, so the network
+// is expected to reject this at the script-verification stage -- that rejection (not a
+// client-side refusal) is the actual point of this function, used by the Send demo.
+export async function attemptRestrictedWalletSend({ playerAddress, playerPrivateKey, playerPubkeyHex, destAddress, amountSompi, priorityFee = 500000n }) {
+    const { rpc, pendingTransaction, redeemScriptHex } = await buildRestrictedWalletSpend({
+        playerAddress,
+        playerPubkeyHex,
+        outputs: [{ address: destAddress, amount: amountSompi }],
+        priorityFee,
+    });
+
+    const tx = signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex);
+
+    // Expected to throw here -- the RPC rejection message is the demo's actual payload.
+    const result = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    return result.transactionId;
+}
+
+// Ordinary P2PK send from the player's plain wallet address -- no covenant involved,
+// works exactly like any standard Kaspa wallet send. Used by send.html's "Plain Wallet"
+// source option, and as the real "send KAS to any address" feature from the wallet-features
+// backlog.
+export async function sendFromPlainWallet({ fromAddress, privateKey, destAddress, amountSompi, priorityFee = 500000n }) {
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([fromAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    const generator = new Generator({
+        entries,
+        changeAddress: fromAddress,
+        outputs: [{ address: destAddress, amount: amountSompi }],
+        priorityFee,
+        networkId: CPW_NETWORK_ID,
+    });
+
+    let pendingTransaction;
+    let txid;
+    while ((pendingTransaction = await generator.next())) {
         await pendingTransaction.sign([privateKey]);
         txid = await pendingTransaction.submit(rpc);
     }

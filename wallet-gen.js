@@ -53,6 +53,21 @@ export function deriveAddressFromMnemonic(mnemonicPhrase) {
     return derivePrivateKeyFromMnemonic(mnemonicPhrase).toAddress(CPW_NETWORK_ID).toString();
 }
 
+// Hex-encoded x-only Schnorr public key (32 bytes) -- the value baked into a player's
+// restricted-wallet covenant redeem script so only they can authorize spends.
+//
+// PublicKey.toString() returns a 33-byte *compressed* key (a leading 0x02/0x03 parity
+// byte + the 32-byte body), but Kaspa's native P2PK scripts use the bare 32-byte x-only
+// body with no prefix -- confirmed empirically by decoding a known address's own
+// scriptPublicKey and round-tripping it against a manually-built OpCheckSig script built
+// from just the trimmed 32 bytes (exact match). Strip the prefix here so every caller
+// gets the form Kaspa Script actually expects, rather than each call site needing to
+// remember to trim it.
+export function derivePublicKeyFromMnemonic(mnemonicPhrase) {
+    const compressed = derivePrivateKeyFromMnemonic(mnemonicPhrase).toPublicKey().toString();
+    return compressed.slice(2);
+}
+
 export async function syncBunkerIdentity(mnemonicPhrase) {
     if (!engineOnline) throw new Error("ENGINE_OFFLINE");
 
@@ -79,4 +94,12 @@ export function getSessionPrivateKey() {
 
 export function hasSessionKey() {
     return sessionStorage.getItem(SESSION_MNEMONIC_KEY) !== null;
+}
+
+// Same re-derivation pattern as getSessionPrivateKey(), for callers that only need the
+// public key (e.g. deriving/displaying a restricted-wallet covenant address).
+export function getSessionPublicKey() {
+    const mnemonicPhrase = sessionStorage.getItem(SESSION_MNEMONIC_KEY);
+    if (!mnemonicPhrase) throw new Error("SESSION_KEY_UNAVAILABLE");
+    return derivePublicKeyFromMnemonic(mnemonicPhrase);
 }

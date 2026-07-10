@@ -125,6 +125,8 @@
         </div>
     </div>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log">> AWAITING_TRANSFER_INSTRUCTION...</div>
 </div>
 
@@ -136,8 +138,10 @@
     } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
+    renderFooter();
 
     function logLine(msg) {
         const log = document.getElementById('log');

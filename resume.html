@@ -117,15 +117,19 @@
         </div>
     </div>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log">> CHECKING_LOCAL_CACHE...</div>
 </div>
 
 <script type="module">
     import { bootBunkerEngine, syncBunkerIdentity, hasSessionKey, deriveAddressFromMnemonic } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
     import { listVaultAddresses, hasVault, unlockVault, createVault } from './vault.js';
 
     renderAppHeader();
+    renderFooter();
 
     function logLine(msg) {
         const log = document.getElementById('log');

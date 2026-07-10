@@ -76,12 +76,16 @@
             <button class="btn-execute btn-highlight" onclick="window.location.href='bunker.html'">RETURN_TO_COMMAND_CENTER</button>
         </div>
     </div>
+
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <script type="module">
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
+    renderFooter();
 
     const raw = sessionStorage.getItem('lastPhishResult');
     if (!raw) {

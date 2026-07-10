@@ -12,40 +12,50 @@
 </head>
 <body class="bunker-frame">
 
-<div class="central-gate">
+<div class="viewport">
     <div id="app-header" class="app-header"></div>
 
-    <div class="manual-container">
-    <h1 style="color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px;">
-        [MAN_01] OPERATIONAL_GUIDE
-    </h1>
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
 
-    <div class="term-definition">
-        <span class="term-title">GWh (Gigawatt-Hours)</span>
-        <p>The energy required to broadcast data to the Kaspa BlockDAG. Every action consumes 1 GWh, which is drawn from your KAS reserves.</p>
+            <div class="bunker-main">
+                <div style="max-width: 700px;">
+                    <h1 style="color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px; margin-top: 0;">
+                        [MAN_01] OPERATIONAL_GUIDE
+                    </h1>
+
+                    <div class="term-definition">
+                        <span class="term-title">GWh (Gigawatt-Hours)</span>
+                        <p>The energy required to broadcast data to the Kaspa BlockDAG. Every action consumes 1 GWh, which is drawn from your KAS reserves.</p>
+                    </div>
+
+                    <div class="term-definition">
+                        <span class="term-title">Cycles</span>
+                        <p>Your AI cluster's compute capacity. 1 Cycle represents 1 execution unit of work.</p>
+                    </div>
+
+                    <div class="term-definition">
+                        <span class="term-title">Sectors</span>
+                        <p>Physical server rack infrastructure. Expanding your sectors increases the efficiency and yield of your $PUNKW ingestion.</p>
+                    </div>
+
+                    <div class="term-definition">
+                        <span class="term-title">The Armageddon Meta</span>
+                        <p>A global reset initiated by an operator. The season ends when a high-level hack successfully executes a total system wipe.</p>
+                    </div>
+
+                    <div style="margin-top: 40px; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
+                        <button class="btn-execute" onclick="window.location.href='bunker.html'">
+                            RETURN_TO_COMMAND_CENTER
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="term-definition">
-        <span class="term-title">Cycles</span>
-        <p>Your AI cluster's compute capacity. 1 Cycle represents 1 execution unit of work.</p>
-    </div>
-
-    <div class="term-definition">
-        <span class="term-title">Sectors</span>
-        <p>Physical server rack infrastructure. Expanding your sectors increases the efficiency and yield of your $PUNKW ingestion.</p>
-    </div>
-
-    <div class="term-definition">
-        <span class="term-title">The Armageddon Meta</span>
-        <p>A global reset initiated by an operator. The season ends when a high-level hack successfully executes a total system wipe.</p>
-    </div>
-
-    <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='bunker.html'">
-            RETURN_TO_COMMAND_CENTER
-        </button>
-    </div>
-    </div>
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
@@ -53,8 +63,21 @@
 </div>
 
 <script type="module">
+    import { bootBunkerEngine } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
+
     renderAppHeader();
+    renderFooter('docs-footer', 'gameplay');
+
+    window.addEventListener('load', async () => {
+        // renderSidebar() handles the no-identity case gracefully (guest state, no
+        // redirect) -- but it still needs the WASM engine booted before it can safely
+        // call kaspa-client.js functions when an identity IS present.
+        await bootBunkerEngine();
+        await renderSidebar('sidebar', null);
+    });
 </script>
 
 </body>

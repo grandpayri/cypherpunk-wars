@@ -81,15 +81,19 @@
         </div>
     </div>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log">> AWAITING_SEED_PHRASE_INPUT...</div>
 </div>
 
 <script type="module">
     import { bootBunkerEngine, syncBunkerIdentity } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
     import { createVault } from './vault.js';
 
     renderAppHeader();
+    renderFooter();
     window.addEventListener('load', () => { bootBunkerEngine(); });
 
     function logLine(msg) {

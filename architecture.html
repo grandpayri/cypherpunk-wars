@@ -13,43 +13,51 @@
 </head>
 <body class="bunker-frame">
 
-<div class="central-gate">
+<div class="viewport">
     <div id="app-header" class="app-header"></div>
 
-    <div class="manual-container">
-    <h1 style="color: var(--kaspa-bright); border-bottom: 2px solid var(--kaspa-teal); padding-bottom: 10px;">
-        [MAN_02] SYSTEM_ARCHITECTURE
-    </h1>
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
 
-    <div class="arch-section">
-        <span class="arch-title">01. DECENTRALIZED_STACK</span>
-        <p>Cypherpunk Wars is a "Serverless" decentralized application (dApp). There is no central database. All game state—including your sectors, $PUNKW balance, and research progress—is derived from the Kaspa BlockDAG.</p>
+            <div class="bunker-main">
+                <div style="max-width: 700px;">
+                    <h1 style="color: var(--kaspa-bright); border-bottom: 2px solid var(--kaspa-teal); padding-bottom: 10px; margin-top: 0;">
+                        [MAN_02] SYSTEM_ARCHITECTURE
+                    </h1>
+
+                    <div class="arch-section">
+                        <span class="arch-title">01. DECENTRALIZED_STACK</span>
+                        <p>Cypherpunk Wars is a "Serverless" decentralized application (dApp). There is no central database. All game state—including your sectors, $PUNKW balance, and research progress—is derived from the Kaspa BlockDAG.</p>
+                    </div>
+
+                    <div class="arch-section">
+                        <span class="arch-title">02. KASPA-WASM_ENGINE</span>
+                        <p>Your browser runs a <code>WebAssembly (WASM)</code> instance of the Kaspa core. This allows your bunker to perform 256-bit cryptographic signing and DAG interaction locally. Your 24-word seed phrase never leaves your machine.</p>
+                    </div>
+
+                    <div class="arch-section">
+                        <span class="arch-title">03. DATA_PERSISTENCE</span>
+                        <p>Game actions are broadcast as transactions carrying a tagged <code>payload</code> field -- a native byte field on every Kaspa transaction, not a memo bolted on after the fact. The game client scans these <code>CPW1</code>-tagged payloads to reconstruct the global state of the war in real-time.</p>
+                        <p>Kaspa's own roadmap describes a longer-term architecture called <code>vProgs</code> (Verifiable Programs) for richer on-chain program execution. It is not live yet -- this bunker's current systems run on tagged payloads and Toccata covenants, not vProgs. Consider it the shape of things to come, not what's under the hood today.</p>
+                    </div>
+
+                    <div class="arch-section">
+                        <span class="arch-title">04. LOCAL_STORAGE_CACHE</span>
+                        <p>While the truth lives on the DAG, your browser uses <code>localStorage</code> to cache your Bunker ID and UI preferences for rapid session resumption.</p>
+                    </div>
+
+                    <div style="margin-top: 40px; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
+                        <button class="btn-execute" onclick="window.location.href='bunker.html'">
+                            RETURN_TO_COMMAND_CENTER
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    
-
-    <div class="arch-section">
-        <span class="arch-title">02. KASPA-WASM_ENGINE</span>
-        <p>Your browser runs a <code>WebAssembly (WASM)</code> instance of the Kaspa core. This allows your bunker to perform 256-bit cryptographic signing and DAG interaction locally. Your 24-word seed phrase never leaves your machine.</p>
-    </div>
-
-    <div class="arch-section">
-        <span class="arch-title">03. DATA_PERSISTENCE</span>
-        <p>Game actions are broadcast as transactions carrying a tagged <code>payload</code> field -- a native byte field on every Kaspa transaction, not a memo bolted on after the fact. The game client scans these <code>CPW1</code>-tagged payloads to reconstruct the global state of the war in real-time.</p>
-        <p>Kaspa's own roadmap describes a longer-term architecture called <code>vProgs</code> (Verifiable Programs) for richer on-chain program execution. It is not live yet -- this bunker's current systems run on tagged payloads and Toccata covenants, not vProgs. Consider it the shape of things to come, not what's under the hood today.</p>
-    </div>
-
-    <div class="arch-section">
-        <span class="arch-title">04. LOCAL_STORAGE_CACHE</span>
-        <p>While the truth lives on the DAG, your browser uses <code>localStorage</code> to cache your Bunker ID and UI preferences for rapid session resumption.</p>
-    </div>
-
-    <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='bunker.html'">
-            RETURN_TO_COMMAND_CENTER
-        </button>
-    </div>
-    </div>
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
@@ -57,8 +65,18 @@
 </div>
 
 <script type="module">
+    import { bootBunkerEngine } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
+
     renderAppHeader();
+    renderFooter('docs-footer', 'architecture');
+
+    window.addEventListener('load', async () => {
+        await bootBunkerEngine();
+        await renderSidebar('sidebar', null);
+    });
 </script>
 
 </body>

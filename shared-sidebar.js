@@ -9,6 +9,11 @@
  *
  * Must be called AFTER bootBunkerEngine() has resolved -- it calls into kaspa-client.js
  * functions that touch the WASM engine (deriveRestrictedWalletAddress, getAddressBalance).
+ *
+ * Does NOT redirect if there's no saved identity -- pages that require login (bunker.html,
+ * send.html, etc.) already have their own top-level redirect before this ever runs. Pages
+ * that don't require login (the docs pages) can still include the sidebar for nav/layout
+ * consistency; it just renders a guest state (nav links work, no live balances) instead.
  */
 import { getSessionPublicKey } from './wallet-gen.js';
 import { getAddressBalance, deriveRestrictedWalletAddress, COST_PER_TURN_SOMPI } from './kaspa-client.js';
@@ -21,6 +26,10 @@ const NAV_ITEMS = [
     { id: 'transfer', label: '[05] TRANSFER', href: 'send.html' },
 ];
 
+const NAV_LINKS_HTML = (activePageId) => NAV_ITEMS.map((item) =>
+    `<button class="nav-link${item.id === activePageId ? ' nav-link-active' : ''}" onclick="window.location.href='${item.href}'">> ${item.label}</button>`
+).join('\n');
+
 let currentBunkerId = null;
 
 export async function renderSidebar(containerId, activePageId) {
@@ -28,18 +37,27 @@ export async function renderSidebar(containerId, activePageId) {
     if (!container) return;
 
     const bunkerId = localStorage.getItem('bunker_id');
+    currentBunkerId = bunkerId;
+
     if (!bunkerId) {
-        window.location.href = 'index.html';
+        container.innerHTML = `
+            <div class="stat-label">Status</div>
+            <span class="stat-val">NOT_LOGGED_IN</span>
+
+            <hr class="sidebar-divider">
+
+            ${NAV_LINKS_HTML(activePageId)}
+
+            <hr class="sidebar-divider">
+
+            <button class="nav-link" onclick="window.location.href='index.html'">> LOGIN_OR_FORGE</button>
+        `;
         return;
     }
-    currentBunkerId = bunkerId;
 
     const costPerTurnKas = (Number(COST_PER_TURN_SOMPI) / 1e8).toFixed(3);
 
     container.innerHTML = `
-        <div class="stat-label">Full Address</div>
-        <div class="sidebar-address">${bunkerId}</div>
-
         <div class="stat-label">Plain Wallet (TKAS)</div>
         <span class="stat-val" id="sidebarPlainBalance">...</span>
         <div class="stat-label">Gameplay Vault (Restricted -- Covenant-Locked)</div>
@@ -55,7 +73,7 @@ export async function renderSidebar(containerId, activePageId) {
 
         <hr class="sidebar-divider">
 
-        ${NAV_ITEMS.map((item) => `<button class="nav-link${item.id === activePageId ? ' nav-link-active' : ''}" onclick="window.location.href='${item.href}'">> ${item.label}</button>`).join('\n')}
+        ${NAV_LINKS_HTML(activePageId)}
 
         <hr class="sidebar-divider">
 

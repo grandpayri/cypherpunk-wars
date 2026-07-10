@@ -12,10 +12,10 @@
             margin-bottom: 30px;
             padding-bottom: 20px;
         }
-        .section-title { 
-            color: var(--kaspa-bright); 
-            font-weight: bold; 
-            font-size: 1.2rem; 
+        .section-title {
+            color: var(--kaspa-bright);
+            font-weight: bold;
+            font-size: 1.2rem;
             margin-top: 30px;
             display: block;
             text-transform: uppercase;
@@ -33,36 +33,44 @@
 </head>
 <body class="bunker-frame">
 
-<div class="central-gate">
+<div class="viewport">
     <div id="app-header" class="app-header"></div>
 
-    <div class="manual-container">
-    <div class="paper-header">
-        <h1 style="color: var(--kaspa-bright); margin: 0;">CYPHERPUNK_WARS</h1>
-        <div style="font-size: 0.8rem; color: var(--kaspa-teal);">VERSION 1.0 // THE_DECENTRALIZED_MANIFESTO</div>
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
+
+            <div class="bunker-main">
+                <div style="max-width: 700px;">
+                    <div class="paper-header">
+                        <h1 style="color: var(--kaspa-bright); margin: 0;">CYPHERPUNK_WARS</h1>
+                        <div style="font-size: 0.8rem; color: var(--kaspa-teal);">VERSION 1.0 // THE_DECENTRALIZED_MANIFESTO</div>
+                    </div>
+
+                    <div class="abstract">
+                        <strong>ABSTRACT:</strong> This document outlines the transition of the legacy "Archmage" systems into a fully decentralized, DAG-native warfare protocol. By leveraging the speed and security of Kaspa, we enable an autonomous game state that exists entirely within the BlockDAG, removing the need for central authority or fragile web servers.
+                    </div>
+
+                    <span class="section-title">01. The Vision</span>
+                    <p>Cypherpunk Wars is more than a game; it is an experiment in digital permanence. Every action is tagged onto a real Kaspa transaction's native <code>payload</code> field, so the game's state is reconstructible by any client that scans the chain, as long as the network itself survives. Kaspa's own roadmap points toward a future architecture called vProgs (Verifiable Programs) for richer on-chain execution -- we see this bunker's tagged-payload-and-covenant approach as a working proof of concept for that direction, not a claim that vProgs already exist.</p>
+
+                    <span class="section-title">02. Proof of Energy</span>
+                    <p>In this ecosystem, every action represents a physical expenditure of network fuel (KAS). This ensures that every Phish, every Attack, and every Sector expansion has real-world weight. We replace "Time" with "Energy" (GWh) as the primary currency of progress.</p>
+
+                    <span class="section-title">03. The Social Contract</span>
+                    <p>The protocol is designed to be self-sustaining. Through a community-driven "Cistern" or manual Peer-to-Peer fuel transfers, the barrier to entry is lowered by the success of the established veteran operators. As one bunker grows, it provides the exhaust (energy) needed to ignite the next.</p>
+
+                    <div style="margin-top: 50px; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
+                        <button class="btn-execute" onclick="window.location.href='bunker.html'">
+                            RETURN_TO_COMMAND_CENTER
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="abstract">
-        <strong>ABSTRACT:</strong> This document outlines the transition of the legacy "Archmage" systems into a fully decentralized, DAG-native warfare protocol. By leveraging the speed and security of Kaspa, we enable an autonomous game state that exists entirely within the BlockDAG, removing the need for central authority or fragile web servers.
-    </div>
-
-    <span class="section-title">01. The Vision</span>
-    <p>Cypherpunk Wars is more than a game; it is an experiment in digital permanence. Every action is tagged onto a real Kaspa transaction's native <code>payload</code> field, so the game's state is reconstructible by any client that scans the chain, as long as the network itself survives. Kaspa's own roadmap points toward a future architecture called vProgs (Verifiable Programs) for richer on-chain execution -- we see this bunker's tagged-payload-and-covenant approach as a working proof of concept for that direction, not a claim that vProgs already exist.</p>
-
-    
-
-    <span class="section-title">02. Proof of Energy</span>
-    <p>In this ecosystem, every action represents a physical expenditure of network fuel (KAS). This ensures that every Phish, every Attack, and every Sector expansion has real-world weight. We replace "Time" with "Energy" (GWh) as the primary currency of progress.</p>
-
-    <span class="section-title">03. The Social Contract</span>
-    <p>The protocol is designed to be self-sustaining. Through a community-driven "Cistern" or manual Peer-to-Peer fuel transfers, the barrier to entry is lowered by the success of the established veteran operators. As one bunker grows, it provides the exhaust (energy) needed to ignite the next.</p>
-
-    <div style="margin-top: 50px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='bunker.html'">
-            RETURN_TO_COMMAND_CENTER
-        </button>
-    </div>
-    </div>
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
@@ -70,8 +78,18 @@
 </div>
 
 <script type="module">
+    import { bootBunkerEngine } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
+
     renderAppHeader();
+    renderFooter('docs-footer', 'whitepaper');
+
+    window.addEventListener('load', async () => {
+        await bootBunkerEngine();
+        await renderSidebar('sidebar', null);
+    });
 </script>
 
 </body>

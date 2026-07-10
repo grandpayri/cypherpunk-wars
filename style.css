@@ -62,6 +62,24 @@ body.bunker-frame {
     word-break: break-all;
 }
 
+.copy-btn {
+    background: transparent;
+    border: 1px solid var(--kaspa-teal);
+    color: var(--kaspa-teal);
+    font-family: inherit;
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    margin-left: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.copy-btn:hover {
+    background: var(--kaspa-teal);
+    color: #000;
+}
+
 /* All three of these were previously duplicated ad hoc across pages -- .viewport
    as an inline style on bunker.html only, .manual-container copy-pasted into each
    docs page's own <style> block. Consolidated here, and switched from hard pixel
@@ -87,6 +105,7 @@ body.bunker-frame {
 .manual-container {
     border: 2px solid var(--kaspa-teal);
     border-top: none;
+    border-bottom: none;
     background: rgba(0, 20, 20, 0.9);
     padding: 40px;
     line-height: 1.6;
@@ -96,6 +115,7 @@ body.bunker-frame {
 .forge-container {
     border: 2px solid var(--kaspa-teal);
     border-top: none;
+    border-bottom: none;
     background: rgba(0, 20, 20, 0.9);
     padding: 30px;
     box-shadow: 0 0 20px rgba(0, 255, 159, 0.2);
@@ -216,6 +236,7 @@ body.bunker-frame {
 .bunker-shell-wrapper {
     border: 2px solid var(--kaspa-teal);
     border-top: none;
+    border-bottom: none;
     background: rgba(0, 20, 20, 0.9);
     box-sizing: border-box;
 }
@@ -243,13 +264,6 @@ body.bunker-frame {
 
 .stat-val { display: block; font-size: 1.4rem; color: var(--kaspa-bright); margin-bottom: 10px; }
 .stat-label { font-size: 0.7rem; color: #555; text-transform: uppercase; }
-
-.sidebar-address {
-    font-size: 0.65rem;
-    color: var(--kaspa-teal);
-    word-break: break-all;
-    margin-bottom: 15px;
-}
 
 .sidebar-divider {
     border: 0;
@@ -286,10 +300,16 @@ body.bunker-frame {
     background: rgba(0, 255, 159, 0.2);
 }
 
-/* bunker.html-only doc links row, below the sidebar+main shell. */
+/* Shared doc links row (see shared-footer.js) -- sits directly below each page's main
+   content box, inside the same width wrapper, with the connected-border treatment as
+   .app-header above (full border minus the shared edge, so header/content/footer read as
+   one continuous rectangle instead of three separate floating pieces). */
 .docs-footer {
     display: flex;
-    border-top: 2px solid var(--kaspa-teal);
+    border: 2px solid var(--kaspa-teal);
+    border-top: none;
+    background: rgba(0, 20, 20, 0.9);
+    box-sizing: border-box;
 }
 
 .docs-footer .nav-link {
@@ -301,6 +321,14 @@ body.bunker-frame {
 
 .docs-footer .nav-link:last-child {
     border-right: none;
+}
+
+/* .docs-footer .nav-link's own border-right (needed for the divider between buttons)
+   otherwise wins over .nav-link-active's border-color on that one edge since it's more
+   specific -- restated here so the active highlight's border reads consistently on all
+   sides, not just three of them. */
+.docs-footer .nav-link-active {
+    border-right-color: var(--kaspa-bright);
 }
 
 @media (max-width: 700px) {
@@ -321,5 +349,9 @@ body.bunker-frame {
     }
     .docs-footer .nav-link:last-child {
         border-bottom: none;
+    }
+    .docs-footer .nav-link-active {
+        border-right-color: transparent;
+        border-bottom-color: var(--kaspa-bright);
     }
 }

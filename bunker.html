@@ -24,13 +24,9 @@
                 <div id="log" class="terminal-log">> CONNECTION_STABLE. AWAITING_INSTRUCTION...</div>
             </div>
         </div>
-
-        <div class="docs-footer">
-            <button class="nav-link" onclick="window.location.href='gameplay.html'">[DOCS] GAMEPLAY</button>
-            <button class="nav-link" onclick="window.location.href='architecture.html'">[DOCS] ARCHITECTURE</button>
-            <button class="nav-link" onclick="window.location.href='whitepaper.html'">[DOCS] WHITEPAPER</button>
-        </div>
     </div>
+
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <script type="module">
@@ -38,8 +34,10 @@
     import { deriveRestrictedWalletAddress, spendFromRestrictedWallet, ActionType } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
+    renderFooter();
 
     function logLine(msg) {
         const log = document.getElementById('log');

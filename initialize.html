@@ -33,6 +33,8 @@
         </div>
     </div>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log">> AWAITING_OPERATOR_HANDSHAKE...</div>
 </div>
 
@@ -40,8 +42,10 @@
     import { bootBunkerEngine, getSessionPrivateKey } from './wallet-gen.js';
     import { REGISTRY_ADDRESS, ActionType, sendTaggedTransaction } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
+    renderFooter();
 
     // kaspaToSompi(0.2) equivalent -- small fixed tagging amount, not a real balance transfer.
     const GENESIS_TAG_AMOUNT_SOMPI = 20000000n;

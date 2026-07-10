@@ -25,14 +25,18 @@
             </div>
         </div>
     </div>
+
+    <div id="docs-footer" class="docs-footer"></div>
 </div>
 
 <script type="module">
     import { bootBunkerEngine } from './wallet-gen.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar } from './shared-sidebar.js';
+    import { renderFooter } from './shared-footer.js';
 
     renderAppHeader();
+    renderFooter();
 
     window.addEventListener('load', async () => {
         const ready = await bootBunkerEngine();

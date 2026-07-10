@@ -11,6 +11,7 @@
             border-collapse: collapse;
             border: 2px solid var(--kaspa-teal); /* The Green Frame */
             border-top: none; /* connects seamlessly to .app-header directly above it */
+            border-bottom: none; /* connects seamlessly to the docs footer directly below it */
             background: rgba(0, 20, 20, 0.8);
         }
         .gateway-table td {
@@ -69,6 +70,8 @@
         </tr>
     </table>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log" style="margin-top: 20px;">
         > SYSTEM_READY. AWAITING_OPERATOR_SELECTION...
     </div>
@@ -76,9 +79,11 @@
 
 <script type="module">
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
     import { listVaultAddresses } from './vault.js';
 
     renderAppHeader();
+    renderFooter();
 
     window.addEventListener('load', () => {
         const savedId = localStorage.getItem('bunker_id');

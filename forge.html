@@ -52,6 +52,8 @@
         </div>
     </div>
 
+    <div id="docs-footer" class="docs-footer"></div>
+
     <div id="log" class="terminal-log">> STANDBY: AWAITING_OPERATOR_COMMAND...</div>
 </div>
 
@@ -59,9 +61,11 @@
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity, derivePublicKeyFromMnemonic } from './wallet-gen.js';
     import { requestFaucetGrant, deriveRestrictedWalletAddress } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
     import { createVault } from './vault.js';
 
     renderAppHeader();
+    renderFooter();
 
     let currentMnemonic = null;
 

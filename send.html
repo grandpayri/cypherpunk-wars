@@ -101,11 +101,13 @@
                     <p style="font-size: 0.8rem; margin-bottom: 10px;">
                         Fund your own gameplay: a single transaction from your plain wallet into
                         your covenant-locked Gameplay Vault. This is also where the faucet/host
-                        cut is paid now (not on every Phish turn anymore) -- see the breakdown below.
+                        cut is paid now (not on every Phish turn anymore) -- 0.5% each above a
+                        0.5 TKAS floor, so small top-ups pay a flat 0.5 TKAS per side and larger
+                        ones scale with size. See the breakdown below.
                     </p>
-                    <input type="text" id="buyTurnsAmount" class="send-input" placeholder="DEPOSIT_AMOUNT_TKAS (e.g. 3)" value="3">
+                    <input type="text" id="buyTurnsCount" class="send-input" placeholder="NUMBER_OF_TURNS (e.g. 20)" value="20">
                     <div class="buy-turns-breakdown" id="buyTurnsBreakdown">
-                        Enter an amount to see the split.
+                        Enter a number of turns to see the cost.
                     </div>
                     <div style="text-align: right;">
                         <button class="btn-execute btn-highlight" onclick="executeBuyTurns()">CONFIRM_TOPUP</button>
@@ -124,7 +126,7 @@
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
     import {
         getAddressBalance, deriveRestrictedWalletAddress, sendFromPlainWallet,
-        attemptRestrictedWalletSend, buyTurns, FAUCET_CONTRIB_SOMPI, HOST_FEE_SOMPI,
+        attemptRestrictedWalletSend, buyTurns, computeBuyTurnsBreakdown, computeDepositForTurns,
     } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats } from './shared-sidebar.js';
@@ -154,18 +156,20 @@
     };
 
     function updateBuyTurnsBreakdown() {
-        const amountInput = document.getElementById('buyTurnsAmount').value.trim();
+        const turnsInput = document.getElementById('buyTurnsCount').value.trim();
         const el = document.getElementById('buyTurnsBreakdown');
-        const amount = parseFloat(amountInput);
-        const cutsKas = (Number(FAUCET_CONTRIB_SOMPI + HOST_FEE_SOMPI) / 1e8);
-        if (!amount || amount <= cutsKas) {
-            el.innerText = `Deposit must be more than ${cutsKas.toFixed(2)} TKAS (the faucet + host cuts).`;
+        const turns = parseInt(turnsInput, 10);
+        if (!turns || turns <= 0) {
+            el.innerText = 'Enter a number of turns to see the cost.';
             return;
         }
-        const vaultKas = amount - cutsKas;
-        const faucetKas = Number(FAUCET_CONTRIB_SOMPI) / 1e8;
-        const hostKas = Number(HOST_FEE_SOMPI) / 1e8;
-        el.innerHTML = `<b>${vaultKas.toFixed(2)} TKAS</b> -> your Gameplay Vault, <b>${faucetKas.toFixed(2)} TKAS</b> -> faucet vault, <b>${hostKas.toFixed(2)} TKAS</b> -> host.`;
+        const depositAmountSompi = computeDepositForTurns(turns);
+        const { vault, faucet, host } = computeBuyTurnsBreakdown(depositAmountSompi);
+        const depositKas = (Number(depositAmountSompi) / 1e8).toFixed(4);
+        const vaultKas = (Number(vault) / 1e8).toFixed(4);
+        const faucetKas = (Number(faucet) / 1e8).toFixed(4);
+        const hostKas = (Number(host) / 1e8).toFixed(4);
+        el.innerHTML = `<b>${depositKas} TKAS</b> total for ~${turns} turns: <b>${vaultKas} TKAS</b> -> your Gameplay Vault, <b>${faucetKas} TKAS</b> -> faucet vault, <b>${hostKas} TKAS</b> -> host.`;
     }
 
     window.addEventListener('load', async () => {
@@ -195,7 +199,7 @@
             return;
         }
 
-        document.getElementById('buyTurnsAmount').addEventListener('input', updateBuyTurnsBreakdown);
+        document.getElementById('buyTurnsCount').addEventListener('input', updateBuyTurnsBreakdown);
         updateBuyTurnsBreakdown();
     });
 
@@ -259,12 +263,13 @@
     };
 
     window.executeBuyTurns = async function () {
-        const amountInput = document.getElementById('buyTurnsAmount').value.trim();
-        const depositAmountSompi = BigInt(Math.round(parseFloat(amountInput || '0') * 1e8));
-        if (depositAmountSompi <= 0n) {
-            logLine("ERROR: INVALID_DEPOSIT_AMOUNT.");
+        const turnsInput = document.getElementById('buyTurnsCount').value.trim();
+        const turns = parseInt(turnsInput, 10);
+        if (!turns || turns <= 0) {
+            logLine("ERROR: INVALID_TURN_COUNT.");
             return;
         }
+        const depositAmountSompi = computeDepositForTurns(turns);
 
         let privateKey, pubkey;
         try {

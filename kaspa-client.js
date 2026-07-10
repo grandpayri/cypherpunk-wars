@@ -206,14 +206,30 @@ export async function getAddressBalance(address) {
     return entries.reduce((sum, e) => sum + BigInt(e.amount), 0n);
 }
 
-// Confirmed live against the real network: the Generator's settings object does not
-// account for a payload set afterward on the resulting transaction -- a zero-priorityFee
-// Genesis attempt was rejected with "transaction has 50000 fees which is under the
-// required amount of 203600 for compute mass 2036" (the ~40-byte CPW1 payload pushed
-// real mass above what the Generator estimated with no payload). This default buffer
-// comfortably covers that gap for small payloads; bump it further if a larger payload
-// (e.g. richer Phish/Attack data) gets rejected the same way.
+// Real fee margin for the ~40-50 byte CPW1 payload's contribution to compute mass
+// (confirmed live: a zero-priorityFee Genesis attempt was rejected with "transaction has
+// 50000 fees which is under the required amount of 203600 for compute mass 2036"). Kept
+// as a safety margin even now that `payload` is passed directly into the Generator's own
+// settings (see the bug note below) -- the Generator should account for it correctly on
+// its own, but this buffer costs nothing and guards against any edge case in that
+// estimate. Bump further if a larger payload (e.g. richer Attack/Research data) ever gets
+// rejected the same way.
 const PAYLOAD_FEE_BUFFER_SOMPI = 300000n;
+
+// CRITICAL: `pendingTransaction.transaction` is a getter that returns a FRESH clone of
+// the underlying WASM transaction on every access (confirmed empirically: `a !== b` for
+// two consecutive `pendingTransaction.transaction` reads) -- it is NOT a stable handle
+// into the PendingTransaction's own data. Setting `pendingTransaction.transaction.payload
+// = X` therefore mutates a disposable clone that's immediately discarded, silently
+// no-op'ing: no error, but the payload never reaches what actually gets signed/submitted.
+// This was the actual, previously-undiagnosed reason CPW History showed real Phish moves
+// as "non-CPW transaction" -- every transaction this game has broadcast (Genesis, Phish)
+// carried an EMPTY on-chain payload, never the real CPW1 tag, despite every earlier
+// client-side round-trip test passing (those never touched the actual submitted bytes).
+// Fix: `Generator` accepts `payload` directly in its settings object (confirmed
+// empirically to work correctly) -- pass it there instead of mutating a transaction clone
+// after the fact. Do NOT reintroduce the `pendingTransaction.transaction.payload = X`
+// pattern anywhere in this file.
 
 // Builds, signs, and broadcasts a transaction tagged with a CPW action payload.
 // privateKey must be able to sign for fromAddress's UTXOs (see wallet-gen.js's
@@ -221,9 +237,7 @@ const PAYLOAD_FEE_BUFFER_SOMPI = 300000n;
 //
 // Uses the Generator class (not the low-level createTransaction()) specifically so
 // leftover UTXO value is correctly returned to fromAddress as change instead of being
-// consumed entirely as network fee. The payload is set directly on the resulting
-// PendingTransaction's underlying Transaction before signing, since the Generator's
-// settings object doesn't accept a payload field itself (see PAYLOAD_FEE_BUFFER_SOMPI).
+// consumed entirely as network fee.
 export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress, amountSompi, priorityFee = PAYLOAD_FEE_BUFFER_SOMPI, actionType, extraBytes }) {
     const rpc = await connectRpc();
     const { entries } = await rpc.getUtxosByAddresses([fromAddress]);
@@ -237,13 +251,12 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
         outputs: [{ address: toAddress, amount: amountSompi }],
         priorityFee,
         networkId: CPW_NETWORK_ID,
+        payload: encodePayload(actionType, extraBytes),
     });
 
-    const payload = encodePayload(actionType, extraBytes);
     let pendingTransaction;
     let txid;
     while ((pendingTransaction = await generator.next())) {
-        pendingTransaction.transaction.payload = payload;
         await pendingTransaction.sign([privateKey]);
         txid = await pendingTransaction.submit(rpc);
     }
@@ -272,10 +285,43 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
 // needing 0.5 KAS/output like the old 4-output shape did. Turn cost: ~1.505 KAS -> ~0.5 KAS.
 
 // Adjustable creator/host fee, explicitly called out per the game's design notes: a fork
-// hosting their own instance can redirect this by changing these two constants.
-export const FAUCET_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- refills the faucet vault, charged at vault top-up time (see buyTurns)
-export const HOST_FEE_SOMPI = 50000000n; // 0.5 KAS -- charged at vault top-up time (see buyTurns)
+// hosting their own instance can redirect this by changing FEE_RATE_BP/FEE_MIN_SOMPI/
+// HOST_FEE_ADDRESS below.
+//
+// Faucet and host each take the GREATER of a hard 0.5 KAS floor or 0.5% of the deposit --
+// below 100 KAS deposited, 0.5% would round to less than the ~0.5 KAS a single output
+// needs to clear this transaction shape's KIP-9 storage-mass floor (confirmed empirically
+// in Phase 4.6), so the flat floor applies instead. The two regimes meet exactly at 100
+// KAS (0.5% of 100 KAS == 0.5 KAS), so there's no discontinuity at the crossover.
+export const FEE_MIN_SOMPI = 50000000n; // 0.5 KAS floor, each side
+const FEE_RATE_BP = 50n; // 0.5%, in basis points out of 10000
 export const HOST_FEE_ADDRESS = REGISTRY_ADDRESS;
+
+// Single source of truth for the faucet/host/vault split on a given gross deposit --
+// used by buyTurns() itself and by send.html's live cost-preview, so the two can never
+// drift apart.
+export function computeBuyTurnsBreakdown(depositAmountSompi) {
+    const scaledCut = (depositAmountSompi * FEE_RATE_BP) / 10000n;
+    const cut = scaledCut > FEE_MIN_SOMPI ? scaledCut : FEE_MIN_SOMPI;
+    return { faucet: cut, host: cut, vault: depositAmountSompi - cut - cut };
+}
+
+// Inverts computeBuyTurnsBreakdown: given a desired number of turns, returns the gross
+// deposit that leaves at least that many turns' worth of $KAS in the vault after the
+// faucet/host cuts. Ceiling-divides so the vault never ends up a few sompi short of the
+// target due to integer rounding.
+export function computeDepositForTurns(turnsRequested) {
+    const targetVault = BigInt(turnsRequested) * COST_PER_TURN_SOMPI;
+    const crossoverDeposit = 100n * 100000000n; // 100 KAS -- where 0.5% == FEE_MIN_SOMPI
+    const belowCrossoverDeposit = targetVault + FEE_MIN_SOMPI * 2n;
+    if (belowCrossoverDeposit <= crossoverDeposit) {
+        return belowCrossoverDeposit;
+    }
+    // Above the crossover: targetVault = deposit * (1 - 2*rate), solved for deposit,
+    // rounded up so re-deriving the breakdown from this deposit never falls short.
+    const denominator = 10000n - FEE_RATE_BP * 2n;
+    return (targetVault * 10000n + denominator - 1n) / denominator;
+}
 
 // The per-turn tagged amount -- back to the Phase 4 single-output floor now that the
 // per-turn spend is a plain 2-output shape (reward treasury + change), not 4 outputs.
@@ -351,24 +397,28 @@ export const COST_PER_TURN_SOMPI = PHISH_REWARD_AMOUNT_SOMPI + RESTRICTED_WALLET
 // then fails with "script ran, but verification failed" / "false stack entry" once a payload
 // is added, even after manually calling updateTransactionMass() first). The fix: build the
 // transaction shape via the Generator (which correctly finalizes mass internally, the same
-// path sendTaggedTransaction already relies on), set payload on the resulting
-// pendingTransaction.transaction, and ONLY THEN take over signing manually -- instead of
-// calling pendingTransaction.sign(). This was verified working live on testnet-10 before
-// being wired in here.
-async function buildRestrictedWalletSpend({ playerAddress, playerPubkeyHex, outputs, priorityFee }) {
+// path sendTaggedTransaction already relies on) -- passing `payload` directly in the
+// Generator's own settings (NOT set afterward via pendingTransaction.transaction.payload,
+// which silently no-ops -- see the CRITICAL note above sendTaggedTransaction), then take
+// over signing manually instead of calling pendingTransaction.sign(). This was verified
+// working live on testnet-10 before being wired in here.
+async function buildRestrictedWalletSpend({ playerAddress, playerPubkeyHex, outputs, priorityFee, payload }) {
     const rpc = await connectRpc();
     const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
     if (!entries || entries.length === 0) {
         throw new Error("NO_UTXOS_AVAILABLE");
     }
 
-    const generator = new Generator({
+    const generatorSettings = {
         entries,
         changeAddress: playerAddress,
         outputs,
         priorityFee,
         networkId: CPW_NETWORK_ID,
-    });
+    };
+    if (payload) generatorSettings.payload = payload;
+
+    const generator = new Generator(generatorSettings);
     const pendingTransaction = await generator.next();
     return { rpc, pendingTransaction, redeemScriptHex: buildRestrictedWalletRedeemScript(playerPubkeyHex).toString() };
 }
@@ -393,9 +443,9 @@ export async function spendFromRestrictedWallet({ playerAddress, playerPrivateKe
         playerPubkeyHex,
         outputs: [{ address: PRIZE_VAULT_ADDRESS, amount: PHISH_REWARD_AMOUNT_SOMPI }],
         priorityFee: RESTRICTED_WALLET_PRIORITY_FEE_SOMPI,
+        payload: encodePayload(actionType, extraBytes),
     });
 
-    pendingTransaction.transaction.payload = encodePayload(actionType, extraBytes);
     const tx = signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex);
 
     const changeOutput = tx.outputs[1];
@@ -463,16 +513,13 @@ export async function sendFromPlainWallet({ fromAddress, privateKey, destAddress
 // old per-turn covenant spend -- see the Phase 4.6 notes above buildRestrictedWalletRedeemScript).
 // No covenant needed on the sending side -- it's the player's own unrestricted plain wallet,
 // spending its own funds needs no restriction, just like sendFromPlainWallet. 3 explicit
-// outputs (vault gets the bulk, faucet vault and host each get their fixed cut) plus the
-// Generator's own auto-change back to fromAddress for whatever wasn't committed to this
-// deposit.
-const MIN_VAULT_CONTRIBUTION_SOMPI = 50000000n; // 0.5 KAS -- keeps the vault's own cut above the KIP-9 floor too
-
+// outputs (vault gets the bulk, faucet vault and host each get their scaling cut -- see
+// computeBuyTurnsBreakdown) plus the Generator's own auto-change back to fromAddress for
+// whatever wasn't committed to this deposit.
 export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositAmountSompi, priorityFee = 500000n }) {
-    const cutsTotal = FAUCET_CONTRIB_SOMPI + HOST_FEE_SOMPI;
-    const vaultAmount = depositAmountSompi - cutsTotal;
-    if (vaultAmount < MIN_VAULT_CONTRIBUTION_SOMPI) {
-        throw new Error(`DEPOSIT_TOO_SMALL: need at least ${cutsTotal + MIN_VAULT_CONTRIBUTION_SOMPI} sompi`);
+    const { faucet, host, vault: vaultAmount } = computeBuyTurnsBreakdown(depositAmountSompi);
+    if (vaultAmount < FEE_MIN_SOMPI) {
+        throw new Error(`DEPOSIT_TOO_SMALL: need at least ${faucet + host + FEE_MIN_SOMPI} sompi`);
     }
 
     const rpc = await connectRpc();
@@ -486,8 +533,8 @@ export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositA
         changeAddress: fromAddress,
         outputs: [
             { address: vaultAddress, amount: vaultAmount },
-            { address: FAUCET_VAULT_ADDRESS, amount: FAUCET_CONTRIB_SOMPI },
-            { address: HOST_FEE_ADDRESS, amount: HOST_FEE_SOMPI },
+            { address: FAUCET_VAULT_ADDRESS, amount: faucet },
+            { address: HOST_FEE_ADDRESS, amount: host },
         ],
         priorityFee,
         networkId: CPW_NETWORK_ID,
@@ -499,7 +546,7 @@ export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositA
         await pendingTransaction.sign([privateKey]);
         txid = await pendingTransaction.submit(rpc);
     }
-    return { txid, breakdown: { vault: vaultAmount, faucet: FAUCET_CONTRIB_SOMPI, host: HOST_FEE_SOMPI } };
+    return { txid, breakdown: { vault: vaultAmount, faucet, host } };
 }
 
 // --- CPW History (Phase 5 groundwork) ---

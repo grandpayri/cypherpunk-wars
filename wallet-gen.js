@@ -13,18 +13,30 @@ const CPW_NETWORK_ID = "testnet-10";
 const SESSION_MNEMONIC_KEY = 'bunker_mnemonic_session';
 
 let engineOnline = false;
+let bootPromise = null;
 
+// Idempotent and safe to call concurrently from multiple independent call sites (e.g. a
+// page's own load handler AND shared-header.js's self-contained prize-vault fetch both
+// calling this around the same time) -- dedupes to a single underlying init() rather than
+// racing two WASM initializations.
 export async function bootBunkerEngine() {
-    try {
-        console.log("ENGINE: Locating WASM binaries...");
-        await init();
-        engineOnline = true;
-        console.log("ENGINE: Status 200 - Online");
-        return true;
-    } catch (err) {
-        console.error("WASM_BOOT_FAILURE:", err);
-        return false;
-    }
+    if (engineOnline) return true;
+    if (bootPromise) return bootPromise;
+
+    bootPromise = (async () => {
+        try {
+            console.log("ENGINE: Locating WASM binaries...");
+            await init();
+            engineOnline = true;
+            console.log("ENGINE: Status 200 - Online");
+            return true;
+        } catch (err) {
+            console.error("WASM_BOOT_FAILURE:", err);
+            bootPromise = null; // allow a retry on the next call
+            return false;
+        }
+    })();
+    return bootPromise;
 }
 
 export function forgeNewIdentity() {

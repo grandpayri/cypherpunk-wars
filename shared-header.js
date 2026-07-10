@@ -6,7 +6,9 @@
  * mount point present on every page (<div id="app-header"></div>), so the
  * whole app reads as one system instead of independently-styled pages.
  */
-import { addressLinkHtml } from './explorer-links.js';
+import { addressLinkHtml, explorerAddressUrl } from './explorer-links.js';
+import { bootBunkerEngine } from './wallet-gen.js';
+import { getAddressBalance, PRIZE_VAULT_ADDRESS } from './kaspa-client.js';
 
 const ASCII_LOGO_LINES = [
     "    ____            _               _____             _     __          __            ",
@@ -35,11 +37,35 @@ export function renderAppHeader(containerId = "app-header") {
 
     container.innerHTML = `
         <pre class="ascii-logo">${ASCII_LOGO_LINES.join("\n")}</pre>
+        <a href="${explorerAddressUrl(PRIZE_VAULT_ADDRESS)}" target="_blank" rel="noopener" class="prize-vault-banner" title="View the Prize Vault on the block explorer">
+            <span class="prize-vault-label">[ This Season's Prize Vault ]</span>
+            <span class="prize-vault-value" id="prizeVaultValue">SYNCING...</span>
+        </a>
         <div class="app-status-bar">
             <span>OPERATOR: <span class="app-status-value">${operatorDisplay}</span>${copyButton}</span>
             <span class="app-status-value">STATUS: ONLINE // TESTNET-10</span>
         </div>
     `;
+
+    refreshPrizeVaultValue();
+}
+
+// Self-contained on purpose -- shared-header.js renders on every page, including ones
+// that don't otherwise boot the WASM engine at all (e.g. index.html). bootBunkerEngine()
+// is idempotent/dedupes concurrent calls (see wallet-gen.js), so this is safe to fire
+// alongside whatever boot call a page's own script also makes.
+async function refreshPrizeVaultValue() {
+    const el = document.getElementById("prizeVaultValue");
+    if (!el) return;
+    try {
+        const ready = await bootBunkerEngine();
+        if (!ready) throw new Error("ENGINE_OFFLINE");
+        const balanceSompi = await getAddressBalance(PRIZE_VAULT_ADDRESS);
+        el.innerText = `${(Number(balanceSompi) / 1e8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKAS`;
+    } catch (err) {
+        console.error("PRIZE_VAULT_FETCH_ERROR:", err);
+        el.innerText = "OFFLINE";
+    }
 }
 
 window.copyOperatorAddress = function (button) {

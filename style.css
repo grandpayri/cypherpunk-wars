@@ -46,6 +46,49 @@ body.bunker-frame {
     text-align: center;
 }
 
+/* This Season's Prize Vault -- the treasury real prize money accumulates in (see
+   PRIZE_VAULT_ADDRESS). Deliberately the most eye-catching element in the header: a real,
+   growing number is the whole point of a prize pool, so it earns a gold accent and a slow
+   pulse rather than blending into the teal/green terminal palette everywhere else. Links
+   out to the address's own explorer page (see explorer-links.js) so anyone can verify the
+   balance themselves. */
+.prize-vault-banner {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 20px;
+    text-decoration: none;
+    border-top: 1px solid rgba(255, 204, 0, 0.4);
+    border-bottom: 1px solid rgba(255, 204, 0, 0.4);
+    background: rgba(255, 204, 0, 0.06);
+    animation: prize-vault-pulse 3.5s ease-in-out infinite;
+}
+
+.prize-vault-banner:hover {
+    background: rgba(255, 204, 0, 0.12);
+}
+
+.prize-vault-label {
+    font-size: 0.65rem;
+    color: var(--hazard-yellow);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+}
+
+.prize-vault-value {
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: var(--hazard-yellow);
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.7);
+}
+
+@keyframes prize-vault-pulse {
+    0%, 100% { box-shadow: inset 0 0 12px rgba(255, 204, 0, 0.05); }
+    50% { box-shadow: inset 0 0 20px rgba(255, 204, 0, 0.25); }
+}
+
 .app-status-bar {
     display: flex;
     flex-wrap: wrap;

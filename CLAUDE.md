@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. The design: player actions are broadcast as Kaspa transactions carrying a native `payload` field tagged `CPW1` (see `kaspa-client.js`'s `encodePayload`/`decodePayload`), and the client reconstructs game state by scanning the chain. **This payload-tagging is currently disabled** (see the "PAYLOAD TAGGING IS CURRENTLY DISABLED" note above `sendTaggedTransaction` in `kaspa-client.js`) due to a confirmed bug in the vendored Kaspa WASM SDK build around payload-bearing transactions and signing — Genesis/Phish transactions are real, valid, and correctly signed, they just don't carry a payload right now, so game state is read from `localStorage` instead (see State & persistence below). Kaspa has no Bitcoin-style `OP_RETURN`, and "vprogs" (Verifiable Programs) are a real but not-yet-live Kaspa roadmap concept — don't describe either as the current mechanism. See `architecture.html` and `whitepaper.html` (repo root, not a subfolder) for the in-fiction explanation of this design, and `design-bible.md` (also repo root) for the developer-facing mapping of legacy *Archmage* mechanics onto CPW systems.
+Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. Player actions are broadcast as Kaspa transactions carrying a native `payload` field tagged `CPW1` (see `kaspa-client.js`'s `encodePayload`/`decodePayload`, and `encodeGameStateSnapshot`/`decodeGameStateSnapshot` for the actual game-state struct written into it), and the client reconstructs game state by scanning the chain (see CPW History below). This briefly broke (payload attached but broke signing) due to the vendored Kaspa WASM SDK being outdated (**v0.15.2**, missing PR #591 "Enable payloads for non coinbase transactions" from v0.15.4-rc1) -- fixed 2026-07-10 by upgrading `kaspa.js`/`kaspa_bg.wasm` to **v2.0.1**. See the "PAYLOAD TAGGING HISTORY" comment above `sendTaggedTransaction` in `kaspa-client.js` for the full incident record; if payload tagging ever seems broken again, check the SDK version first (`(await import('./kaspa.js')).version()`) before re-diagnosing from scratch. Kaspa has no Bitcoin-style `OP_RETURN`, and "vprogs" (Verifiable Programs) are a real but not-yet-live Kaspa roadmap concept — don't describe either as the current mechanism. See `architecture.html` and `whitepaper.html` (repo root, not a subfolder) for the in-fiction explanation of this design, and `design-bible.md` (also repo root) for the developer-facing mapping of legacy *Archmage* mechanics onto CPW systems.
 
 ## Running locally
 
@@ -24,14 +24,14 @@ Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 2
 
 ## Kaspa/WASM integration
 
-- `kaspa.js` + `kaspa_bg.wasm` are wasm-bindgen-generated bindings for the Kaspa WASM SDK (large generated file — don't hand-edit it).
-- `wallet-gen.js` is the project's thin wrapper around it: `bootBunkerEngine()`, `forgeNewIdentity()`, `syncBunkerIdentity(mnemonic)`.
-- **Known integration bug**: `kaspa.js` uses top-level ES `export` statements (real ES module), but `forge.html`/`import.html` load it with a plain `<script src="kaspa.js">` (no `type="module"`) — this will throw a `SyntaxError` at runtime, not silently fail. `wallet-gen.js` also destructures `const { Wallet, initKaspaFramework, Mnemonic } = kaspa;` off a global `kaspa`, but `kaspa.js` has no such global and no export named `initKaspaFramework` (its init entry point is a default export, `__wbg_init`). Any work touching wallet forge/import needs to fix this wiring (module scripts + import the actual init export) rather than assuming it currently works.
-- The one piece of chain interaction actually wired up is in `bunker-logic.js`: `getAddressBalance()` / `sendGameTransaction()` are called but not defined anywhere in the repo yet — treat them as the next integration point, not existing utilities.
+- `kaspa.js` + `kaspa_bg.wasm` are wasm-bindgen-generated bindings for the Kaspa WASM SDK (large generated file — don't hand-edit it; replace wholesale via an official release if it ever needs upgrading again, e.g. `https://github.com/kaspanet/rusty-kaspa/releases/download/vX.Y.Z/kaspa-wasm32-sdk-vX.Y.Z.zip`, `web/kaspa/` subfolder is the right browser/full-SDK target). Currently **v2.0.1** (check via `(await import('./kaspa.js')).version()`). Every page loads it as a real ES module (`<script type="module">`), matching `kaspa.js`'s top-level `export` statements.
+- `wallet-gen.js` is the project's thin wrapper around it: `bootBunkerEngine()` (idempotent -- safe to call from multiple independent call sites, dedupes to one underlying WASM init), `forgeNewIdentity()`, `syncBunkerIdentity(mnemonic)`.
+- All chain interaction lives in `kaspa-client.js`: `getAddressBalance()`, `sendTaggedTransaction()` (Genesis), `spendFromRestrictedWallet()` (Phish, covenant-signed), `requestFaucetGrant()`, `buyTurns()`, `fetchAddressTransactionList()`/`fetchTransactionPayloadBytes()` (CPW History's read side).
+- The faucet covenant itself has no memory and will let any address claim repeatedly (rate-limited by the grant cap, not sybil-resistant — see the Phase 7 notes in the plan doc). `hasReceivedFaucetGrant(address)` in `kaspa-client.js` is a client-side-only courtesy check (queries the address's own tx history via REST for a prior incoming transfer from `FAUCET_VAULT_ADDRESS`) that `forge.html` calls before each grant so *our own UI* won't double-grant — not real sybil resistance, just stops the common case.
 
 ## State & persistence
 
-- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`). These are the actual source of truth for the sidebar right now, NOT the on-chain payload -- see "PAYLOAD TAGGING IS CURRENTLY DISABLED" in `kaspa-client.js`.
+- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`) kept in sync with the full game-state snapshot now genuinely written into every Genesis/Phish payload on-chain (confirmed live, decoded back out via `history.html`).
 - Sectors are a real planned mechanic (Phase 6, not yet built) shown as a fixed placeholder in the sidebar; there is no GWh or Cycles system — those were an earlier, incorrect design pass and have been removed from both the docs and the UI.
 
 ## Explorer links
@@ -45,11 +45,6 @@ optional truncated `displayText` while still linking the full value. Styled via 
 txid, wire it through these helpers rather than displaying raw text.
 
 ## CPW History (`history.html`)
-
-**Currently decodes nothing -- payload tagging is disabled (see below), so every real
-transaction correctly shows as "non-CPW transaction".** This is accurate behavior given
-the current state, not a bug in this page. Once payload tagging works again, this page
-should start decoding moves without needing any changes to itself.
 
 Decodes an address's on-chain `CPW1` payloads into plain-language moves (e.g. "Executed
 Phishing Attack -- Earned 47 $PUNKW"). Defaults to the operator's own Plain Wallet +
@@ -83,7 +78,7 @@ transactions as pruned — a real bug hit once while building this; don't reintr
 
 Defined in `gameplay.html`:
 - **Turns** — each turn is a real Kaspa transaction, spent from the player's covenant-locked Gameplay Vault (see `kaspa-client.js`'s `spendFromRestrictedWallet`). Not a fictional resource; the network itself enforces what a turn can pay for.
-- **$PUNKW (War Chest)** — earned by Phishing. The wire format for writing the operator's entire current game state into a transaction's payload exists (`encodeGameStateSnapshot`/`decodeGameStateSnapshot` in `kaspa-client.js`, a fixed-width versioned 42-byte struct — $PUNKW, sectors, node specialization, research tier, turn count, season, unit/item counts), but payload tagging is currently **disabled** end-to-end (see the note above `sendTaggedTransaction` in `kaspa-client.js`) — Genesis/Phish transactions are real and correctly signed, they just don't carry a payload right now. `localStorage`'s punkw/turn-count cache (see State & persistence above) is the actual current source of truth for the sidebar.
+- **$PUNKW (War Chest)** — earned by Phishing. Every Genesis/Phish transaction writes the operator's entire current game state (a fixed-width, versioned 42-byte struct — $PUNKW, sectors, node specialization, research tier, turn count, season, unit/item counts) into that transaction's on-chain payload (`encodeGameStateSnapshot`/`decodeGameStateSnapshot` in `kaspa-client.js`), confirmed live and decodable via `history.html`. `localStorage`'s punkw/turn-count cache (see State & persistence above) remains the sidebar's fast-path source of truth (no indexer for "current state" yet — see Phase 5 in the plan doc), kept in sync with what's on-chain.
 - **Sectors** — planned (Phase 6, not built): built by spending $PUNKW, increasing Phishing efficiency.
 - **Armageddon** — planned (Phase 7, not built): a covenant-verifiable season-ending reset, cast like other future hack/DOS payloads.
 

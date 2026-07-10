@@ -90,6 +90,22 @@ export async function requestFaucetGrant(destAddress, grantAmountSompi = FAUCET_
     return result.transactionId;
 }
 
+// Client-side courtesy check only -- the faucet covenant itself has no memory and doesn't
+// enforce one-grant-per-address (see the "Known, accepted limitation" note above
+// FAUCET_GRANT_CAP_SOMPI's usage in the plan doc: rate-limited but not sybil-resistant).
+// This just stops OUR OWN UI (forge.html) from handing out a second grant to an address
+// that's already received one -- a determined player could still bypass it by calling
+// requestFaucetGrant() directly. Checks the target address's own recent transaction
+// history (not the faucet's, which would grow unbounded over the game's lifetime) for any
+// incoming transaction whose input traces back to FAUCET_VAULT_ADDRESS.
+export async function hasReceivedFaucetGrant(address) {
+    const url = `${REST_API_BASE}/addresses/${encodeURIComponent(address)}/full-transactions?limit=50&resolve_previous_outpoints=light`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`INDEXER_REQUEST_FAILED: ${resp.status}`);
+    const txs = await resp.json();
+    return txs.some((tx) => (tx.inputs || []).some((input) => input.previous_outpoint_address === FAUCET_VAULT_ADDRESS));
+}
+
 const MAGIC = "CPW1";
 
 export const ActionType = Object.freeze({
@@ -208,49 +224,46 @@ export async function getAddressBalance(address) {
 
 // Real fee margin for the ~40-50 byte CPW1 payload's contribution to compute mass
 // (confirmed live: a zero-priorityFee Genesis attempt was rejected with "transaction has
-// 50000 fees which is under the required amount of 203600 for compute mass 2036"). Kept
-// even though payload is currently NOT attached (see PAYLOAD_TAGGING_DISABLED below) --
-// cheap insurance for whenever it's re-enabled.
+// 50000 fees which is under the required amount of 203600 for compute mass 2036").
 const PAYLOAD_FEE_BUFFER_SOMPI = 300000n;
 
-// *** PAYLOAD TAGGING IS CURRENTLY DISABLED. Read this before touching payload code. ***
+// *** PAYLOAD TAGGING HISTORY -- read this before touching payload code. ***
 //
-// Investigated and confirmed on testnet-10, 2026-07-10, using a disposable throwaway
-// keypair funded via the faucet covenant (no real player credentials involved):
+// Payload tagging was broken, then disabled, then fixed, all on 2026-07-10:
 //
 // 1. `pendingTransaction.transaction` returns a FRESH CLONE on every access (confirmed:
 //    `a !== b` for two consecutive reads) -- setting `.payload` on it mutates a disposable
-//    clone that's discarded immediately. No error, payload silently never reaches what
-//    gets signed/submitted. This was the original, previously-undiagnosed reason CPW
-//    History showed every real Phish/Genesis move as "non-CPW transaction": nothing this
-//    game ever broadcast actually carried a payload on-chain.
-// 2. Passing `payload` directly into `Generator`'s own settings DOES attach real payload
-//    bytes to the resulting transaction (`tx.payload` correctly reflects it) -- but the
-//    transaction's `.mass` is IDENTICAL with or without payload (confirmed: two otherwise-
-//    identical builds both reported mass 50721, byte-for-byte), meaning Generator's fee/
-//    mass accounting silently ignores payload's contribution entirely.
-// 3. This mass mismatch was suspected to cause the resulting "failed to verify the
-//    signature script: script ran, but verification failed" / "false stack entry" errors
-//    real players hit (both on a P2SH covenant spend AND on a plain Genesis send using the
-//    SDK's own built-in `.sign()` -- so this is not covenant-specific). Tried and
-//    confirmed NOT sufficient to fix it: `updateTransactionMass()`, `calculateTransactionMass()`
-//    (both kept reporting the SAME unchanged mass regardless of payload), and manually
-//    setting `tx.mass` to a hand-corrected value (mass + payload.length) -- signing still
-//    failed the same way even with a manually-corrected mass.
-//
-// Conclusion: this looks like a genuine bug/limitation in this vendored kaspa.js/
-// kaspa_bg.wasm build around payload-bearing transactions and signing, not something
-// fixable via JS-side call ordering. Until a fix or SDK update is found, payload tagging
-// is DISABLED here -- Genesis/Phish broadcast real, valid, signed transactions (gameplay
-// works), they just don't carry a CPW1 payload (matching the ORIGINAL pre-2026-07-10
-// behavior). CPW History will correctly show these as "non-CPW transaction" via its
-// existing graceful-degradation path -- that's accurate, not a bug in history.html.
-// `actionType`/`extraBytes` parameters are kept (unused) so call sites don't need to
-// change again once this is actually fixed.
+//    clone that's discarded immediately. No error, payload silently never reached what got
+//    signed/submitted. This was the original, previously-undiagnosed reason CPW History
+//    showed every real Phish/Genesis move as "non-CPW transaction": nothing this game ever
+//    broadcast actually carried a payload on-chain.
+// 2. Fix attempt #1: pass `payload` directly into `Generator`'s own settings instead. This
+//    DID attach real payload bytes to the resulting transaction (`tx.payload` correctly
+//    reflected it) -- but broke signing entirely ("script ran, but verification failed" /
+//    "false stack entry"), on both the covenant-signed Phish path and a plain Genesis send
+//    using the SDK's own built-in `.sign()`. Root cause traced to the transaction's `.mass`
+//    being IDENTICAL with or without payload (confirmed: two otherwise-identical builds
+//    both reported mass 50721, byte-for-byte, across `Generator`'s own calc,
+//    `updateTransactionMass()`, and `calculateTransactionMass()`) -- the vendored SDK
+//    (`kaspa.js`'s `version()` reported **0.15.2**) was simply too old: rusty-kaspa's PR
+//    #591, "Enable payloads for non coinbase transactions," didn't land until v0.15.4-rc1.
+//    Payload tagging was reverted/disabled as an emergency fix (commit `9d3bd92`) to
+//    restore gameplay, which had broken outright for real players.
+// 3. Actual fix: upgraded the vendored `kaspa.js`/`kaspa_bg.wasm` to **v2.0.1** (the
+//    current stable release, matching what this project's node/network already targets).
+//    Confirmed live on testnet-10 with a disposable throwaway keypair (funded via the
+//    faucet covenant, no real player credentials touched): mnemonic-to-address derivation
+//    is byte-for-byte unchanged (critical -- this is what would have orphaned every
+//    existing player's identity had it differed), and payload-bearing Genesis/Phish
+//    transactions now sign and broadcast correctly, with mass genuinely differing with vs.
+//    without payload (the concrete signal the original bug is actually fixed this time).
+//    Payload tagging is back on below. If this ever breaks again, check the SDK version
+//    first (`import('./kaspa.js').then(m => m.version())`) before re-diagnosing from
+//    scratch -- there's a good chance it's the same class of issue.
 
-// Builds, signs, and broadcasts a transaction. Would tag it with a CPW action payload if
-// payload tagging weren't currently disabled -- see the note above. privateKey must be
-// able to sign for fromAddress's UTXOs (see wallet-gen.js's getSessionPrivateKey()).
+// Builds, signs, and broadcasts a transaction tagged with a CPW action payload.
+// privateKey must be able to sign for fromAddress's UTXOs (see wallet-gen.js's
+// getSessionPrivateKey()).
 //
 // Uses the Generator class (not the low-level createTransaction()) specifically so
 // leftover UTXO value is correctly returned to fromAddress as change instead of being
@@ -268,7 +281,7 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
         outputs: [{ address: toAddress, amount: amountSompi }],
         priorityFee,
         networkId: CPW_NETWORK_ID,
-        // payload intentionally omitted -- see PAYLOAD TAGGING IS CURRENTLY DISABLED above.
+        payload: encodePayload(actionType, extraBytes),
     });
 
     let pendingTransaction;
@@ -409,24 +422,26 @@ export const COST_PER_TURN_SOMPI = PHISH_REWARD_AMOUNT_SOMPI + RESTRICTED_WALLET
 // Manually signing a P2SH covenant input needs raw createTransaction() + createInputSignature()
 // (the Generator's own .sign() only knows how to do standard P2PK signing for addresses it
 // recognizes). Build the transaction shape via the Generator (which correctly finalizes
-// mass internally for a no-payload spend), then take over signing manually instead of
-// calling pendingTransaction.sign(). Payload is NOT attached here -- see the "PAYLOAD
-// TAGGING IS CURRENTLY DISABLED" note above sendTaggedTransaction for why (confirmed bug
-// in this SDK build's payload+mass+signing interaction, not something fixable from here).
-async function buildRestrictedWalletSpend({ playerAddress, playerPubkeyHex, outputs, priorityFee }) {
+// mass internally, including payload, on the current SDK -- see the "PAYLOAD TAGGING
+// HISTORY" note above sendTaggedTransaction), then take over signing manually instead of
+// calling pendingTransaction.sign().
+async function buildRestrictedWalletSpend({ playerAddress, playerPubkeyHex, outputs, priorityFee, payload }) {
     const rpc = await connectRpc();
     const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
     if (!entries || entries.length === 0) {
         throw new Error("NO_UTXOS_AVAILABLE");
     }
 
-    const generator = new Generator({
+    const generatorSettings = {
         entries,
         changeAddress: playerAddress,
         outputs,
         priorityFee,
         networkId: CPW_NETWORK_ID,
-    });
+    };
+    if (payload) generatorSettings.payload = payload;
+
+    const generator = new Generator(generatorSettings);
     const pendingTransaction = await generator.next();
     return { rpc, pendingTransaction, redeemScriptHex: buildRestrictedWalletRedeemScript(playerPubkeyHex).toString() };
 }
@@ -445,11 +460,10 @@ function signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemS
     }
 }
 
-// The real Phish-shaped spend: one atomic transaction that pays the reward treasury, with
-// change returning to the same restricted wallet (added automatically by the Generator as
-// output 1, since the tagged output below doesn't consume the full input). Would also
-// write the CPW game-state payload on-chain if payload tagging weren't currently disabled
-// -- see the note above sendTaggedTransaction. playerPrivateKey/playerPubkeyHex must
+// The real Phish-shaped spend: one atomic transaction that writes the CPW game-state
+// payload on-chain AND pays the reward treasury, with change returning to the same
+// restricted wallet (added automatically by the Generator as output 1, since the tagged
+// output below doesn't consume the full input). playerPrivateKey/playerPubkeyHex must
 // belong to the same player who controls playerAddress (see wallet-gen.js).
 export async function spendFromRestrictedWallet({ playerAddress, playerPrivateKey, playerPubkeyHex, actionType, extraBytes }) {
     const { rpc, pendingTransaction, redeemScriptHex } = await buildRestrictedWalletSpend({
@@ -457,7 +471,7 @@ export async function spendFromRestrictedWallet({ playerAddress, playerPrivateKe
         playerPubkeyHex,
         outputs: [{ address: PRIZE_VAULT_ADDRESS, amount: PHISH_REWARD_AMOUNT_SOMPI }],
         priorityFee: RESTRICTED_WALLET_PRIORITY_FEE_SOMPI,
-        // payload intentionally omitted -- see PAYLOAD TAGGING IS CURRENTLY DISABLED above sendTaggedTransaction.
+        payload: encodePayload(actionType, extraBytes),
     });
 
     signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex);

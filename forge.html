@@ -59,7 +59,7 @@
 
 <script type="module">
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity, derivePublicKeyFromMnemonic } from './wallet-gen.js';
-    import { requestFaucetGrant, deriveRestrictedWalletAddress } from './kaspa-client.js';
+    import { requestFaucetGrant, hasReceivedFaucetGrant, deriveRestrictedWalletAddress } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
     import { createVault } from './vault.js';
@@ -105,17 +105,41 @@
         document.getElementById('password-setup-area').style.display = 'block';
     };
 
+    // Guards against the button firing twice (double-click, or a slow network letting a
+    // second click land before navigation) -- without this, a second click would re-run
+    // the whole flow for the SAME just-forged address, requesting duplicate faucet grants
+    // before the first grant is even confirmed enough for hasReceivedFaucetGrant() below
+    // to see it.
+    let saveInFlight = false;
+
+    // Client-side courtesy check (see kaspa-client.js's hasReceivedFaucetGrant doc comment
+    // for why this isn't real sybil resistance, just stops our own UI from double-granting).
+    // A freshly forged address is essentially guaranteed to have zero prior history, so
+    // this is cheap insurance for the common case and real protection for any future path
+    // that might reach this code for an address that isn't brand new.
+    async function requestFaucetGrantOnce(address, amountSompi, label) {
+        if (await hasReceivedFaucetGrant(address)) {
+            logLine(`SKIPPED: ${label}_ALREADY_GRANTED_TO_THIS_ADDRESS.`);
+            return;
+        }
+        await requestFaucetGrant(address, amountSompi);
+        logLine(`SUCCESS: ${label}_RECEIVED.`);
+    }
+
     window.saveAndProceed = async function () {
-        if (!currentMnemonic) return;
+        if (!currentMnemonic || saveInFlight) return;
+        saveInFlight = true;
 
         const password = document.getElementById('vault-password').value;
         const confirmPassword = document.getElementById('vault-password-confirm').value;
         if (password.length < 8) {
             logLine("ERROR: PASSWORD_TOO_SHORT. MIN_8_CHARACTERS.");
+            saveInFlight = false;
             return;
         }
         if (password !== confirmPassword) {
             logLine("ERROR: PASSWORDS_DO_NOT_MATCH.");
+            saveInFlight = false;
             return;
         }
 
@@ -133,9 +157,11 @@
                 // restricted-spend covenant wallet -- funds there are structurally locked to
                 // CPW-shaped transactions only (see kaspa-client.js's
                 // buildRestrictedWalletRedeemScript). A small grant funds Genesis; a larger
-                // one seeds a few Phish turns in the restricted wallet.
-                await requestFaucetGrant(bunkerId, 100000000n); // 1 KAS -- Genesis + fees
-                logLine("SUCCESS: GENESIS_GRANT_RECEIVED.");
+                // one seeds a few Phish turns in the restricted wallet. Each is checked
+                // against hasReceivedFaucetGrant() first (see requestFaucetGrantOnce above)
+                // so our own UI can't hand out a second grant to an address that's already
+                // received one.
+                await requestFaucetGrantOnce(bunkerId, 100000000n, 'GENESIS_GRANT'); // 1 KAS -- Genesis + fees
 
                 // The faucet vault is one shared covenant UTXO chain -- firing the second
                 // grant immediately races the first grant's own change output before the
@@ -145,8 +171,7 @@
 
                 const pubkey = derivePublicKeyFromMnemonic(currentMnemonic);
                 const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
-                await requestFaucetGrant(restrictedAddr, 600000000n); // 6 KAS -- a few Phish turns
-                logLine("SUCCESS: GAMEPLAY_VAULT_FUNDED. READY_FOR_GENESIS.");
+                await requestFaucetGrantOnce(restrictedAddr, 600000000n, 'GAMEPLAY_VAULT_FUNDING'); // 6 KAS -- a few Phish turns
             } catch (faucetErr) {
                 console.error("FAUCET_GRANT_ERROR:", faucetErr);
                 logLine("WARNING: FAUCET_GRANT_FAILED. FUND_MANUALLY_VIA_TN-10_FAUCET_IF_NEEDED.");
@@ -156,6 +181,7 @@
         } catch (err) {
             console.error("SAVE_AND_PROCEED_ERROR:", err);
             logLine("ERROR: IDENTITY_SYNC_FAILED");
+            saveInFlight = false;
         }
     };
 </script>

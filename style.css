@@ -12,31 +12,28 @@ body.bunker-frame {
     margin: 0;
     display: flex;
     justify-content: center;
-    align-items: center;
+    /* flex-start, not center -- now that the header lives inline (not a fixed floating
+       bar), vertically centering the whole header+content block leaves a large empty gap
+       above it on any page taller than the viewport. Start near the top instead. */
+    align-items: flex-start;
     min-height: 100vh;
-    padding-top: 110px;
+    padding: 20px 0;
     box-sizing: border-box;
 }
 
-/* The fixed-position .app-header now shows the operator's full, untruncated address
-   (see shared-header.js), so its height varies with how many lines that wraps to --
-   narrower viewports need more reserved space than the 110px base covers. */
-@media (max-width: 480px) {
-    body.bunker-frame {
-        padding-top: 150px;
-    }
-}
-
-/* Shared app header (ASCII logo + operator/network status), fixed to the
-   top of every page so the app reads as one consistent system. */
+/* Shared app header (ASCII logo + operator/network status). Lives INSIDE each page's own
+   width-constrained wrapper (.viewport/.central-gate), as the first child directly above
+   that page's bordered content box -- not a separate full-page-width fixed bar. Its own
+   border plus the content box's matching side borders (with the shared edge's top/bottom
+   border split between them, see .forge-container/.manual-container/.bunker-shell-wrapper)
+   makes the two read as one continuous rectangle instead of a floating strip above an
+   unrelated box. This also means no more reserving fixed padding-top for a fixed-position
+   header of variable height (previously fragile -- a wrapping address needed different
+   padding on mobile vs desktop; not a concern now that the header flows normally). */
 .app-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 100;
+    border: 2px solid var(--kaspa-teal);
+    border-bottom: 1px solid rgba(0, 255, 159, 0.3);
     background: var(--bunker-bg);
-    border-bottom: 2px solid var(--kaspa-teal);
     box-sizing: border-box;
 }
 
@@ -83,21 +80,22 @@ body.bunker-frame {
     max-width: clamp(1200px, 90vw, 1900px);
 }
 
-/* Docs/lore pages (gameplay, architecture, whitepaper) -- prose, so kept narrower
-   than .viewport on purpose: very long text lines are harder to read, not better. */
+/* Docs/lore pages (gameplay, architecture, whitepaper) now share .central-gate as their
+   outer width wrapper (previously .manual-container did both jobs itself) so the app-header
+   connects to them the same way it does everywhere else -- .manual-container is just the
+   inner bordered/padded box now, sized to 100% of its .central-gate parent automatically. */
 .manual-container {
-    width: 90%;
-    max-width: clamp(700px, 65vw, 1000px);
     border: 2px solid var(--kaspa-teal);
+    border-top: none;
     background: rgba(0, 20, 20, 0.9);
     padding: 40px;
-    margin: 20px auto;
     line-height: 1.6;
 }
 
 /* The Green Box Frame */
 .forge-container {
     border: 2px solid var(--kaspa-teal);
+    border-top: none;
     background: rgba(0, 20, 20, 0.9);
     padding: 30px;
     box-shadow: 0 0 20px rgba(0, 255, 159, 0.2);
@@ -207,4 +205,121 @@ body.bunker-frame {
     overflow-y: auto;
     border-top: 1px solid rgba(0, 255, 159, 0.2);
     margin-top: 20px;
+}
+
+/* Persistent command-console shell (Phase 4.6) -- shared by every "in-bunker" gameplay
+   page (bunker.html, send.html, attack/research/leaderboard placeholders) via
+   shared-sidebar.js, replacing what used to be a table layout local to bunker.html alone.
+   Sits inside .viewport, directly below .app-header (same connected-border treatment as
+   .forge-container/.manual-container). Flexbox instead of a table so it reflows better
+   and the sidebar isn't duplicated per page. */
+.bunker-shell-wrapper {
+    border: 2px solid var(--kaspa-teal);
+    border-top: none;
+    background: rgba(0, 20, 20, 0.9);
+    box-sizing: border-box;
+}
+
+.bunker-shell {
+    display: flex;
+    align-items: stretch;
+}
+
+.bunker-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-right: 1px solid rgba(0, 255, 159, 0.2);
+    box-sizing: border-box;
+}
+
+.bunker-main {
+    flex: 1;
+    min-width: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.stat-val { display: block; font-size: 1.4rem; color: var(--kaspa-bright); margin-bottom: 10px; }
+.stat-label { font-size: 0.7rem; color: #555; text-transform: uppercase; }
+
+.sidebar-address {
+    font-size: 0.65rem;
+    color: var(--kaspa-teal);
+    word-break: break-all;
+    margin-bottom: 15px;
+}
+
+.sidebar-divider {
+    border: 0;
+    border-top: 1px solid rgba(0, 255, 159, 0.2);
+    margin: 20px 0;
+}
+
+.nav-link {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 5px;
+    text-align: left;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--kaspa-teal);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.nav-link:hover { border-color: var(--kaspa-teal); background: rgba(0,255,159,0.1); }
+
+/* Highlights the current page's nav item -- distinct from :hover (persistent, not
+   transient), so "where am I" is always visible at a glance, not just on mouseover. */
+.nav-link-active {
+    border-color: var(--kaspa-bright);
+    background: rgba(0, 255, 159, 0.15);
+    color: var(--kaspa-bright);
+    box-shadow: 0 0 8px rgba(0, 255, 159, 0.15);
+}
+
+.nav-link-active:hover {
+    border-color: var(--kaspa-bright);
+    background: rgba(0, 255, 159, 0.2);
+}
+
+/* bunker.html-only doc links row, below the sidebar+main shell. */
+.docs-footer {
+    display: flex;
+    border-top: 2px solid var(--kaspa-teal);
+}
+
+.docs-footer .nav-link {
+    flex: 1;
+    text-align: center;
+    border-right: 1px solid rgba(0, 255, 159, 0.2);
+    margin-bottom: 0;
+}
+
+.docs-footer .nav-link:last-child {
+    border-right: none;
+}
+
+@media (max-width: 700px) {
+    .bunker-shell {
+        flex-direction: column;
+    }
+    .bunker-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(0, 255, 159, 0.2);
+    }
+    .docs-footer {
+        flex-direction: column;
+    }
+    .docs-footer .nav-link {
+        border-right: none;
+        border-bottom: 1px solid rgba(0, 255, 159, 0.2);
+    }
+    .docs-footer .nav-link:last-child {
+        border-bottom: none;
+    }
 }

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Phish Result</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .yield-display {
+            text-align: center;
+            padding: 30px 20px;
+            border: 1px dashed var(--kaspa-teal);
+            margin: 20px 0;
+        }
+        .yield-amount {
+            font-size: 3rem;
+            color: var(--kaspa-bright);
+            font-weight: bold;
+            display: block;
+        }
+        .yield-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .tx-details {
+            font-size: 0.75rem;
+            color: #888;
+            border-top: 1px dashed rgba(0, 255, 159, 0.2);
+            margin-top: 25px;
+            padding-top: 15px;
+        }
+        .tx-details .tx-id {
+            color: var(--kaspa-teal);
+            word-break: break-all;
+        }
+        .verification-note {
+            font-size: 0.75rem;
+            color: var(--hazard-yellow);
+            border: 1px dashed var(--hazard-yellow);
+            padding: 12px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body class="bunker-frame">
+
+<div class="central-gate">
+    <div id="app-header" class="app-header"></div>
+
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">PHISH_SEQUENCE_COMPLETE</h2>
+        <p style="font-size: 0.85rem;">The AI ingestion daemon returned from its scrape of the BlockDAG.</p>
+
+        <div class="yield-display">
+            <span class="yield-label">$PUNKW Fragments Ingested</span>
+            <span class="yield-amount" id="yieldAmount">0</span>
+        </div>
+
+        <div class="verification-note">
+            <b>HOW THIS IS VERIFIED TODAY:</b> the transaction itself is covenant-enforced --
+            the network guarantees it paid the reward treasury the correct amount, in the
+            correct shape, signed by you. The $PUNKW yield number above is still computed
+            and self-reported by this client, not yet zk-proven on-chain. Verified yield
+            (proving the formula was run honestly, not just that the payment happened) is a
+            researched-but-not-yet-built future upgrade -- see the architecture page.
+        </div>
+
+        <div class="tx-details">
+            <div>TRANSACTION_ID (verifiable on any testnet-10 explorer):</div>
+            <div class="tx-id" id="txid">...</div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn-execute btn-highlight" onclick="window.location.href='bunker.html'">RETURN_TO_COMMAND_CENTER</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+
+    renderAppHeader();
+
+    const raw = sessionStorage.getItem('lastPhishResult');
+    if (!raw) {
+        // No stashed result -- someone navigated here directly rather than via a real
+        // Phish action. Nothing to show, so send them back to where results come from.
+        window.location.href = 'bunker.html';
+    } else {
+        const result = JSON.parse(raw);
+        document.getElementById('yieldAmount').innerText = result.yieldAmount;
+        document.getElementById('txid').innerText = result.txid;
+        sessionStorage.removeItem('lastPhishResult');
+    }
+</script>
+
+</body>
+</html>

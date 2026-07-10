@@ -47,53 +47,82 @@
             margin-bottom: 15px;
             display: none;
         }
+        .buy-turns-panel {
+            border: 1px solid var(--kaspa-bright);
+            padding: 20px;
+            margin-top: 30px;
+        }
+        .buy-turns-breakdown {
+            font-size: 0.75rem;
+            color: #888;
+            margin: 10px 0 15px;
+            line-height: 1.6;
+        }
+        .buy-turns-breakdown b {
+            color: var(--kaspa-bright);
+        }
     </style>
 </head>
 <body class="bunker-frame">
 
-<div id="app-header" class="app-header"></div>
+<div class="viewport">
+    <div id="app-header" class="app-header"></div>
 
-<div class="central-gate">
-    <div class="forge-container">
-        <h2 style="margin-top: 0; color: var(--kaspa-bright);">[05] TRANSFER_PROTOCOL</h2>
-        <p style="font-size: 0.85rem;">
-            Send TKAS to any address. Choose a source below -- notice that the Gameplay
-            Vault is a Toccata covenant, not a plain wallet: it will only let you spend from
-            it via a real CPW-tagged transaction (see the Command Center's Phish action),
-            never a free-form send like this one.
-        </p>
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
 
-        <div class="source-toggle">
-            <div class="source-option active" id="source-plain" onclick="selectSource('plain')">
-                PLAIN WALLET
-                <span class="balance" id="plainBalanceLabel">0.00 TKAS</span>
+            <div class="bunker-main">
+                <h2 style="margin-top: 0; color: var(--kaspa-bright);">TRANSFER_PROTOCOL</h2>
+                <p style="font-size: 0.85rem;">
+                    Send TKAS to any address. Choose a source below -- notice that the Gameplay
+                    Vault is a Toccata covenant, not a plain wallet: it will only let you spend from
+                    it via a real CPW-tagged transaction (see the Command Center's Phish action),
+                    never a free-form send like this one.
+                </p>
+
+                <div class="source-toggle">
+                    <div class="source-option active" id="source-plain" onclick="selectSource('plain')">
+                        PLAIN WALLET
+                        <span class="balance" id="plainBalanceLabel">0.00 TKAS</span>
+                    </div>
+                    <div class="source-option" id="source-vault" onclick="selectSource('vault')">
+                        GAMEPLAY VAULT (RESTRICTED)
+                        <span class="balance" id="vaultBalanceLabel">0.00 TKAS</span>
+                    </div>
+                </div>
+
+                <div class="covenant-note" id="covenant-note">
+                    <b>THIS IS EXPECTED TO FAIL.</b> The Gameplay Vault's covenant only permits
+                    spends shaped like a valid CPW transaction (a tagged payment to the reward
+                    treasury). A plain send like this one does not match that shape, so the
+                    network itself -- not this page -- will reject it.
+                </div>
+
+                <input type="text" id="destAddress" class="send-input" placeholder="DESTINATION_ADDRESS (kaspatest:...)">
+                <input type="text" id="sendAmount" class="send-input" placeholder="AMOUNT_TKAS (e.g. 0.5)">
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-execute" onclick="executeSend()">BROADCAST_TRANSFER</button>
+                </div>
+
+                <div class="buy-turns-panel">
+                    <h3 style="margin-top: 0; color: var(--kaspa-bright);">BUY_TURNS</h3>
+                    <p style="font-size: 0.8rem; margin-bottom: 10px;">
+                        Fund your own gameplay: a single transaction from your plain wallet into
+                        your covenant-locked Gameplay Vault. This is also where the faucet/host
+                        cut is paid now (not on every Phish turn anymore) -- see the breakdown below.
+                    </p>
+                    <input type="text" id="buyTurnsAmount" class="send-input" placeholder="DEPOSIT_AMOUNT_TKAS (e.g. 3)" value="3">
+                    <div class="buy-turns-breakdown" id="buyTurnsBreakdown">
+                        Enter an amount to see the split.
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn-execute btn-highlight" onclick="executeBuyTurns()">CONFIRM_TOPUP</button>
+                    </div>
+                </div>
             </div>
-            <div class="source-option" id="source-vault" onclick="selectSource('vault')">
-                GAMEPLAY VAULT (RESTRICTED)
-                <span class="balance" id="vaultBalanceLabel">0.00 TKAS</span>
-            </div>
         </div>
-
-        <div class="covenant-note" id="covenant-note">
-            <b>THIS IS EXPECTED TO FAIL.</b> The Gameplay Vault's covenant only permits
-            spends shaped like a valid CPW transaction (paying the faucet vault, prize
-            vault, and host in one atomic tx). A plain send like this one does not match
-            that shape, so the network itself -- not this page -- will reject it.
-        </div>
-
-        <input type="text" id="destAddress" class="send-input" placeholder="DESTINATION_ADDRESS (kaspatest:...)">
-        <input type="text" id="sendAmount" class="send-input" placeholder="AMOUNT_TKAS (e.g. 0.5)">
-
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button class="btn-execute btn-muted" onclick="window.location.href='bunker.html'">BACK_TO_COMMAND</button>
-            <button class="btn-execute" onclick="prefillVaultDeposit()">DEPOSIT_TO_MY_VAULT</button>
-            <button class="btn-execute" onclick="executeSend()">BROADCAST_TRANSFER</button>
-        </div>
-        <p style="font-size: 0.7rem; color: #888; margin-bottom: 0;">
-            DEPOSIT_TO_MY_VAULT funds your own gameplay: a plain send from your wallet into your
-            covenant-locked Gameplay Vault. Anyone can pay INTO the vault (receiving is
-            unrestricted) -- only spends OUT of it are covenant-enforced to CPW transactions.
-        </p>
     </div>
 
     <div id="log" class="terminal-log">> AWAITING_TRANSFER_INSTRUCTION...</div>
@@ -101,8 +130,12 @@
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
-    import { getAddressBalance, deriveRestrictedWalletAddress, sendFromPlainWallet, attemptRestrictedWalletSend } from './kaspa-client.js';
+    import {
+        getAddressBalance, deriveRestrictedWalletAddress, sendFromPlainWallet,
+        attemptRestrictedWalletSend, buyTurns, FAUCET_CONTRIB_SOMPI, HOST_FEE_SOMPI,
+    } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar, refreshSidebarStats } from './shared-sidebar.js';
 
     renderAppHeader();
 
@@ -125,23 +158,20 @@
         document.getElementById('covenant-note').style.display = source === 'vault' ? 'block' : 'none';
     };
 
-    // Self-funding gameplay: prefill a plain-wallet send into the player's own restricted
-    // vault. Receiving at a covenant address is unrestricted (only spends are enforced),
-    // so this is just an ordinary send whose destination happens to be the vault -- the
-    // faucet grant at Forge is a bootstrap, not the only way in.
-    window.prefillVaultDeposit = function () {
-        let restrictedAddr;
-        try {
-            restrictedAddr = deriveRestrictedWalletAddress(getSessionPublicKey());
-        } catch (err) {
-            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
-            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+    function updateBuyTurnsBreakdown() {
+        const amountInput = document.getElementById('buyTurnsAmount').value.trim();
+        const el = document.getElementById('buyTurnsBreakdown');
+        const amount = parseFloat(amountInput);
+        const cutsKas = (Number(FAUCET_CONTRIB_SOMPI + HOST_FEE_SOMPI) / 1e8);
+        if (!amount || amount <= cutsKas) {
+            el.innerText = `Deposit must be more than ${cutsKas.toFixed(2)} TKAS (the faucet + host cuts).`;
             return;
         }
-        selectSource('plain');
-        document.getElementById('destAddress').value = restrictedAddr;
-        logLine("VAULT_DEPOSIT_PREFILLED. ENTER_AMOUNT_AND_BROADCAST.");
-    };
+        const vaultKas = amount - cutsKas;
+        const faucetKas = Number(FAUCET_CONTRIB_SOMPI) / 1e8;
+        const hostKas = Number(HOST_FEE_SOMPI) / 1e8;
+        el.innerHTML = `<b>${vaultKas.toFixed(2)} TKAS</b> -> your Gameplay Vault, <b>${faucetKas.toFixed(2)} TKAS</b> -> faucet vault, <b>${hostKas.toFixed(2)} TKAS</b> -> host.`;
+    }
 
     window.addEventListener('load', async () => {
         logLine("BOOTING_ENGINE...");
@@ -150,6 +180,8 @@
             logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
             return;
         }
+
+        await renderSidebar('sidebar', 'transfer');
 
         try {
             const plainBalance = await getAddressBalance(bunkerId);
@@ -165,7 +197,11 @@
             console.error("BALANCE_LOAD_ERROR:", err);
             logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
             setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+            return;
         }
+
+        document.getElementById('buyTurnsAmount').addEventListener('input', updateBuyTurnsBreakdown);
+        updateBuyTurnsBreakdown();
     });
 
     window.executeSend = async function () {
@@ -202,6 +238,7 @@
                     amountSompi,
                 });
                 logLine(`SUCCESS: TRANSFER_BROADCAST_${txid.substring(0, 10)}...`);
+                setTimeout(refreshSidebarStats, 2500);
             } catch (err) {
                 console.error("SEND_ERROR:", err);
                 logLine(`ERROR: TRANSFER_FAILED. ${err.message || err}`);
@@ -223,6 +260,55 @@
                 logLine(`COVENANT_ENFORCEMENT: REJECTED_BY_NETWORK.`);
                 logLine(`> ${err.message || err}`);
             }
+        }
+    };
+
+    window.executeBuyTurns = async function () {
+        const amountInput = document.getElementById('buyTurnsAmount').value.trim();
+        const depositAmountSompi = BigInt(Math.round(parseFloat(amountInput || '0') * 1e8));
+        if (depositAmountSompi <= 0n) {
+            logLine("ERROR: INVALID_DEPOSIT_AMOUNT.");
+            return;
+        }
+
+        let privateKey, pubkey;
+        try {
+            privateKey = getSessionPrivateKey();
+            pubkey = getSessionPublicKey();
+        } catch (err) {
+            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
+            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+            return;
+        }
+
+        logLine("BROADCASTING_VAULT_TOPUP...");
+        try {
+            const vaultAddress = deriveRestrictedWalletAddress(pubkey);
+            const result = await buyTurns({
+                fromAddress: bunkerId,
+                privateKey,
+                vaultAddress,
+                depositAmountSompi,
+            });
+            const vaultKas = (Number(result.breakdown.vault) / 1e8).toFixed(2);
+            const faucetKas = (Number(result.breakdown.faucet) / 1e8).toFixed(2);
+            const hostKas = (Number(result.breakdown.host) / 1e8).toFixed(2);
+            logLine(`SUCCESS: TOPUP_BROADCAST_${result.txid.substring(0, 10)}...`);
+            logLine(`ONE ATOMIC TX PAID: ${vaultKas} TKAS -> YOUR_VAULT, ${faucetKas} TKAS -> FAUCET_VAULT, ${hostKas} TKAS -> HOST.`);
+
+            // The RPC's UTXO view needs a moment to catch up after submit() resolves --
+            // an immediate refresh shows the stale pre-spend balance (same reasoning as
+            // bunker.html's post-Phish refresh delay).
+            setTimeout(async () => {
+                refreshSidebarStats();
+                const plainBalance = await getAddressBalance(bunkerId);
+                document.getElementById('plainBalanceLabel').innerText = `${(Number(plainBalance) / 1e8).toFixed(2)} TKAS`;
+                const vaultBalance = await getAddressBalance(vaultAddress);
+                document.getElementById('vaultBalanceLabel').innerText = `${(Number(vaultBalance) / 1e8).toFixed(2)} TKAS`;
+            }, 2500);
+        } catch (err) {
+            console.error("BUY_TURNS_ERROR:", err);
+            logLine(`ERROR: TOPUP_FAILED. ${err.message || err}`);
         }
     };
 </script>

@@ -5,122 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYPHERPUNK WARS | Bunker</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* Specific layouts for the Bunker Console */
-        .bunker-grid {
-            width: 100%;
-            border-collapse: collapse;
-            border: 2px solid var(--kaspa-teal);
-            background: rgba(0, 20, 20, 0.9);
-        }
-        .bunker-grid td {
-            border: 1px solid rgba(0, 255, 159, 0.1);
-            padding: 15px;
-            vertical-align: top;
-        }
-        .header-row { background: #000; text-align: center; }
-        .sidebar-col { width: 250px; background: rgba(0, 0, 0, 0.3); }
-        .stat-val { display: block; font-size: 1.4rem; color: var(--kaspa-bright); margin-bottom: 10px; }
-        .stat-label { font-size: 0.7rem; color: #555; text-transform: uppercase; }
-        .nav-link { 
-            display: block; width: 100%; padding: 10px; margin-bottom: 5px; 
-            text-align: left; background: none; border: 1px solid transparent; 
-            color: var(--kaspa-teal); cursor: pointer; font-family: inherit;
-        }
-        .nav-link:hover { border-color: var(--kaspa-teal); background: rgba(0,255,159,0.1); }
-    </style>
 </head>
 <body class="bunker-frame">
 
-<div id="app-header" class="app-header"></div>
-
 <div class="viewport">
-   <table class="bunker-grid">
-    <tr class="header-row">
-        <td colspan="2">
-            <span style="letter-spacing: 4px; font-weight: bold;">COMMAND_CENTER_v.01</span>
-        </td>
-    </tr>
+    <div id="app-header" class="app-header"></div>
 
-    <tr>
-        <td class="sidebar-col" style="width: 250px; border-right: 1px solid rgba(0, 255, 159, 0.2);">
-            <div class="stat-label">Full Address</div>
-            <div id="fullAddress" style="font-size: 0.65rem; color: var(--kaspa-teal); word-break: break-all; margin-bottom: 15px;">...</div>
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
 
-            <div class="stat-label">Plain Wallet (TKAS)</div>
-            <span class="stat-val" id="sideBalance">0.00 TKAS</span>
-            <div class="stat-label">Gameplay Vault (Restricted -- Covenant-Locked)</div>
-            <span class="stat-val" id="sideVaultBalance">0.00 TKAS</span>
-            <div class="stat-label">Turns Available (at ~1.505 TKAS/turn)</div>
-            <span class="stat-val" id="sideTurns">0</span>
-            <div class="stat-label">War Chest</div>
-            <span class="stat-val" id="sidePunkw">0 $PUNKW</span>
-            <div class="stat-label">Infrastructure</div>
-            <span class="stat-val" id="sideSectors">1 SECTOR</span>
-            <div class="stat-label">Compute Load</div>
-            <span class="stat-val" id="sideCycles">10/10 CYC</span>
-
-            <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
-
-            <button class="nav-link" onclick="window.location.href='bunker.html'">> [01] COMMAND</button>
-            <button class="nav-link" onclick="window.location.href='attack.html'">> [02] ATTACK</button>
-            <button class="nav-link" onclick="window.location.href='research.html'">> [03] RESEARCH</button>
-            <button class="nav-link" onclick="window.location.href='leaderboard.html'">> [04] RANKINGS</button>
-            <button class="nav-link" onclick="window.location.href='send.html'">> [05] TRANSFER</button>
-
-            <hr style="border: 0; border-top: 1px solid rgba(0,255,159,0.2); margin: 20px 0;">
-
-            <button class="nav-link" onclick="window.location.href='resume.html'">> SWITCH_ACCOUNT</button>
-        </td>
-
-        <td>
-            <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
-            <p style="font-size: 0.85rem;">Allocate 1 Cycle and 1 GWh to scrape the BlockDAG for $PUNKW fragments.</p>
-            <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
-                <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+            <div class="bunker-main">
+                <h3 style="color: var(--kaspa-bright); margin-top: 0;">AI_INGESTION_DAEMON</h3>
+                <p style="font-size: 0.85rem;">Allocate 1 Cycle and 1 GWh to scrape the BlockDAG for $PUNKW fragments.</p>
+                <div style="border: 1px dashed var(--kaspa-teal); padding: 40px; text-align: center; margin: 20px 0;">
+                    <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+                </div>
+                <div id="log" class="terminal-log">> CONNECTION_STABLE. AWAITING_INSTRUCTION...</div>
             </div>
-            <div id="log" class="terminal-log">> CONNECTION_STABLE. AWAITING_INSTRUCTION...</div>
-        </td>
-    </tr>
+        </div>
 
-    <tr>
-        <td colspan="2" style="border-top: 2px solid var(--kaspa-teal); padding: 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="width: 33.33%; text-align: center; border-right: 1px solid rgba(0, 255, 159, 0.2); padding: 15px;">
-                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='gameplay.html'">[DOCS] GAMEPLAY</button>
-                    </td>
-                    <td style="width: 33.33%; text-align: center; border-right: 1px solid rgba(0, 255, 159, 0.2); padding: 15px;">
-                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='architecture.html'">[DOCS] ARCHITECTURE</button>
-                    </td>
-                    <td style="width: 33.33%; text-align: center; padding: 15px;">
-                        <button class="nav-link" style="text-align: center;" onclick="window.location.href='whitepaper.html'">[DOCS] WHITEPAPER</button>
-                    </td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
+        <div class="docs-footer">
+            <button class="nav-link" onclick="window.location.href='gameplay.html'">[DOCS] GAMEPLAY</button>
+            <button class="nav-link" onclick="window.location.href='architecture.html'">[DOCS] ARCHITECTURE</button>
+            <button class="nav-link" onclick="window.location.href='whitepaper.html'">[DOCS] WHITEPAPER</button>
+        </div>
+    </div>
 </div>
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
-    import {
-        getAddressBalance, deriveRestrictedWalletAddress, spendFromRestrictedWallet,
-        ActionType, FAUCET_CONTRIB_SOMPI, PRIZE_CONTRIB_SOMPI, HOST_FEE_SOMPI,
-    } from './kaspa-client.js';
+    import { deriveRestrictedWalletAddress, spendFromRestrictedWallet, ActionType } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
 
     renderAppHeader();
-
-    // Cost of one Phish turn, spent from the restricted-wallet covenant (not the plain
-    // address) -- three fixed tagged outputs (faucet vault refill / prize vault / host fee)
-    // plus a priority fee buffer. Each output sits well above the ~0.2 KAS single-output
-    // KIP-9 floor established in Phase 4, since a 4-output shape (3 tagged + change) needs
-    // meaningfully more per output to clear storage mass -- confirmed empirically (0.2 KAS
-    // each hit "Storage mass exceeds maximum"; 0.5 KAS each cleared it).
-    const RESTRICTED_WALLET_PRIORITY_FEE_SOMPI = 500000n;
-    const COST_PER_TURN_SOMPI = FAUCET_CONTRIB_SOMPI + PRIZE_CONTRIB_SOMPI + HOST_FEE_SOMPI + RESTRICTED_WALLET_PRIORITY_FEE_SOMPI;
 
     function logLine(msg) {
         const log = document.getElementById('log');
@@ -131,35 +50,6 @@
     const bunkerId = localStorage.getItem('bunker_id');
     if (!bunkerId) {
         window.location.href = 'index.html';
-    } else {
-        document.getElementById('fullAddress').innerText = bunkerId;
-    }
-
-    // Recomputed each refresh from the session pubkey rather than cached, matching how
-    // getSessionPrivateKey() is re-derived on demand elsewhere in this codebase.
-    function currentRestrictedWalletAddress() {
-        const pubkey = getSessionPublicKey();
-        return deriveRestrictedWalletAddress(pubkey);
-    }
-
-    async function refreshBunkerStats() {
-        const balanceSompi = await getAddressBalance(bunkerId);
-        const balanceKas = Number(balanceSompi) / 100000000;
-        document.getElementById('sideBalance').innerText = `${balanceKas.toFixed(2)} TKAS`;
-
-        try {
-            const restrictedAddr = currentRestrictedWalletAddress();
-            const vaultBalanceSompi = await getAddressBalance(restrictedAddr);
-            const vaultBalanceKas = Number(vaultBalanceSompi) / 100000000;
-            document.getElementById('sideVaultBalance').innerText = `${vaultBalanceKas.toFixed(2)} TKAS`;
-
-            const turnsAvailable = vaultBalanceSompi / COST_PER_TURN_SOMPI; // BigInt division, floors automatically
-            document.getElementById('sideTurns').innerText = turnsAvailable.toString();
-        } catch (err) {
-            // No session key yet (e.g. page just loaded before boot finished) -- leave
-            // vault stats at their placeholder values, executePhish() will redirect to
-            // resume.html if this is a real session-key problem.
-        }
     }
 
     window.addEventListener('load', async () => {
@@ -169,9 +59,12 @@
             logLine("CRITICAL_ERROR: WASM_ENGINE_OFFLINE");
             return;
         }
-        await refreshBunkerStats();
+        await renderSidebar('sidebar', 'command');
     });
 
+    // Phish no longer logs its outcome inline -- a real gameplay action leaves the command
+    // console and lands on a dedicated results page (phish-result.html), which is the only
+    // time this page is left except by explicit nav-link navigation.
     window.executePhish = async function () {
         if (!bunkerId) return;
 
@@ -196,14 +89,13 @@
                 extraBytes: new Uint8Array(0),
             });
             const yieldAmount = Math.floor(Math.random() * 40) + 10;
-            logLine(`SUCCESS: PHISH_BROADCAST_${result.txid.substring(0, 10)}... INGESTED ${yieldAmount} $PUNKW FRAGMENTS.`);
-            const faucetKas = (Number(result.outputs.faucet) / 1e8).toFixed(2);
-            const prizeKas = (Number(result.outputs.prize) / 1e8).toFixed(2);
-            const hostKas = (Number(result.outputs.host) / 1e8).toFixed(2);
-            logLine(`ONE ATOMIC TX PAID: ${faucetKas} TKAS -> FAUCET_VAULT, ${prizeKas} TKAS -> PRIZE_VAULT, ${hostKas} TKAS -> HOST.`);
-            // The RPC's UTXO view needs a moment to catch up after submit() resolves --
-            // an immediate refresh shows the stale pre-spend balance.
-            setTimeout(refreshBunkerStats, 2500);
+            sessionStorage.setItem('lastPhishResult', JSON.stringify({
+                txid: result.txid,
+                yieldAmount,
+                rewardAmountSompi: result.outputs.reward.toString(),
+                changeAmountSompi: result.outputs.change.toString(),
+            }));
+            window.location.href = 'phish-result.html';
         } catch (err) {
             console.error("PHISH_ERROR:", err);
             logLine(`ERROR: GRID_FAILURE. ${err.message || err}`);

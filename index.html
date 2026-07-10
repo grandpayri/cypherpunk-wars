@@ -10,6 +10,7 @@
             width: 100%;
             border-collapse: collapse;
             border: 2px solid var(--kaspa-teal); /* The Green Frame */
+            border-top: none; /* connects seamlessly to .app-header directly above it */
             background: rgba(0, 20, 20, 0.8);
         }
         .gateway-table td {
@@ -24,9 +25,9 @@
 </head>
 <body class="bunker-frame">
 
-<div id="app-header" class="app-header"></div>
+<div class="central-gate">
+    <div id="app-header" class="app-header"></div>
 
-<div class="viewport central-gate">
     <table class="gateway-table">
         <tr>
             <td colspan="3" class="welcome-row">

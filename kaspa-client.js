@@ -178,42 +178,45 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
     return txid;
 }
 
-// --- Restricted-spend player wallet (per-player covenant) + 3-way fee split ---
+// --- Restricted-spend player wallet (per-player covenant) ---
 //
 // Unlike the faucet vault (a communal covenant needing no signature), this covenant is
 // derived per-player from their own public key: only that player can authorize a spend
 // (via a real OP_CHECKSIGVERIFY), but the covenant *also* restricts what a valid spend can
-// look like -- exactly 4 outputs paying the faucet vault / prize vault / host a fixed
-// amount each, with change returning to this same covenant. This is what makes "faucet
-// funds can only be used on CPW transactions" a real, network-enforced guarantee rather
-// than a UI convention: a plain send from this address (any shape other than the one
-// below) fails script verification regardless of how valid the signature is.
+// look like. This is what makes "faucet funds can only be used on CPW transactions" a real,
+// network-enforced guarantee rather than a UI convention: a plain send from this address
+// (any shape other than the one below) fails script verification regardless of how valid
+// the signature is.
 //
 // Reuses only opcodes already proven live by the faucet vault above (output count/amount/
 // spk introspection, self-referencing change) plus OpCheckSigVerify, a standard pre-Toccata
 // opcode -- deliberately avoids the payload-inspection opcodes (OpTxPayloadLen/Substr)
 // since their exact stack semantics were never actually exercised in this codebase.
+//
+// Phase 4.6 economics redesign: the 3-way fee split moved OUT of this per-turn script and
+// into buyTurns() below (charged once when funding the vault, not on every single turn) --
+// each Phish transaction now only pays the reward treasury directly, a plain 2-output shape
+// (tag + change) that clears the ~0.2 KAS single-output KIP-9 floor from Phase 4, instead of
+// needing 0.5 KAS/output like the old 4-output shape did. Turn cost: ~1.505 KAS -> ~0.5 KAS.
 
-// 0.5 KAS each, not the ~0.2 KAS single-output floor established in Phase 4 -- a 4-output
-// transaction (3 tagged + 1 change) needs each output meaningfully above that floor to
-// clear KIP-9 storage mass. Confirmed empirically: 0.2 KAS/output hit "Storage mass
-// exceeds maximum" via the Generator; 0.5 KAS/output cleared it. The formula penalizes
-// multiple small outputs more than a single one, so this isn't just "the same floor again."
-export const FAUCET_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- refills the faucet vault
-export const PRIZE_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- season prize pool
 // Adjustable creator/host fee, explicitly called out per the game's design notes: a fork
-// hosting their own instance can redirect this by changing these two constants. Not yet
-// supporting a true zero fee -- that needs the covenant to accept a variable output count/
-// shape (omitting this output entirely), which is a bigger lift than this demo covers.
-export const HOST_FEE_SOMPI = 50000000n; // 0.5 KAS
+// hosting their own instance can redirect this by changing these two constants.
+export const FAUCET_CONTRIB_SOMPI = 50000000n; // 0.5 KAS -- refills the faucet vault, charged at vault top-up time (see buyTurns)
+export const HOST_FEE_SOMPI = 50000000n; // 0.5 KAS -- charged at vault top-up time (see buyTurns)
 export const HOST_FEE_ADDRESS = REGISTRY_ADDRESS;
 
-// Prize vault: a single fixed P2SH address, locked by a plain OP_CHECKSIG against the
+// The per-turn tagged amount -- back to the Phase 4 single-output floor now that the
+// per-turn spend is a plain 2-output shape (reward treasury + change), not 4 outputs.
+export const PHISH_REWARD_AMOUNT_SOMPI = 20000000n; // 0.2 KAS
+
+// Reward treasury ("prize vault" in earlier notes -- same address, same purpose: season
+// prize pool). A single fixed P2SH address, locked by a plain OP_CHECKSIG against the
 // registry wallet's own pubkey. Deliberately minimal for this phase -- it's a genuine
-// script-locked address (not a plain wallet address), proving the "paid the prize vault
-// covenant" part of the demo, but the algorithmic top-N-payout logic is still future work
-// (see the roadmap's Phase 7 notes). Nothing spends from it in this phase, so it only
-// needs to safely accumulate funds.
+// script-locked address (not a plain wallet address), but the algorithmic top-N-payout
+// logic is still future work (see the roadmap's Phase 7 notes). Nothing spends from it in
+// this phase, so it only needs to safely accumulate funds. Now funded two ways: directly by
+// every Phish transaction (below), and indirectly never by buyTurns (that splits to faucet/
+// host only, not the treasury -- gameplay itself feeds the prize pool, not funding it).
 export const PRIZE_VAULT_ADDRESS = "kaspatest:pr9r88pnpwgfc9xn7j8vspu8xx6v4gvr5drywt5lvvdum3rgeqle6l5hw0jev";
 
 // Lazily computed and memoized on first use, NOT at module load time -- payToAddressScript()
@@ -229,17 +232,12 @@ export const PRIZE_VAULT_ADDRESS = "kaspatest:pr9r88pnpwgfc9xn7j8vspu8xx6v4gvr5d
 // failed" (valid opcodes, wrong comparison value). ScriptPublicKey.version/.script
 // confirm the struct has both fields (kaspa.js:8603-8652); this reconstructs the same
 // wire format for comparison literals.
-let _spkCache = null;
-function getFixedSpkHex() {
-    if (!_spkCache) {
-        const withVersion = (spk) => "0000" + spk.script;
-        _spkCache = {
-            faucet: withVersion(payToAddressScript(FAUCET_VAULT_ADDRESS)),
-            prize: withVersion(payToAddressScript(PRIZE_VAULT_ADDRESS)),
-            host: withVersion(payToAddressScript(HOST_FEE_ADDRESS)),
-        };
+let _rewardTreasurySpkHex = null;
+function getRewardTreasurySpkHex() {
+    if (!_rewardTreasurySpkHex) {
+        _rewardTreasurySpkHex = "0000" + payToAddressScript(PRIZE_VAULT_ADDRESS).script;
     }
-    return _spkCache;
+    return _rewardTreasurySpkHex;
 }
 
 // playerPubkeyHex must be the 32-byte x-only hex from wallet-gen.js's
@@ -248,18 +246,14 @@ function getFixedSpkHex() {
 // OpCheckSig scripts don't use (confirmed by decoding a known address's own
 // scriptPublicKey and round-tripping it against a manually-built script).
 function buildRestrictedWalletRedeemScript(playerPubkeyHex) {
-    const spk = getFixedSpkHex();
+    const rewardTreasurySpk = getRewardTreasurySpkHex();
     return new ScriptBuilder()
         .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
-        .addOp(OpTxOutputCount).addI64(4n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(0n).addOp(OpTxOutputSpk).addData(spk.faucet).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_CONTRIB_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(1n).addOp(OpTxOutputSpk).addData(spk.prize).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(1n).addOp(OpTxOutputAmount).addI64(PRIZE_CONTRIB_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(2n).addOp(OpTxOutputSpk).addData(spk.host).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-        .addI64(2n).addOp(OpTxOutputAmount).addI64(HOST_FEE_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
         .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
-        .addI64(3n).addOp(OpTxOutputSpk)
+        .addI64(1n).addOp(OpTxOutputSpk)
         .addOp(Opcodes.OpEqual);
 }
 
@@ -269,9 +263,13 @@ export function deriveRestrictedWalletAddress(playerPubkeyHex) {
     return addressFromScriptPublicKey(spk, CPW_NETWORK_ID).toString();
 }
 
-// Same KIP-9 storage-mass reasoning as PAYLOAD_FEE_BUFFER_SOMPI above, sized up for the
-// extra outputs plus payload.
+// Same KIP-9 storage-mass reasoning as PAYLOAD_FEE_BUFFER_SOMPI above -- covers the
+// payload's extra compute mass on top of this covenant's (now just 2-output) spend shape.
 const RESTRICTED_WALLET_PRIORITY_FEE_SOMPI = 500000n;
+
+// Exported so every page that needs to display/compute "turns available" (currently
+// bunker.html and shared-sidebar.js) shares one definition instead of recomputing it.
+export const COST_PER_TURN_SOMPI = PHISH_REWARD_AMOUNT_SOMPI + RESTRICTED_WALLET_PRIORITY_FEE_SOMPI;
 
 // Manually signing a P2SH covenant input needs raw createTransaction() + createInputSignature()
 // (the Generator's own .sign() only knows how to do standard P2PK signing for addresses it
@@ -313,43 +311,38 @@ function signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemS
 }
 
 // The real Phish-shaped spend: one atomic transaction that writes the CPW game-state
-// payload on-chain AND pays all three covenant/host recipients, with change returning to
-// the same restricted wallet (added automatically by the Generator as output 3, since the
-// 3 tagged outputs below don't consume the full input). playerPrivateKey/playerPubkeyHex
-// must belong to the same player who controls playerAddress (see wallet-gen.js).
+// payload on-chain AND pays the reward treasury, with change returning to the same
+// restricted wallet (added automatically by the Generator as output 1, since the tagged
+// output below doesn't consume the full input). playerPrivateKey/playerPubkeyHex must
+// belong to the same player who controls playerAddress (see wallet-gen.js).
 export async function spendFromRestrictedWallet({ playerAddress, playerPrivateKey, playerPubkeyHex, actionType, extraBytes }) {
     const { rpc, pendingTransaction, redeemScriptHex } = await buildRestrictedWalletSpend({
         playerAddress,
         playerPubkeyHex,
-        outputs: [
-            { address: FAUCET_VAULT_ADDRESS, amount: FAUCET_CONTRIB_SOMPI },
-            { address: PRIZE_VAULT_ADDRESS, amount: PRIZE_CONTRIB_SOMPI },
-            { address: HOST_FEE_ADDRESS, amount: HOST_FEE_SOMPI },
-        ],
+        outputs: [{ address: PRIZE_VAULT_ADDRESS, amount: PHISH_REWARD_AMOUNT_SOMPI }],
         priorityFee: RESTRICTED_WALLET_PRIORITY_FEE_SOMPI,
     });
 
     pendingTransaction.transaction.payload = encodePayload(actionType, extraBytes);
     const tx = signRestrictedWalletSpend(pendingTransaction, playerPrivateKey, redeemScriptHex);
 
-    const changeOutput = tx.outputs[3];
+    const changeOutput = tx.outputs[1];
     const result = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
     return {
         txid: result.transactionId,
         outputs: {
-            faucet: FAUCET_CONTRIB_SOMPI,
-            prize: PRIZE_CONTRIB_SOMPI,
-            host: HOST_FEE_SOMPI,
+            reward: PHISH_REWARD_AMOUNT_SOMPI,
             change: changeOutput ? changeOutput.value : 0n,
         },
     };
 }
 
 // Deliberately non-compliant: builds a plain [destination, change] spend from the
-// restricted wallet instead of the required 4-output CPW shape. The signature is
-// genuinely valid, but the covenant's structural checks aren't satisfied, so the network
-// is expected to reject this at the script-verification stage -- that rejection (not a
-// client-side refusal) is the actual point of this function, used by the Send demo.
+// restricted wallet using an arbitrary destination/amount instead of the required
+// reward-treasury shape. The signature is genuinely valid, but the covenant's structural
+// checks aren't satisfied, so the network is expected to reject this at the
+// script-verification stage -- that rejection (not a client-side refusal) is the actual
+// point of this function, used by the Send demo.
 export async function attemptRestrictedWalletSend({ playerAddress, playerPrivateKey, playerPubkeyHex, destAddress, amountSompi, priorityFee = 500000n }) {
     const { rpc, pendingTransaction, redeemScriptHex } = await buildRestrictedWalletSpend({
         playerAddress,
@@ -391,4 +384,48 @@ export async function sendFromPlainWallet({ fromAddress, privateKey, destAddress
         txid = await pendingTransaction.submit(rpc);
     }
     return txid;
+}
+
+// "Buying turns": the player funds their own gameplay vault from their plain wallet, and
+// this single transaction is where the faucet/host cut now gets paid (moved here from the
+// old per-turn covenant spend -- see the Phase 4.6 notes above buildRestrictedWalletRedeemScript).
+// No covenant needed on the sending side -- it's the player's own unrestricted plain wallet,
+// spending its own funds needs no restriction, just like sendFromPlainWallet. 3 explicit
+// outputs (vault gets the bulk, faucet vault and host each get their fixed cut) plus the
+// Generator's own auto-change back to fromAddress for whatever wasn't committed to this
+// deposit.
+const MIN_VAULT_CONTRIBUTION_SOMPI = 50000000n; // 0.5 KAS -- keeps the vault's own cut above the KIP-9 floor too
+
+export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositAmountSompi, priorityFee = 500000n }) {
+    const cutsTotal = FAUCET_CONTRIB_SOMPI + HOST_FEE_SOMPI;
+    const vaultAmount = depositAmountSompi - cutsTotal;
+    if (vaultAmount < MIN_VAULT_CONTRIBUTION_SOMPI) {
+        throw new Error(`DEPOSIT_TOO_SMALL: need at least ${cutsTotal + MIN_VAULT_CONTRIBUTION_SOMPI} sompi`);
+    }
+
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([fromAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    const generator = new Generator({
+        entries,
+        changeAddress: fromAddress,
+        outputs: [
+            { address: vaultAddress, amount: vaultAmount },
+            { address: FAUCET_VAULT_ADDRESS, amount: FAUCET_CONTRIB_SOMPI },
+            { address: HOST_FEE_ADDRESS, amount: HOST_FEE_SOMPI },
+        ],
+        priorityFee,
+        networkId: CPW_NETWORK_ID,
+    });
+
+    let pendingTransaction;
+    let txid;
+    while ((pendingTransaction = await generator.next())) {
+        await pendingTransaction.sign([privateKey]);
+        txid = await pendingTransaction.submit(rpc);
+    }
+    return { txid, breakdown: { vault: vaultAmount, faucet: FAUCET_CONTRIB_SOMPI, host: HOST_FEE_SOMPI } };
 }

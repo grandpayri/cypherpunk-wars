@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Rankings</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bunker-frame">
+
+<div class="viewport">
+    <div id="app-header" class="app-header"></div>
+
+    <div class="bunker-shell-wrapper">
+        <div class="bunker-shell">
+            <div id="sidebar" class="bunker-sidebar"></div>
+
+            <div class="bunker-main">
+                <h3 style="color: var(--kaspa-bright); margin-top: 0;">RANKINGS_PROTOCOL</h3>
+                <p style="font-size: 0.85rem; color: #888;">
+                    COMING_SOON -- ranking every discovered operator by $PUNKW/Sectors/Total
+                    Unit Strength (scanning the registry address's transaction history) is
+                    planned but not yet built. See the project roadmap for details.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { bootBunkerEngine } from './wallet-gen.js';
+    import { renderAppHeader } from './shared-header.js';
+    import { renderSidebar } from './shared-sidebar.js';
+
+    renderAppHeader();
+
+    window.addEventListener('load', async () => {
+        const ready = await bootBunkerEngine();
+        if (!ready) return;
+        await renderSidebar('sidebar', 'rankings');
+    });
+</script>
+
+</body>
+</html>

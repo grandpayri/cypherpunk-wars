@@ -4,22 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYPHERPUNK WARS | Architecture</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
     <style>
-        .manual-container {
-            width: 90%;
-            max-width: 800px;
-            border: 2px solid var(--kaspa-teal);
-            background: rgba(0, 20, 20, 0.9);
-            padding: 40px;
-            margin: 20px auto;
-        }
         .arch-section { margin-bottom: 25px; }
         .arch-title { color: var(--kaspa-bright); font-weight: bold; font-size: 1.1rem; border-bottom: 1px solid #1a332a; display: block; margin-bottom: 10px; }
         code { background: #000; color: var(--kaspa-bright); padding: 2px 5px; }
     </style>
 </head>
 <body class="bunker-frame">
+
+<div id="app-header" class="app-header"></div>
 
 <div class="manual-container">
     <h1 style="color: var(--kaspa-bright); border-bottom: 2px solid var(--kaspa-teal); padding-bottom: 10px;">
@@ -39,8 +33,9 @@
     </div>
 
     <div class="arch-section">
-        <span class="arch-title">03. DATA_PERSISTENCE (VPROGS)</span>
-        <p>Game actions are broadcast as transactions with specialized <code>OP_RETURN</code> memos. The game client scans these "vprogs" (Virtual Programs) to reconstruct the global state of the war in real-time.</p>
+        <span class="arch-title">03. DATA_PERSISTENCE</span>
+        <p>Game actions are broadcast as transactions carrying a tagged <code>payload</code> field -- a native byte field on every Kaspa transaction, not a memo bolted on after the fact. The game client scans these <code>CPW1</code>-tagged payloads to reconstruct the global state of the war in real-time.</p>
+        <p>Kaspa's own roadmap describes a longer-term architecture called <code>vProgs</code> (Verifiable Programs) for richer on-chain program execution. It is not live yet -- this bunker's current systems run on tagged payloads and Toccata covenants, not vProgs. Consider it the shape of things to come, not what's under the hood today.</p>
     </div>
 
     <div class="arch-section">
@@ -49,7 +44,7 @@
     </div>
 
     <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='../bunker.html'">
+        <button class="btn-execute" onclick="window.location.href='bunker.html'">
             RETURN_TO_COMMAND_CENTER
         </button>
     </div>
@@ -58,6 +53,11 @@
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
     > ARCHITECTURE_SCHEMATICS_LOADED...
 </div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+    renderAppHeader();
+</script>
 
 </body>
 </html>

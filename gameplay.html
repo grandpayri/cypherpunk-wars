@@ -4,21 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYPHERPUNK WARS | Gameplay Manual</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
     <style>
-        .manual-container {
-            width: 90%;
-            max-width: 800px;
-            border: 2px solid var(--kaspa-teal);
-            background: rgba(0, 20, 20, 0.9);
-            padding: 40px;
-            margin: 20px;
-        }
         .term-definition { margin-bottom: 20px; border-left: 3px solid var(--kaspa-teal); padding-left: 15px; }
         .term-title { color: var(--kaspa-bright); font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body class="bunker-frame">
+
+<div id="app-header" class="app-header"></div>
 
 <div class="manual-container">
     <h1 style="color: var(--kaspa-bright); border-bottom: 1px solid var(--kaspa-teal); padding-bottom: 10px;">
@@ -46,7 +40,7 @@
     </div>
 
     <div style="margin-top: 40px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='../bunker.html'">
+        <button class="btn-execute" onclick="window.location.href='bunker.html'">
             RETURN_TO_COMMAND_CENTER
         </button>
     </div>
@@ -55,6 +49,11 @@
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
     > ACCESSING_LOCAL_DOCUMENTATION_STORE...
 </div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+    renderAppHeader();
+</script>
 
 </body>
 </html>

@@ -4,17 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYPHERPUNK WARS | Whitepaper</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
     <style>
-        .manual-container {
-            width: 90%;
-            max-width: 850px;
-            border: 2px solid var(--kaspa-teal);
-            background: rgba(0, 20, 20, 0.9);
-            padding: 50px;
-            margin: 20px auto;
-            line-height: 1.6;
-        }
         .paper-header {
             text-align: center;
             border-bottom: 2px solid var(--kaspa-teal);
@@ -42,6 +33,8 @@
 </head>
 <body class="bunker-frame">
 
+<div id="app-header" class="app-header"></div>
+
 <div class="manual-container">
     <div class="paper-header">
         <h1 style="color: var(--kaspa-bright); margin: 0;">CYPHERPUNK_WARS</h1>
@@ -53,7 +46,7 @@
     </div>
 
     <span class="section-title">01. The Vision</span>
-    <p>Cypherpunk Wars is more than a game; it is an experiment in digital permanence. By utilizing "vprogs" (Virtual Programs) stored in transaction memos, we create a persistent world that survives as long as the network itself.</p>
+    <p>Cypherpunk Wars is more than a game; it is an experiment in digital permanence. Every action is tagged onto a real Kaspa transaction's native <code>payload</code> field, so the game's state is reconstructible by any client that scans the chain, as long as the network itself survives. Kaspa's own roadmap points toward a future architecture called vProgs (Verifiable Programs) for richer on-chain execution -- we see this bunker's tagged-payload-and-covenant approach as a working proof of concept for that direction, not a claim that vProgs already exist.</p>
 
     
 
@@ -64,7 +57,7 @@
     <p>The protocol is designed to be self-sustaining. Through a community-driven "Cistern" or manual Peer-to-Peer fuel transfers, the barrier to entry is lowered by the success of the established veteran operators. As one bunker grows, it provides the exhaust (energy) needed to ignite the next.</p>
 
     <div style="margin-top: 50px; text-align: center; border-top: 1px dashed rgba(0,255,159,0.3); padding-top: 20px;">
-        <button class="btn-execute" onclick="window.location.href='../bunker.html'">
+        <button class="btn-execute" onclick="window.location.href='bunker.html'">
             RETURN_TO_COMMAND_CENTER
         </button>
     </div>
@@ -73,6 +66,11 @@
 <div id="log" class="terminal-log" style="position: fixed; bottom: 0; width: 100%;">
     > WHITEPAPER_PROTOCOL_ACTIVE...
 </div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+    renderAppHeader();
+</script>
 
 </body>
 </html>

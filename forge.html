@@ -117,7 +117,7 @@
 
         try {
             const bunkerId = await syncBunkerIdentity(currentMnemonic);
-            logLine(`SUCCESS: BUNKER_${bunkerId.substring(0, 10)}... ONLINE`);
+            logLine(`SUCCESS: BUNKER_${bunkerId}_ONLINE`);
 
             await createVault(bunkerId, currentMnemonic, password);
             logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");

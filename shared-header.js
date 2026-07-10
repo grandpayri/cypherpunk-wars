@@ -21,8 +21,11 @@ export function renderAppHeader(containerId = "app-header") {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    // Never truncate an address -- a truncated string is neither a friendly name nor a
+    // fully usable/verifiable/copyable identifier, so it's worse than either alternative.
+    // Show the complete address until a real name (e.g. KNS) resolves to replace it.
     const bunkerId = localStorage.getItem("bunker_id");
-    const operatorDisplay = bunkerId ? bunkerId.substring(0, 10) + "..." : "UNIDENTIFIED";
+    const operatorDisplay = bunkerId || "UNIDENTIFIED";
 
     container.innerHTML = `
         <pre class="ascii-logo">${ASCII_LOGO_LINES.join("\n")}</pre>

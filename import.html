@@ -116,7 +116,7 @@
             const mnemonic = words.join(' ');
             const bunkerId = await syncBunkerIdentity(mnemonic);
 
-            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId.substring(0, 10)}... DETECTED.`;
+            log.innerHTML += `<br>> UPLINK_SUCCESSFUL. BUNKER_${bunkerId}_DETECTED.`;
 
             pendingMnemonic = mnemonic;
             pendingBunkerId = bunkerId;

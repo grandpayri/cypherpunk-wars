@@ -88,7 +88,7 @@
             resumeCell.style.opacity = "1.0";
             const label = knownCount > 1
                 ? `${knownCount} saved identities detected.`
-                : `ACTIVE_ID: ${(savedId || listVaultAddresses()[0]).substring(0, 10)}... detected.`;
+                : `ACTIVE_ID: ${savedId || listVaultAddresses()[0]} detected.`;
             resumeCell.innerHTML = `
                 <button class="btn-execute btn-highlight"
                         onclick="window.location.href='resume.html'">RESUME_SESSION</button>

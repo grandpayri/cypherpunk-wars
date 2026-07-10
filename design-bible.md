@@ -4,7 +4,8 @@ Developer-facing design reference mapping legacy *Archmage*/*The Reincarnation* 
 Cypherpunk Wars (CPW) systems. This is the source of truth for Research trees, unit/army composition,
 payload (spell) design, item/hardware design, and infrastructure economy as those systems get built
 (Phase 6: Research/Sectors economy; Phase 7: Attack/Hack/Armageddon). Not player-facing lore -- see
-`documentation/gameplay.html`/`architecture.html`/`whitepaper.html` for that.
+`gameplay.html`/`architecture.html`/`whitepaper.html` for that. Lives at the repo root (not alongside
+the player-facing pages) since it's build/design reference for developers, not in-fiction lore.
 
 ## 01. The Five Alignments -> Node Specializations
 

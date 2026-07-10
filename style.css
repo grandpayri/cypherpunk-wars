@@ -14,8 +14,17 @@ body.bunker-frame {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    padding-top: 100px;
+    padding-top: 110px;
     box-sizing: border-box;
+}
+
+/* The fixed-position .app-header now shows the operator's full, untruncated address
+   (see shared-header.js), so its height varies with how many lines that wraps to --
+   narrower viewports need more reserved space than the 110px base covers. */
+@media (max-width: 480px) {
+    body.bunker-frame {
+        padding-top: 150px;
+    }
 }
 
 /* Shared app header (ASCII logo + operator/network status), fixed to the
@@ -42,8 +51,10 @@ body.bunker-frame {
 
 .app-status-bar {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
+    gap: 4px 20px;
     font-size: 0.7rem;
     padding: 6px 20px;
     background: #000;
@@ -51,11 +62,37 @@ body.bunker-frame {
 
 .app-status-value {
     color: var(--kaspa-bright);
+    word-break: break-all;
 }
 
+/* All three of these were previously duplicated ad hoc across pages -- .viewport
+   as an inline style on bunker.html only, .manual-container copy-pasted into each
+   docs page's own <style> block. Consolidated here, and switched from hard pixel
+   caps to clamp() so the content area actually uses the screen it's given instead
+   of stranding wide viewports with a fixed-width island and huge dead margins.
+   clamp(floor, preferred-vw, ceiling): scales with viewport between the two bounds. */
 .central-gate {
+    width: 92%;
+    max-width: clamp(700px, 70vw, 1100px);
+}
+
+/* bunker.html's main two-column command console -- benefits most from width on
+   large screens since it's sidebar + content + log, not a single reading column. */
+.viewport {
+    width: 95%;
+    max-width: clamp(1200px, 90vw, 1900px);
+}
+
+/* Docs/lore pages (gameplay, architecture, whitepaper) -- prose, so kept narrower
+   than .viewport on purpose: very long text lines are harder to read, not better. */
+.manual-container {
     width: 90%;
-    max-width: 900px;
+    max-width: clamp(700px, 65vw, 1000px);
+    border: 2px solid var(--kaspa-teal);
+    background: rgba(0, 20, 20, 0.9);
+    padding: 40px;
+    margin: 20px auto;
+    line-height: 1.6;
 }
 
 /* The Green Box Frame */
@@ -120,15 +157,17 @@ body.bunker-frame {
 
 /* Secondary/low-emphasis actions (abort, cancel) -- previously copy-pasted
    inline as style="border-color: #444; color: #444;" with no hover state
-   on every page that needed a "quiet" button. */
+   on every page that needed a "quiet" button. #444 sat too close to
+   .btn-execute:disabled's #333 against the near-black background, reading
+   as disabled rather than just de-emphasized -- bumped to #888. */
 .btn-muted {
-    border-color: #444;
-    color: #444;
+    border-color: #888;
+    color: #888;
 }
 
 .btn-muted:hover {
-    border-color: #777;
-    color: #777;
+    border-color: #aaa;
+    color: #aaa;
     background: transparent;
     box-shadow: none;
 }

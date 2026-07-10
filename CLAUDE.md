@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. The game logic is meant to live on the Kaspa BlockDAG rather than a database: player actions are (eventually) broadcast as Kaspa transactions with `OP_RETURN` memos ("vprogs" / Virtual Programs), and the client reconstructs game state by scanning the chain. See `documentation/architecture.html` and `documentation/whitepaper.html` for the in-fiction explanation of this design.
+Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. The game logic lives on the Kaspa BlockDAG rather than a database: player actions are broadcast as Kaspa transactions carrying a native `payload` field tagged `CPW1` (see `kaspa-client.js`'s `encodePayload`/`decodePayload`), and the client reconstructs game state by scanning the chain. Kaspa has no Bitcoin-style `OP_RETURN`, and "vprogs" (Verifiable Programs) are a real but not-yet-live Kaspa roadmap concept — don't describe either as the current mechanism. See `architecture.html` and `whitepaper.html` (repo root, not a subfolder) for the in-fiction explanation of this design, and `design-bible.md` (also repo root) for the developer-facing mapping of legacy *Archmage* mechanics onto CPW systems.
 
 ## Running locally
 
@@ -36,7 +36,7 @@ Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 2
 
 ## Game terminology (needed to work on gameplay logic)
 
-Defined in `documentation/gameplay.html`:
+Defined in `gameplay.html`:
 - **GWh** — energy cost of one on-chain action (1 GWh per action, drawn from KAS reserves).
 - **Cycles** — AI cluster compute capacity; 1 Cycle = 1 unit of work (e.g. one Phish).
 - **Sectors** — infrastructure that scales $PUNKW yield.

@@ -227,7 +227,7 @@
             return;
         }
 
-        logLine(`DECRYPTING_VAULT_FOR_${address.substring(0, 10)}...`);
+        logLine(`DECRYPTING_VAULT_FOR_${address}`);
         try {
             const mnemonic = await unlockVault(address, password);
 

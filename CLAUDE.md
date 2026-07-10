@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. The game logic lives on the Kaspa BlockDAG rather than a database: player actions are broadcast as Kaspa transactions carrying a native `payload` field tagged `CPW1` (see `kaspa-client.js`'s `encodePayload`/`decodePayload`), and the client reconstructs game state by scanning the chain. Kaspa has no Bitcoin-style `OP_RETURN`, and "vprogs" (Verifiable Programs) are a real but not-yet-live Kaspa roadmap concept — don't describe either as the current mechanism. See `architecture.html` and `whitepaper.html` (repo root, not a subfolder) for the in-fiction explanation of this design, and `design-bible.md` (also repo root) for the developer-facing mapping of legacy *Archmage* mechanics onto CPW systems.
+Cypherpunk Wars is a serverless, decentralized browser game built entirely from static HTML/CSS/JS — there is no backend, no build step, and no package.json. The design: player actions are broadcast as Kaspa transactions carrying a native `payload` field tagged `CPW1` (see `kaspa-client.js`'s `encodePayload`/`decodePayload`), and the client reconstructs game state by scanning the chain. **This payload-tagging is currently disabled** (see the "PAYLOAD TAGGING IS CURRENTLY DISABLED" note above `sendTaggedTransaction` in `kaspa-client.js`) due to a confirmed bug in the vendored Kaspa WASM SDK build around payload-bearing transactions and signing — Genesis/Phish transactions are real, valid, and correctly signed, they just don't carry a payload right now, so game state is read from `localStorage` instead (see State & persistence below). Kaspa has no Bitcoin-style `OP_RETURN`, and "vprogs" (Verifiable Programs) are a real but not-yet-live Kaspa roadmap concept — don't describe either as the current mechanism. See `architecture.html` and `whitepaper.html` (repo root, not a subfolder) for the in-fiction explanation of this design, and `design-bible.md` (also repo root) for the developer-facing mapping of legacy *Archmage* mechanics onto CPW systems.
 
 ## Running locally
 
@@ -31,7 +31,7 @@ Flow: `index.html` (login/detect saved session) → `forge.html` (generate new 2
 
 ## State & persistence
 
-- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`) kept in sync with the full game-state snapshot written into every Genesis/Phish payload.
+- The only persisted client state is `localStorage['bunker_id']` (the derived Kaspa address), used both as the "is there a saved session" check on `index.html` and as the identity key everywhere else, plus per-identity `localStorage['punkw_balance_<address>']`/`localStorage['turn_count_<address>']` caches (see `shared-sidebar.js`'s `getPunkwBalance`/`setPunkwBalance`/`getTurnCount`/`setTurnCount`). These are the actual source of truth for the sidebar right now, NOT the on-chain payload -- see "PAYLOAD TAGGING IS CURRENTLY DISABLED" in `kaspa-client.js`.
 - Sectors are a real planned mechanic (Phase 6, not yet built) shown as a fixed placeholder in the sidebar; there is no GWh or Cycles system — those were an earlier, incorrect design pass and have been removed from both the docs and the UI.
 
 ## Explorer links
@@ -45,6 +45,11 @@ optional truncated `displayText` while still linking the full value. Styled via 
 txid, wire it through these helpers rather than displaying raw text.
 
 ## CPW History (`history.html`)
+
+**Currently decodes nothing -- payload tagging is disabled (see below), so every real
+transaction correctly shows as "non-CPW transaction".** This is accurate behavior given
+the current state, not a bug in this page. Once payload tagging works again, this page
+should start decoding moves without needing any changes to itself.
 
 Decodes an address's on-chain `CPW1` payloads into plain-language moves (e.g. "Executed
 Phishing Attack -- Earned 47 $PUNKW"). Defaults to the operator's own Plain Wallet +
@@ -78,7 +83,7 @@ transactions as pruned — a real bug hit once while building this; don't reintr
 
 Defined in `gameplay.html`:
 - **Turns** — each turn is a real Kaspa transaction, spent from the player's covenant-locked Gameplay Vault (see `kaspa-client.js`'s `spendFromRestrictedWallet`). Not a fictional resource; the network itself enforces what a turn can pay for.
-- **$PUNKW (War Chest)** — earned by Phishing. Every Genesis/Phish transaction writes the operator's *entire* current game state (a fixed-width, versioned 42-byte struct — $PUNKW, sectors, node specialization, research tier, turn count, season, unit/item counts) into that transaction's payload (`encodeGameStateSnapshot`/`decodeGameStateSnapshot` in `kaspa-client.js`), not just $PUNKW or an action tag. Fields not backed by real gameplay yet are written as `0`.
+- **$PUNKW (War Chest)** — earned by Phishing. The wire format for writing the operator's entire current game state into a transaction's payload exists (`encodeGameStateSnapshot`/`decodeGameStateSnapshot` in `kaspa-client.js`, a fixed-width versioned 42-byte struct — $PUNKW, sectors, node specialization, research tier, turn count, season, unit/item counts), but payload tagging is currently **disabled** end-to-end (see the note above `sendTaggedTransaction` in `kaspa-client.js`) — Genesis/Phish transactions are real and correctly signed, they just don't carry a payload right now. `localStorage`'s punkw/turn-count cache (see State & persistence above) is the actual current source of truth for the sidebar.
 - **Sectors** — planned (Phase 6, not built): built by spending $PUNKW, increasing Phishing efficiency.
 - **Armageddon** — planned (Phase 7, not built): a covenant-verifiable season-ending reset, cast like other future hack/DOS payloads.
 

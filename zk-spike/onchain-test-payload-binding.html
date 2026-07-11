@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Bind Payload's Declared Yield to the Proof</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; margin-right: 10px; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Bind Payload's Declared Yield to the Proof</h2>
+<p>Tests a new covenant check: the payload's declared provenYieldHex (32 bytes, appended after
+the existing 42-byte game-state body -- see encodeGameStateSnapshot's PROVEN_YIELD_BYTES trailer)
+must byte-for-byte equal the ZK proof's own public yieldAmount output, verified via
+OpTxPayloadSubstr (KIP-10, 0xb8) + OpEqual. Closes the gap where a modified client could write
+any yield/punkw value into the payload regardless of what the proof actually verified -- see
+design-bible.md's state-continuity notes and the session conversation that led here.</p>
+<p><b>RUN_HONEST</b> submits a transaction whose payload's provenYieldHex genuinely matches the
+proof -- expect SUCCESS. <b>RUN_TAMPERED</b> submits the SAME valid proof but a payload with a
+DIFFERENT declared yield -- expect REJECTION, proving the check actually constrains something.</p>
+<button id="runHonest">RUN_HONEST (expect success)</button>
+<button id="runTampered">RUN_TAMPERED (expect rejection)</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from '../kaspa.js';
+import {
+    CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI, NodeSpecialization,
+    ActionType, encodePayload, encodeGameStateSnapshot, decodeGameStateSnapshot, decodePayload,
+} from '../kaspa-client.js';
+import { generatePhishYieldProof } from '../zk-prover.js';
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+const OpTxPayloadSubstr = 0xb8;
+
+// Full-payload byte offsets of the provenYieldHex trailer: magicBytes(4) + actionType(1) +
+// core body(42) = 47 through +32 = 79. Must match encodePayload()/encodeGameStateSnapshot()'s
+// own layout exactly -- see kaspa-client.js's PROVEN_YIELD_BYTES comment.
+const PROVEN_YIELD_PAYLOAD_START = 47;
+const PROVEN_YIELD_PAYLOAD_END = 79;
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// Same simple, non-branched, no-signature covenant shape already proven on-chain
+// (onchain-test-production-vk-isolated.html), extended with the new payload-binding check.
+function buildPayloadBoundRedeemScript(vkHex) {
+    return new ScriptBuilder()
+        .addData(vkHex).addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+        .addI64(BigInt(PROVEN_YIELD_PAYLOAD_START)).addI64(BigInt(PROVEN_YIELD_PAYLOAD_END))
+        .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual);
+}
+
+// Extra copy of publicInputHexes[0] (yieldAmount) pushed FIRST (deepest in the stack) so it
+// survives OpZkPrecompile's own consumption of the public-inputs group pushed above it,
+// remaining as the new top-of-stack for the payload-binding OpEqual afterward.
+function buildPayloadBoundSigScript(redeemScriptHex, proofBundle) {
+    const builder = new ScriptBuilder();
+    builder.addData(proofBundle.publicInputHexes[0]);
+    for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
+        builder.addData(proofBundle.publicInputHexes[i]);
+    }
+    builder.addI64(BigInt(proofBundle.publicInputHexes.length));
+    builder.addData(proofBundle.proofHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run(useTamperedPayload) {
+    const runBtn = document.getElementById(useTamperedPayload ? 'runTampered' : 'runHonest');
+    document.getElementById('runHonest').disabled = true;
+    document.getElementById('runTampered').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        const seed = useTamperedPayload ? 11 : 9;
+        log(`Generating a fresh live proof for seed=${seed}, sectors=0, nodeSpec=UNSET...`);
+        const { yieldAmount, proofBundle } = await generatePhishYieldProof({ seed, sectors: 0, nodeSpec: NodeSpecialization.UNSET });
+        log(`Proof generated. yieldAmount = ${yieldAmount}`, 'ok');
+        log(`  publicInputHexes[0] (yieldAmount, the value the payload must match): ${proofBundle.publicInputHexes[0]}`);
+
+        const vkHex = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
+
+        const redeem = buildPayloadBoundRedeemScript(vkHex);
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        // The payload the covenant will check against. Honest run: provenYieldHex matches
+        // the real proof exactly. Tampered run: a DIFFERENT proof's public input (from a
+        // completely separate proof generation), attached to THIS proof's spend -- still a
+        // syntactically valid 32-byte value, just not what this transaction's proof verified.
+        let provenYieldHexForPayload = proofBundle.publicInputHexes[0];
+        if (useTamperedPayload) {
+            log('Generating a SECOND, unrelated proof purely to source a mismatched provenYieldHex for the tamper test...');
+            const other = await generatePhishYieldProof({ seed: 22, sectors: 0, nodeSpec: NodeSpecialization.UNSET });
+            provenYieldHexForPayload = other.proofBundle.publicInputHexes[0];
+            log(`  tampered payload will declare: ${provenYieldHexForPayload} (yieldAmount=${other.yieldAmount}, NOT this transaction's real ${yieldAmount})`, 'err');
+        }
+        const payload = encodePayload(ActionType.PHISH, encodeGameStateSnapshot({
+            punkw: yieldAmount, turnCount: 1, provenYieldHex: provenYieldHexForPayload,
+        }));
+        log(`Payload built: ${payload.length} bytes (expect 47 core + 32 provenYield = 79).`);
+
+        log(`Submitting the ${useTamperedPayload ? 'TAMPERED' : 'honest'} ZK verify + payload-binding spend...`);
+        const SPEND_COMPUTE_BUDGET = 1850;
+        const spendPriorityFee = 30000000n;
+        const covenantTotal = covenantEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const changeAmount = covenantTotal - spendPriorityFee;
+        const spendTx = createTransaction(
+            covenantEntries,
+            [{ address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, payload, undefined
+        );
+        spendTx.version = 1;
+        spendTx.inputs[0].sigOpCount = 0;
+        spendTx.inputs[0].computeBudget = SPEND_COMPUTE_BUDGET;
+        spendTx.inputs[0].signatureScript = buildPayloadBoundSigScript(redeemHex, proofBundle).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            if (useTamperedPayload) {
+                log(`UNEXPECTED SUCCESS: tampered payload was ACCEPTED! txid: ${JSON.stringify(spendTxid)}`, 'err');
+                log('=> The payload-binding check is NOT working -- do not port this to the live game.', 'err');
+            } else {
+                log(`SUCCESS: honest payload accepted on-chain. txid: ${JSON.stringify(spendTxid)}`, 'ok');
+                log('=> The payload-binding check accepts a genuinely matching payload.', 'ok');
+            }
+        } catch (err) {
+            if (useTamperedPayload) {
+                log(`REJECTED (expected): ${err && err.message ? err.message : JSON.stringify(err)}`, 'ok');
+                log('=> The payload-binding check correctly rejects a mismatched declared yield.', 'ok');
+            } else {
+                log(`UNEXPECTED REJECTION: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+                log('=> The payload-binding check is rejecting even a genuinely matching payload -- stack ordering is likely wrong.', 'err');
+            }
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('runHonest').disabled = false;
+        document.getElementById('runTampered').disabled = false;
+    }
+}
+
+document.getElementById('runHonest').addEventListener('click', () => run(false));
+document.getElementById('runTampered').addEventListener('click', () => run(true));
+</script>
+</body>
+</html>

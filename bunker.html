@@ -136,7 +136,7 @@
                 playerPubkeyHex: pubkey,
                 proofBundle,
                 actionType: ActionType.PHISH,
-                extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, turnCount: newTurnCount }),
+                extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, turnCount: newTurnCount, provenYieldHex: proofBundle.publicInputHexes[0] }),
             });
             setPunkwBalance(bunkerId, newPunkwTotal);
             setTurnCount(bunkerId, newTurnCount);

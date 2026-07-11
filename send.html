@@ -110,7 +110,7 @@
                         Enter a number of turns to see the cost.
                     </div>
                     <div style="text-align: right;">
-                        <button class="btn-execute btn-highlight" onclick="executeBuyTurns()">CONFIRM_TOPUP</button>
+                        <button id="confirmTopupBtn" class="btn-execute btn-highlight" onclick="executeBuyTurns()">CONFIRM_TOPUP</button>
                     </div>
                 </div>
             </div>
@@ -127,7 +127,7 @@
     import {
         getAddressBalance, deriveZkPhishAddress, deriveRestrictedWalletAddress, sendFromPlainWallet,
         attemptRestrictedWalletSend, buyTurns, computeBuyTurnsBreakdown, computeDepositForTurns,
-        encodeGameStateSnapshot,
+        encodeGameStateSnapshot, MAX_BUY_TURNS_DEPOSIT_SOMPI,
     } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats, getPunkwBalance, getTurnCount } from './shared-sidebar.js';
@@ -156,21 +156,47 @@
         document.getElementById('covenant-note').style.display = source === 'vault' ? 'block' : 'none';
     };
 
+    // Set once the Plain Wallet balance is fetched on load -- checked here (proactively, so
+    // an unaffordable purchase never reaches broadcast) in addition to buyTurns() itself
+    // rejecting it server-side either way (real funds, real transaction -- this UI check is
+    // purely about not making the player wait for a doomed submission to fail).
+    let currentPlainBalanceSompi = 0n;
+
     function updateBuyTurnsBreakdown() {
         const turnsInput = document.getElementById('buyTurnsCount').value.trim();
         const el = document.getElementById('buyTurnsBreakdown');
+        const confirmBtn = document.getElementById('confirmTopupBtn');
         const turns = parseInt(turnsInput, 10);
         if (!turns || turns <= 0) {
             el.innerText = 'Enter a number of turns to see the cost.';
+            confirmBtn.disabled = true;
             return;
         }
         const depositAmountSompi = computeDepositForTurns(turns);
+
+        // Fat-finger guard, not an economic cap -- see MAX_BUY_TURNS_DEPOSIT_SOMPI's own
+        // comment in kaspa-client.js. Checked here first so a huge typo never even gets to
+        // the "do you have enough" check below.
+        if (depositAmountSompi > MAX_BUY_TURNS_DEPOSIT_SOMPI) {
+            const maxKas = (Number(MAX_BUY_TURNS_DEPOSIT_SOMPI) / 1e8).toFixed(0);
+            el.innerHTML = `<span style="color: var(--hazard-yellow);">EXCEEDS_MAX_PER_TRANSACTION: ${maxKas} TKAS cap on a single Buy Turns purchase. Split into multiple smaller purchases instead.</span>`;
+            confirmBtn.disabled = true;
+            return;
+        }
+        if (depositAmountSompi > currentPlainBalanceSompi) {
+            const shortfallKas = (Number(depositAmountSompi - currentPlainBalanceSompi) / 1e8).toFixed(4);
+            el.innerHTML = `<span style="color: var(--hazard-yellow);">INSUFFICIENT_PLAIN_WALLET_BALANCE: short by ${shortfallKas} TKAS.</span>`;
+            confirmBtn.disabled = true;
+            return;
+        }
+
         const { vault, faucet, host } = computeBuyTurnsBreakdown(depositAmountSompi);
         const depositKas = (Number(depositAmountSompi) / 1e8).toFixed(4);
         const vaultKas = (Number(vault) / 1e8).toFixed(4);
         const faucetKas = (Number(faucet) / 1e8).toFixed(4);
         const hostKas = (Number(host) / 1e8).toFixed(4);
         el.innerHTML = `<b>${depositKas} TKAS</b> total for ~${turns} turns: <b>${vaultKas} TKAS</b> -> your Gameplay Vault, <b>${faucetKas} TKAS</b> -> faucet vault, <b>${hostKas} TKAS</b> -> host.`;
+        confirmBtn.disabled = false;
     }
 
     window.addEventListener('load', async () => {
@@ -185,6 +211,7 @@
 
         try {
             const plainBalance = await getAddressBalance(bunkerId);
+            currentPlainBalanceSompi = plainBalance;
             document.getElementById('plainBalanceLabel').innerText = `${(Number(plainBalance) / 1e8).toFixed(2)} TKAS`;
 
             const pubkey = getSessionPublicKey();
@@ -316,9 +343,11 @@
             setTimeout(async () => {
                 refreshSidebarStats();
                 const plainBalance = await getAddressBalance(bunkerId);
+                currentPlainBalanceSompi = plainBalance;
                 document.getElementById('plainBalanceLabel').innerText = `${(Number(plainBalance) / 1e8).toFixed(2)} TKAS`;
                 const vaultBalance = await getAddressBalance(vaultAddress);
                 document.getElementById('vaultBalanceLabel').innerText = `${(Number(vaultBalance) / 1e8).toFixed(2)} TKAS`;
+                updateBuyTurnsBreakdown();
             }, 2500);
         } catch (err) {
             console.error("BUY_TURNS_ERROR:", err);

@@ -50,6 +50,16 @@ debugging process (see "What it took," below), not as the current state.
    Confirms the branched-covenant design (see design note in `../kaspa-client.js`'s ZK-Phish
    section) is sound on-chain, not just in local script-shape review.
 
+5. **Payload-yield binding, both directions confirmed** via `onchain-test-payload-binding.html`:
+   an honest payload (`provenYieldHex` genuinely matching the proof's public `yieldAmount`)
+   [accepted](https://tn10.kaspa.stream/transactions/9014e73d8f1793c91d465443193b2502235d90d41842c0e5f405037a87e0f8e9),
+   and the same valid proof with a mismatched declared yield **rejected** by the network with
+   "false stack entry at end of script execution" — real, network-enforced integrity, not a
+   client-side-only check. Confirmed again once ported into the live branched covenant via the
+   actual game UI (forge → bunker → Phish), with the on-chain payload bytes independently
+   fetched and decoded afterward to confirm `punkw`/`provenYieldHex` matched exactly. See
+   `design-bible.md` section 08 for what this does and doesn't close.
+
 ## Incident: stale hardcoded verifying key (found and fixed 2026-07-11)
 
 After transaction #3 above succeeded, wiring the pattern into `../kaspa-client.js` (a

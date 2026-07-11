@@ -24,7 +24,7 @@
 
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <button class="btn-execute" onclick="generateIdentity()">GENERATE_24_WORDS</button>
-            
+
             <div id="security-warning" style="display: none; color: var(--hazard-yellow); font-size: 0.8rem; text-align: right;">
                 <b>CRITICAL:</b> WRITE THESE WORDS DOWN ON PHYSICAL PAPER.<br>
                 IF YOU LOSE THEM, YOUR GIGAWATTS ARE GONE FOREVER.
@@ -47,8 +47,12 @@
             <input type="password" id="vault-password-confirm" placeholder="CONFIRM_PASSWORD"
                    style="width: 100%; box-sizing: border-box; background: #000; border: 1px solid var(--kaspa-teal); color: var(--kaspa-bright); font-family: inherit; padding: 10px; margin-bottom: 15px;">
             <div style="text-align: center;">
-                <button class="btn-execute" onclick="saveAndProceed()">SET_PASSWORD_AND_ENTER_BUNKER</button>
+                <button class="btn-execute" onclick="saveAndProceed()">SET_PASSWORD_AND_INITIALIZE_BUNKER</button>
             </div>
+        </div>
+
+        <div id="manual-enter-area" style="display: none; margin-top: 20px; text-align: center; border-top: 1px dashed #333; padding-top: 20px;">
+            <button class="btn-execute" onclick="window.location.href='bunker.html'">ENTER_BUNKER</button>
         </div>
     </div>
 
@@ -58,16 +62,46 @@
 </div>
 
 <script type="module">
-    import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity, derivePublicKeyFromMnemonic } from './wallet-gen.js';
-    import { requestFaucetGrant, hasReceivedFaucetGrant, deriveZkPhishAddress } from './kaspa-client.js';
+    import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity, derivePublicKeyFromMnemonic, derivePrivateKeyFromMnemonic } from './wallet-gen.js';
+    import {
+        requestFaucetGrant, hasReceivedFaucetGrant, deriveZkPhishAddress, FAUCET_GRANT_CAP_SOMPI,
+        REGISTRY_ADDRESS, ActionType, sendTaggedTransaction, encodeGameStateSnapshot,
+        buyTurns, computeDepositForTurns,
+    } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
     import { createVault } from './vault.js';
+    import { setPunkwBalance, setTurnCount } from './shared-sidebar.js';
+    import { txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
 
     let currentMnemonic = null;
+
+    // kaspaToSompi(0.2) equivalent -- small fixed tagging amount, not a real balance transfer.
+    const GENESIS_TAG_AMOUNT_SOMPI = 20000000n;
+    const GENESIS_PUNKW_GRANT = 1000;
+
+    // Starter Buy Turns target: the max turn count that fits under the Faucet Vault
+    // covenant's own hard single-grant ceiling (FAUCET_GRANT_CAP_SOMPI, 10 KAS -- enforced
+    // on-chain by the faucet's redeem script, not just a UI number) while leaving headroom
+    // for the transaction's own fee. computeDepositForTurns(22) = 9.91 KAS; 25 would need
+    // raising that cap, which means migrating the Faucet Vault to a new covenant address --
+    // out of scope for this pass (see design-bible.md's Turns Model section).
+    //
+    // Deliberately a FIXED target, not "spend whatever's left in the wallet": an earlier
+    // version of this page computed the deposit as balanceSompi minus a guessed fee reserve,
+    // which either left a dust-sized change output (too small a reserve) or came in under
+    // the transaction's real required fee (too exact a reserve, zero slack) -- confirmed the
+    // hard way with two different live rejections. A fixed target leaves the real leftover
+    // (whatever the two starter grants minus Genesis's own cost don't use) as a single,
+    // comfortably large change output well above any KIP-9 storage-mass dust threshold
+    // (storage_mass = C*(sum(1/output) - |inputs|^2/sum(input))^+, C=10^12, confirmed
+    // against rusty-kaspa's KIP-9 spec -- small outputs are what triggered the rejection,
+    // not the number of inputs).
+    const STARTER_BUY_TURNS_COUNT = 22;
+    const STARTER_BUY_TURNS_DEPOSIT_SOMPI = computeDepositForTurns(STARTER_BUY_TURNS_COUNT);
 
     function logLine(msg) {
         const log = document.getElementById('log');
@@ -108,23 +142,8 @@
     // Guards against the button firing twice (double-click, or a slow network letting a
     // second click land before navigation) -- without this, a second click would re-run
     // the whole flow for the SAME just-forged address, requesting duplicate faucet grants
-    // before the first grant is even confirmed enough for hasReceivedFaucetGrant() below
-    // to see it.
+    // and duplicate Genesis/Buy-Turns transactions before the first attempt has even landed.
     let saveInFlight = false;
-
-    // Client-side courtesy check (see kaspa-client.js's hasReceivedFaucetGrant doc comment
-    // for why this isn't real sybil resistance, just stops our own UI from double-granting).
-    // A freshly forged address is essentially guaranteed to have zero prior history, so
-    // this is cheap insurance for the common case and real protection for any future path
-    // that might reach this code for an address that isn't brand new.
-    async function requestFaucetGrantOnce(address, amountSompi, label) {
-        if (await hasReceivedFaucetGrant(address)) {
-            logLine(`SKIPPED: ${label}_ALREADY_GRANTED_TO_THIS_ADDRESS.`);
-            return;
-        }
-        await requestFaucetGrant(address, amountSompi);
-        logLine(`SUCCESS: ${label}_RECEIVED.`);
-    }
 
     window.saveAndProceed = async function () {
         if (!currentMnemonic || saveInFlight) return;
@@ -150,36 +169,103 @@
             await createVault(bunkerId, currentMnemonic, password);
             logLine("SUCCESS: LOCAL_VAULT_ENCRYPTED. FUTURE_SESSIONS_ONLY_NEED_YOUR_PASSWORD.");
 
-            logLine("REQUESTING_STARTER_GRANT_FROM_FAUCET...");
+            const privateKey = derivePrivateKeyFromMnemonic(currentMnemonic);
+            const pubkey = derivePublicKeyFromMnemonic(currentMnemonic);
+            const vaultAddr = deriveZkPhishAddress(pubkey);
+
+            // One dedup check up front, not one per grant -- both grants below land at the
+            // SAME address (the Plain Wallet) now, so checking hasReceivedFaucetGrant()
+            // again before the second grant would always see the first grant and skip
+            // itself, thinking it's a duplicate. This single check still protects the real
+            // case it exists for: a reloaded page re-running this flow for an address that
+            // already got funded.
+            logLine("REQUESTING_STARTER_GRANTS_FROM_FAUCET...");
+            let granted = false;
             try {
-                // Two separate grants, not one: Genesis still spends from the plain address
-                // (unchanged), but ongoing gameplay (Phish) now spends from a per-player
-                // ZK-Phish covenant vault -- funds there are structurally locked to CPW-shaped,
-                // ZK-verified transactions only (see kaspa-client.js's
-                // buildZkPhishRedeemScript). A small grant funds Genesis; a larger one seeds a
-                // dozen or so Phish turns in the vault. Each is checked against
-                // hasReceivedFaucetGrant() first (see requestFaucetGrantOnce above) so our own
-                // UI can't hand out a second grant to an address that's already received one.
-                await requestFaucetGrantOnce(bunkerId, 100000000n, 'GENESIS_GRANT'); // 1 KAS -- Genesis + fees
+                if (await hasReceivedFaucetGrant(bunkerId)) {
+                    logLine("SKIPPED: STARTER_GRANTS_ALREADY_RECEIVED_BY_THIS_ADDRESS.");
+                } else {
+                    // Two grants, both to the Plain Wallet now: a small one covers the
+                    // Genesis transaction's own tag amount + fee, a larger one funds a real
+                    // Buy Turns purchase below -- routing starter funding through the same
+                    // buyTurns() production path every later top-up uses, instead of a
+                    // special-cased direct grant into the vault.
+                    await requestFaucetGrant(bunkerId, 100000000n); // 1 KAS -- Genesis + fees
+                    logLine("SUCCESS: GENESIS_GRANT_RECEIVED.");
 
-                // The faucet vault is one shared covenant UTXO chain -- firing the second
-                // grant immediately races the first grant's own change output before the
-                // node's mempool view catches up, and gets rejected as a double-spend of
-                // the vault's prior UTXO. A short wait avoids the race (confirmed live).
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                    // The faucet vault is one shared covenant UTXO chain -- firing the
+                    // second grant immediately races the first grant's own change output
+                    // before the node's mempool view catches up, and gets rejected as a
+                    // double-spend of the vault's prior UTXO. A short wait avoids the race
+                    // (confirmed live).
+                    await new Promise((resolve) => setTimeout(resolve, 3000));
 
-                const pubkey = derivePublicKeyFromMnemonic(currentMnemonic);
-                const vaultAddr = deriveZkPhishAddress(pubkey);
-                await requestFaucetGrantOnce(vaultAddr, 600000000n, 'GAMEPLAY_VAULT_FUNDING'); // 6 KAS -- a few Phish turns
+                    // FAUCET_GRANT_CAP_SOMPI (10 KAS) is the faucet covenant's own hard
+                    // single-grant ceiling, enforced on-chain -- requesting the full cap is
+                    // what lets a starter player's first Buy Turns purchase land close to
+                    // ~22 turns (computeDepositForTurns(22) + fee fits under 10 KAS;
+                    // 25 would need a covenant migration, see design-bible.md).
+                    await requestFaucetGrant(bunkerId, FAUCET_GRANT_CAP_SOMPI); // 10 KAS
+                    logLine("SUCCESS: GAMEPLAY_STARTER_FUNDING_RECEIVED.");
+                    granted = true;
+                }
             } catch (faucetErr) {
                 console.error("FAUCET_GRANT_ERROR:", faucetErr);
                 logLine("WARNING: FAUCET_GRANT_FAILED. FUND_MANUALLY_VIA_TN-10_FAUCET_IF_NEEDED.");
             }
 
-            window.location.href = 'initialize.html';
+            // Let the last grant's UTXO settle in the RPC's view before Genesis spends
+            // from the same address -- same reasoning as the wait between the two grants.
+            if (granted) {
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+            }
+
+            logLine("BROADCASTING_GENESIS_TURN...");
+            try {
+                const txid = await sendTaggedTransaction({
+                    fromAddress: bunkerId,
+                    privateKey,
+                    toAddress: REGISTRY_ADDRESS,
+                    amountSompi: GENESIS_TAG_AMOUNT_SOMPI,
+                    actionType: ActionType.GENESIS,
+                    extraBytes: encodeGameStateSnapshot({ punkw: GENESIS_PUNKW_GRANT, turnCount: 1 }),
+                });
+                setPunkwBalance(bunkerId, GENESIS_PUNKW_GRANT);
+                setTurnCount(bunkerId, 1);
+                logLine(`SUCCESS: GENESIS_BROADCAST_${txLinkHtml(txid, txid.substring(0, 10) + '...')}`);
+            } catch (genesisErr) {
+                console.error("GENESIS_ERROR:", genesisErr);
+                logLine(`ERROR: GENESIS_FAILED. ${genesisErr.message || genesisErr}`);
+            }
+
+            if (granted) {
+                // Let Genesis's own change output settle before Buy Turns queries the
+                // Plain Wallet's balance and spends from it -- same reasoning as above.
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+
+                logLine(`FUNDING_GAMEPLAY_VAULT (BUY_TURNS x${STARTER_BUY_TURNS_COUNT})...`);
+                try {
+                    const result = await buyTurns({
+                        fromAddress: bunkerId,
+                        privateKey,
+                        vaultAddress: vaultAddr,
+                        depositAmountSompi: STARTER_BUY_TURNS_DEPOSIT_SOMPI,
+                        extraBytes: encodeGameStateSnapshot({ punkw: GENESIS_PUNKW_GRANT, turnCount: 1 }),
+                    });
+                    const vaultKas = (Number(result.breakdown.vault) / 1e8).toFixed(2);
+                    logLine(`SUCCESS: VAULT_FUNDED_${txLinkHtml(result.txid, result.txid.substring(0, 10) + '...')} (${vaultKas} TKAS -> GAMEPLAY_VAULT)`);
+                } catch (buyTurnsErr) {
+                    console.error("STARTER_BUY_TURNS_ERROR:", buyTurnsErr);
+                    logLine(`WARNING: STARTER_BUY_TURNS_FAILED. FUND_VAULT_MANUALLY_VIA_WALLET_MANAGEMENT. ${buyTurnsErr.message || buyTurnsErr}`);
+                }
+            }
+
+            logLine("ENTERING_BUNKER...");
+            setTimeout(() => { window.location.href = 'bunker.html'; }, 1500);
         } catch (err) {
             console.error("SAVE_AND_PROCEED_ERROR:", err);
-            logLine("ERROR: IDENTITY_SYNC_FAILED");
+            logLine("ERROR: IDENTITY_SYNC_FAILED.");
+            document.getElementById('manual-enter-area').style.display = 'block';
             saveInFlight = false;
         }
     };

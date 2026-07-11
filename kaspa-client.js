@@ -35,6 +35,12 @@ const OpTxOutputAmount = 0xc2;
 const OpTxInputIndex = 0xb9;
 const OpTxInputSpk = 0xbf;
 const OpTxOutputSpk = 0xc3;
+// Payload introspection (KIP-10), confirmed against rusty-kaspa's own opcode source
+// (crypto/txscript/src/opcodes/mod.rs) and its test suite: OpTxPayloadSubstr pops
+// [start, end] (pushed in that order) and pushes tx.payload[start..end] (exclusive end,
+// matching Rust slice semantics) -- confirmed on-chain via
+// zk-spike/onchain-test-payload-binding.html before being trusted here.
+const OpTxPayloadSubstr = 0xb8;
 
 export const FAUCET_GRANT_CAP_SOMPI = 1000000000n; // 10 KAS per grant, matches the vault's own script
 export const FAUCET_VAULT_ADDRESS = "kaspatest:pp3ca46urjyyx6jhc6xsu4xj2pdvzvltyk2r0lvaslv806hnjefa77293fg20";
@@ -143,6 +149,17 @@ export function decodePayload(bytes) {
 export const GAME_STATE_SCHEMA_VERSION = 1;
 export const GAME_STATE_BODY_BYTES = 42;
 
+// Optional trailer, appended after the core 42 bytes -- NOT part of GAME_STATE_BODY_BYTES,
+// so Genesis/BuyTurns payloads (which never set provenYieldHex) stay exactly 42 bytes,
+// unchanged. Only Phish transactions grow to 74 bytes, carrying the exact same 32-byte
+// Arkworks-compressed encoding of the ZK proof's own public yieldAmount output (see
+// zk-spike/kaspa-zk-convert's compressed_hex()) verbatim -- not reinterpreted or
+// re-encoded, so the covenant can OpEqual it directly against a duplicate copy of that
+// same public input pushed in the claim's sig script, closing the gap where a modified
+// client could otherwise write any punkw/yield value into the payload regardless of what
+// the proof actually verified (see design-bible.md's state-continuity notes).
+export const PROVEN_YIELD_BYTES = 32;
+
 export const NodeSpecialization = Object.freeze({
     UNSET: 0,
     CONSENSUS: 1,
@@ -162,7 +179,9 @@ export const ITEM_TYPES = [
 ];
 
 export function encodeGameStateSnapshot(state = {}) {
-    const buf = new ArrayBuffer(GAME_STATE_BODY_BYTES);
+    const hasProvenYield = typeof state.provenYieldHex === 'string';
+    const totalBytes = GAME_STATE_BODY_BYTES + (hasProvenYield ? PROVEN_YIELD_BYTES : 0);
+    const buf = new ArrayBuffer(totalBytes);
     const view = new DataView(buf);
     let o = 0;
     view.setUint8(o, GAME_STATE_SCHEMA_VERSION); o += 1;
@@ -178,7 +197,15 @@ export function encodeGameStateSnapshot(state = {}) {
     for (const key of ITEM_TYPES) {
         view.setUint8(o, state.items?.[key] ?? 0); o += 1;
     }
-    // remaining bytes (reserved trailer) left zeroed by ArrayBuffer's default init
+    // remaining core bytes (reserved trailer) left zeroed by ArrayBuffer's default init
+    if (hasProvenYield) {
+        const bytes = new Uint8Array(buf);
+        const provenYieldBytes = hexToBytes(state.provenYieldHex);
+        if (provenYieldBytes.length !== PROVEN_YIELD_BYTES) {
+            throw new Error(`INVALID_PROVEN_YIELD_LENGTH: expected ${PROVEN_YIELD_BYTES} bytes, got ${provenYieldBytes.length}`);
+        }
+        bytes.set(provenYieldBytes, GAME_STATE_BODY_BYTES);
+    }
     return new Uint8Array(buf);
 }
 
@@ -198,7 +225,15 @@ export function decodeGameStateSnapshot(extraBytes) {
     for (const key of UNIT_TYPES) { units[key] = view.getUint16(o, true); o += 2; }
     const items = {};
     for (const key of ITEM_TYPES) { items[key] = view.getUint8(o); o += 1; }
-    return { schemaVersion, punkw, sectors, nodeSpec, researchTier, turnCount, season, units, items };
+    // provenYieldHex is only present on Phish transactions built after the payload-binding
+    // fix landed -- older Phish/Genesis/BuyTurns payloads simply don't have it (undefined,
+    // not an error), matching the same "not every field applies to every action" convention
+    // already used for sectors/nodeSpec before those mechanics existed.
+    let provenYieldHex;
+    if (extraBytes.length >= GAME_STATE_BODY_BYTES + PROVEN_YIELD_BYTES) {
+        provenYieldHex = bytesToHexString(extraBytes.slice(GAME_STATE_BODY_BYTES, GAME_STATE_BODY_BYTES + PROVEN_YIELD_BYTES));
+    }
+    return { schemaVersion, punkw, sectors, nodeSpec, researchTier, turnCount, season, units, items, provenYieldHex };
 }
 
 let rpcClient = null;
@@ -326,6 +361,13 @@ export async function sendTaggedTransaction({ fromAddress, privateKey, toAddress
 export const FEE_MIN_SOMPI = 50000000n; // 0.5 KAS floor, each side
 const FEE_RATE_BP = 50n; // 0.5%, in basis points out of 10000
 export const HOST_FEE_ADDRESS = REGISTRY_ADDRESS;
+
+// Fat-finger guard, not an economic design cap: at COST_PER_TURN_SOMPI (~0.405 KAS/turn)
+// this buys ~2,444 turns in one purchase -- comfortably beyond any real single top-up
+// (months of play), while still well short of "accidentally sent my whole wallet."
+// Enforced inside buyTurns() itself (not just the UI) so no caller, present or future,
+// can bypass it.
+export const MAX_BUY_TURNS_DEPOSIT_SOMPI = 100000000000n; // 1000 KAS
 
 // Single source of truth for the faucet/host/vault split on a given gross deposit --
 // used by buyTurns() itself and by send.html's live cost-preview, so the two can never
@@ -560,12 +602,28 @@ export async function attemptRestrictedWalletSend({ playerAddress, playerPrivate
 // against this constant before assuming anything else is broken.
 const PHISH_YIELD_VERIFICATION_KEY_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
 
+// Full on-chain payload byte offsets of the provenYieldHex trailer written by
+// encodeGameStateSnapshot: magicBytes(4) + actionType(1) + core body(GAME_STATE_BODY_BYTES=42)
+// = 47, through +PROVEN_YIELD_BYTES(32) = 79. Must track those constants' layout exactly.
+const PROVEN_YIELD_PAYLOAD_START = 47n;
+const PROVEN_YIELD_PAYLOAD_END = 79n;
+
 function buildZkPhishRedeemScript(playerPubkeyHex) {
     const rewardTreasurySpk = getRewardTreasurySpkHex();
     return new ScriptBuilder()
         .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
         .addOp(Opcodes.OpIf)
             .addData(PHISH_YIELD_VERIFICATION_KEY_HEX).addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+            // Binds the payload's declared provenYieldHex to the SAME yieldAmount public
+            // input OpZkPrecompile just verified above -- closes the gap where a modified
+            // client could write any punkw/yield value into the payload regardless of what
+            // was actually proven. Confirmed on-chain (both accept-honest and
+            // reject-tampered) via zk-spike/onchain-test-payload-binding.html before landing
+            // here. Consumes the EXTRA yieldAmount copy buildZkPhishClaimSigScript pushes
+            // beneath everything else specifically for this comparison (OpZkPrecompile's own
+            // copy, pushed above it, is already consumed by this point).
+            .addI64(PROVEN_YIELD_PAYLOAD_START).addI64(PROVEN_YIELD_PAYLOAD_END)
+            .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
             .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
             .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
             .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
@@ -600,6 +658,12 @@ function buildZkPhishAnchorSigScript(redeemScriptHex, signatureHex) {
 
 function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle) {
     const builder = new ScriptBuilder();
+    // Extra copy of publicInputHexes[0] (yieldAmount), pushed FIRST (deepest in the stack) so
+    // it survives OpCheckSigVerify/OpIf/OpZkPrecompile's own consumption of everything pushed
+    // above it, remaining as the new top-of-stack for the redeem script's payload-binding
+    // OpEqual check that runs right after OpZkPrecompile. Confirmed on-chain in
+    // zk-spike/onchain-test-payload-binding.html before landing here.
+    builder.addData(proofBundle.publicInputHexes[0]);
     for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
         builder.addData(proofBundle.publicInputHexes[i]);
     }
@@ -794,7 +858,21 @@ export async function sendFromPlainWallet({ fromAddress, privateKey, destAddress
 // snapshot, same as Genesis/Phish -- $PUNKW itself doesn't change here, but every CPW
 // transaction carries the operator's full current state, not just the ones that alter it)
 // so history.html can decode it as a real move instead of an ordinary wallet transfer.
+//
+// CAUTION for any caller sizing depositAmountSompi close to the source wallet's entire
+// balance (e.g. spending nearly everything a fresh faucet grant provided): if the leftover
+// change ends up small/imprecise, the Generator's auto-change output can be dust-sized, and
+// KIP-9's storage-mass formula (storage_mass = C*(sum(1/output) - |inputs|^2/sum(input))^+,
+// C=10^12, confirmed against rusty-kaspa's own KIP-9 spec) punishes small outputs heavily
+// enough to get the whole transaction rejected outright ("Storage mass exceeds maximum") --
+// hit live, twice, while building forge.html's starter Buy Turns step (see design-bible.md's
+// Turns Model section). Fix is caller-side: target a fixed depositAmountSompi comfortably
+// below the wallet's real balance (leaving a large, unambiguous change output), not a value
+// computed to consume the balance down to a small or exact remainder.
 export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositAmountSompi, priorityFee = 500000n, extraBytes }) {
+    if (depositAmountSompi > MAX_BUY_TURNS_DEPOSIT_SOMPI) {
+        throw new Error(`DEPOSIT_EXCEEDS_MAX: ${depositAmountSompi} sompi requested, cap is ${MAX_BUY_TURNS_DEPOSIT_SOMPI} sompi (1000 KAS) per transaction`);
+    }
     const { faucet, host, vault: vaultAmount } = computeBuyTurnsBreakdown(depositAmountSompi);
     if (vaultAmount < FEE_MIN_SOMPI) {
         throw new Error(`DEPOSIT_TOO_SMALL: need at least ${faucet + host + FEE_MIN_SOMPI} sompi`);
@@ -857,6 +935,10 @@ function hexToBytes(hex) {
         bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
     }
     return bytes;
+}
+
+function bytesToHexString(bytes) {
+    return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Real, indexer-backed list -- works for any address, arbitrarily far back, but carries

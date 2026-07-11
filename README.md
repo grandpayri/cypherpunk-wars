@@ -25,6 +25,18 @@ See [`gameplay.html`](gameplay.html) for the player-facing manual, [`architectur
 for how the WASM/covenant/payload plumbing fits together, and [`whitepaper.html`](whitepaper.html)
 for the project's vision and Kaspathon goals.
 
+## Testnet only — do not use with real funds
+
+Each Phish action is backed by a real Groth16 proof, verified natively on-chain, and the network now
+also enforces that the transaction's declared yield matches what that proof actually verified — a
+modified client cannot claim a different number than the one it proved. **What isn't yet enforced:**
+whether a player's *cumulative* running total was built from a genuine history of such transactions, and
+whether that history stays independently checkable once Kaspa's default block pruning kicks in
+(~3 days). See `design-bible.md` section 08 ("Trust Model") for the full, honest breakdown of what's
+cryptographically guaranteed today versus what still relies on trusting the official client. **This
+project stays on testnet-10 (TKAS, no real value) until those gaps are closed — never point it at
+mainnet or real funds.**
+
 ## Running locally
 
 No build tooling — it's static HTML/CSS/JS. Serve the directory with any static file

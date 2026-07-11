@@ -140,10 +140,85 @@ real balancing happens. `sectors` is range-checked in the circuit (bounded, curr
 keep the constraint system sane, not as a hard game-design cap. How the covenant verifies `sectors`/
 `nodeSpec` themselves are the player's *true, current* values (not just self-reported alongside the proof)
 is unsolved -- this formula proves "yield Z follows correctly *from* these sectors/nodeSpec inputs," not
-"these inputs are honest." That's a state-continuity problem (checking against the operator's own previous
-on-chain snapshot, plausibly via the payload-inspection opcodes `OpTxPayloadLen`/`OpTxPayloadSubstr` noted
-as unexercised in the Phase 4.5 notes) that needs its own design pass before this ships as a real covenant,
-not just a circuit.
+"these inputs are honest." That's a state-continuity problem, and it splits into two separately-solvable
+pieces -- see "Trust model: what's enforced and what isn't" below for the full picture, since one piece
+was actually closed on 2026-07-11 and one deliberately wasn't.
+
+## 08. Trust Model: What's Enforced On-Chain and What Isn't (2026-07-11)
+
+A long conversation this session pushed on "the chain needs to verify your gamestate," not just "can a
+player recover their own cached number." Worth a dedicated section since it's the honest answer to "is
+this actually trustless," and it's more nuanced than a yes/no.
+
+**Closed: per-transaction yield integrity.** Before this date, `OpZkPrecompile` verified that a Phish's
+ZK proof was *valid*, but nothing on-chain constrained what the transaction's `CPW1` payload actually
+*declared* -- a modified client could generate an honest proof for a yield of 25 and still write
+`punkw: 999999999` into the payload, since the covenant never read the payload at all. Fixed: the
+covenant's real-claim branch now extracts a `provenYieldHex` field from the payload (32 bytes, appended
+after the existing 42-byte game-state body -- see `kaspa-client.js`'s `PROVEN_YIELD_BYTES`) via
+`OpTxPayloadSubstr` (KIP-10, `0xb8`) and requires it to exactly equal the proof's own public `yieldAmount`
+output. Confirmed on-chain both ways -- an honest payload is accepted, a payload declaring a different
+(also proof-backed, just *wrong* for *this* transaction) yield is rejected with "false stack entry at end
+of script execution" -- via `zk-spike/onchain-test-payload-binding.html` before landing in the live
+covenant. This is real, cryptographic, network-enforced integrity for a single roll: nobody, running any
+client, can claim a yield the proof doesn't back.
+
+**Still open: cumulative total integrity.** Binding *this transaction's* declared yield to *its own* proof
+says nothing about whether `newPunkwTotal = previousTotal + yieldAmount` was computed against a genuine
+previous total. KIP-10's introspection opcodes are confirmed (via direct research against rusty-kaspa's
+own spec) to only read the *current* transaction's own fields -- there is no opcode that lets a covenant
+read an ancestor transaction's payload, so the covenant cannot verify `previousTotal` against on-chain
+history the way it can now verify `yieldAmount`. Closing this fully requires either (a) making $PUNKW a
+real, sompi-backed value so Kaspa's native amount-conservation does the chaining for free (a genuine
+economic redesign, not a bugfix), or (b) proof-chaining `previousTotal` as a public input sourced from an
+archival read of the player's own last transaction (see below) -- neither attempted yet.
+
+**Still open: payload durability.** Kaspa's default (non-archival) nodes discard transaction/payload data
+after roughly 3 days (confirmed both by rusty-kaspa's own pruning documentation and empirically this
+session -- see `kaspa-client.js`'s `fetchTransactionPayloadBytes` comment). An `--archival` node retains
+this data indefinitely, but no archival RPC access is wired into this project as of this date (deliberately
+not pursued -- no archival infrastructure available). This means: even the newly-enforced per-transaction
+integrity above is only *checkable* within roughly that 3-day window unless someone is separately
+archiving payloads: after that, the underlying transaction still did the right thing (that's permanent,
+baked into DAG consensus), but re-verifying exactly what it declared is no longer possible without
+archival access.
+
+**Bottom line, stated plainly: this project has not solved trustless verification of a player's
+cumulative game state, only of each individual Phish roll.** Do not treat any $PUNKW total as
+independently auditable today, and **this app must not be pointed at mainnet or handle real value until
+both open items above are closed.** Testnet-10 (TKAS) only, no exceptions, until this section says
+otherwise.
+
+## 07. Turns Model (decided 2026-07-11)
+
+`gameplay-balance.md` (a full GDD for the unbuilt combat/spellbook/Armageddon systems) proposed Turns as
+a free, passive resource that auto-accumulates over real-world time (+1 every 10 minutes, capped at 200).
+**Rejected.** The live game's Turns are a *paid* resource -- bought with real KAS via `buyTurns()`
+(`send.html`), priced at `COST_PER_TURN_SOMPI` (~0.405 TKAS, covering the ZK-Phish anchor + claim
+transactions), never free. This is a deliberate, user-stated convention from this project's history:
+buying Turns is a player's *entire* financial outlay to play, nothing else touches their Plain Wallet.
+A parallel free-regeneration source would undercut that convention and the Faucet/Gameplay/Prize vault
+self-funding loop built around it (see `kaspa-client.js`'s ZK-Phish covenant section). **Kept from the
+GDD:** the per-action Turn *costs* it proposes (Phish = 1, Build Sector = 2, Recruit Unit = 1, etc.) are
+compatible with the paid model as-is -- they describe consumption, not the source of supply, so they
+remain a reasonable starting point once those actions are actually built.
+
+**Starter funding, resolved 2026-07-11.** `forge.html` (merged with the former `initialize.html` into
+one continuous onboarding flow the same day) grants a new player enough to cover Genesis plus a real
+`buyTurns()` purchase of **22 Turns** (~8.91 TKAS into the Gameplay Vault), not the "~25" figure Gemini
+originally floated -- `computeDepositForTurns(25)` (11.13 KAS) exceeds `FAUCET_GRANT_CAP_SOMPI` (10 KAS,
+the Faucet Vault covenant's own hard single-grant ceiling, enforced on-chain), and raising that cap would
+mean migrating the Faucet Vault to a new covenant address. 22 is the max that fits with fee headroom;
+close enough to the original target to not warrant a covenant migration.
+
+Building this surfaced a real, previously-latent bug in `buyTurns()` itself: sizing the deposit to
+consume a wallet's balance down to a small, imprecise remainder can leave a dust-sized change output,
+which KIP-9's storage-mass formula (`storage_mass = C*(sum(1/output) - |inputs|^2/sum(input))^+`,
+`C=10^12`, confirmed against rusty-kaspa's own KIP-9 spec) punishes heavily enough to get the transaction
+rejected outright ("Storage mass exceeds maximum") -- confirmed live, twice, before landing on a fixed
+deposit target instead of a computed "whatever's left" one. See the caution comment above `buyTurns()`
+in `kaspa-client.js`: any future caller that tries to drain a wallet down to a small, imprecise leftover
+risks hitting this same rejection.
 
 ## Open questions for implementation (not yet decided)
 

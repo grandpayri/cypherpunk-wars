@@ -19,7 +19,11 @@
                 <h2 style="margin-top: 0; color: var(--kaspa-bright);">CPW_HISTORY</h2>
                 <p style="font-size: 0.85rem;">
                     Decoded moves from an address's on-chain CPW1 payloads -- defaults to your
-                    own wallet, or look up any other operator's address.
+                    own wallet, or look up any other operator's address. Ordinary wallet
+                    transfers (plain sends, Buy Turns deposits) are scanned but hidden here --
+                    they're not game moves. Check an address's own history at
+                    <a href="https://tn10.kaspa.stream" target="_blank" rel="noopener" class="explorer-link">kaspa.stream</a>
+                    for those.
                 </p>
 
                 <div style="display: flex; gap: 10px; margin: 15px 0;">
@@ -85,6 +89,9 @@
                 ? `${label} -- Earned ${delta} $PUNKW`
                 : `${label} -- War Chest now ${state.punkw} $PUNKW`;
         }
+        if (actionType === ActionType.BUY_TURNS) {
+            return `${label} -- Funded Gameplay Vault`;
+        }
         return `${label} (not yet implemented -- payload decoded but no move logic exists yet)`;
     }
 
@@ -113,9 +120,14 @@
         return decoded;
     }
 
+    // Confirmed non-CPW entries (a real payload check came back empty -- a plain send, a
+    // Buy Turns deposit, etc.) are scanned for delta-computation purposes but hidden from
+    // the rendered list -- this page is a CPW move log, not a general transaction history;
+    // kaspa.stream already covers "what did this address actually send/receive." Entries
+    // we couldn't check at all ("undecodable" -- pruned) stay visible: unlike a confirmed
+    // non-CPW transaction, we genuinely don't know what they were, so hiding them would
+    // risk silently dropping a real move we just couldn't verify.
     function renderHistory(entries, scopeLabelHtml) {
-        document.getElementById('scopeNote').innerHTML = scopeLabelHtml;
-
         // Chronological pass (oldest first) to compute $PUNKW deltas between consecutive
         // Phish moves, then reversed for display (newest first, standard activity-feed order).
         const chronological = [...entries].sort((a, b) => (a.blockTime ?? 0) - (b.blockTime ?? 0));
@@ -125,18 +137,20 @@
             if (entry.kind === 'cpw') {
                 desc = describeMove(entry.actionType, entry.state, prevPunkw);
                 prevPunkw = entry.state.punkw;
-            } else if (entry.kind === 'non-cpw') {
-                desc = 'Non-CPW transaction (plain send/receive, no game payload)';
-            } else {
+            } else if (entry.kind === 'undecodable') {
                 desc = 'UNDECODABLE -- node has pruned this block and the indexer excludes payload data';
             }
             return { ...entry, desc };
-        });
+        }).filter((entry) => entry.kind !== 'non-cpw');
         rows.reverse();
+
+        const hiddenCount = entries.length - rows.length;
+        document.getElementById('scopeNote').innerHTML = scopeLabelHtml
+            + (hiddenCount > 0 ? ` (${hiddenCount} ordinary wallet transfer${hiddenCount === 1 ? '' : 's'} hidden.)` : '');
 
         const listEl = document.getElementById('historyList');
         if (rows.length === 0) {
-            listEl.innerHTML = '<div class="history-row"><span class="history-desc">No transactions found for this address.</span></div>';
+            listEl.innerHTML = '<div class="history-row"><span class="history-desc">No CPW moves found in this address\'s recent transactions.</span></div>';
             return;
         }
         listEl.innerHTML = rows.map((r) => {
@@ -160,8 +174,8 @@
         logLine(`FETCHING_HISTORY_FOR_${address.substring(0, 16)}...`);
         try {
             const entries = await fetchDecodedEntries(address, 25);
-            renderHistory(entries, `Showing ${addressLinkHtml(address)}'s own last ${entries.length} transactions. Their Genesis and their Phish/Attack/Research moves live on two DIFFERENT addresses (plain wallet vs. derived Gameplay Vault) -- without their public key we can only see whichever one you entered.`);
-            logLine(`DONE. ${entries.length} TRANSACTION(S) FOUND.`);
+            renderHistory(entries, `Scanned ${addressLinkHtml(address)}'s own last ${entries.length} transactions. Their Genesis and their Phish/Attack/Research moves live on two DIFFERENT addresses (plain wallet vs. derived Gameplay Vault) -- without their public key we can only see whichever one you entered.`);
+            logLine(`DONE. ${entries.length} TRANSACTION(S) SCANNED.`);
         } catch (err) {
             console.error("HISTORY_LOOKUP_ERROR:", err);
             logLine(`ERROR: LOOKUP_FAILED. ${err.message || err}`);
@@ -181,8 +195,8 @@
             const merged = [...plainEntries, ...vaultEntries]
                 .sort((a, b) => (b.blockTime ?? 0) - (a.blockTime ?? 0))
                 .slice(0, 25);
-            renderHistory(merged, `Showing your last ${merged.length} CPW transactions, merged from your Plain Wallet (${addressLinkHtml(bunkerId)}, Genesis lives here) and your Gameplay Vault (${addressLinkHtml(vaultAddress)}, Phish/Attack/Research live here).`);
-            logLine(`DONE. ${merged.length} TRANSACTION(S) FOUND.`);
+            renderHistory(merged, `Scanned your last ${merged.length} transactions, merged from your Plain Wallet (${addressLinkHtml(bunkerId)}, Genesis lives here) and your Gameplay Vault (${addressLinkHtml(vaultAddress)}, Phish/Attack/Research live here).`);
+            logLine(`DONE. ${merged.length} TRANSACTION(S) SCANNED.`);
         } catch (err) {
             console.error("SELF_HISTORY_ERROR:", err);
             logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");

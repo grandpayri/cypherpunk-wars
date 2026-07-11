@@ -114,7 +114,7 @@ export const ActionType = Object.freeze({
     ATTACK: 0x03,     // reserved, Phase 7 -- not wired up yet
     RESEARCH: 0x04,   // reserved, Phase 6 -- not wired up yet
     HACK: 0x05,       // reserved, Phase 7 (includes Armageddon casts) -- not wired up yet
-    BUY_TURNS: 0x06,  // reserved -- buyTurns() doesn't tag a payload yet, open question
+    BUY_TURNS: 0x06,  // wired up -- see buyTurns()'s extraBytes param
 });
 
 export function encodePayload(actionType, extraBytes = new Uint8Array(0)) {
@@ -542,8 +542,11 @@ export async function sendFromPlainWallet({ fromAddress, privateKey, destAddress
 // spending its own funds needs no restriction, just like sendFromPlainWallet. 3 explicit
 // outputs (vault gets the bulk, faucet vault and host each get their scaling cut -- see
 // computeBuyTurnsBreakdown) plus the Generator's own auto-change back to fromAddress for
-// whatever wasn't committed to this deposit.
-export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositAmountSompi, priorityFee = 500000n }) {
+// whatever wasn't committed to this deposit. Tagged with a CPW1/BUY_TURNS payload (a state
+// snapshot, same as Genesis/Phish -- $PUNKW itself doesn't change here, but every CPW
+// transaction carries the operator's full current state, not just the ones that alter it)
+// so history.html can decode it as a real move instead of an ordinary wallet transfer.
+export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositAmountSompi, priorityFee = 500000n, extraBytes }) {
     const { faucet, host, vault: vaultAmount } = computeBuyTurnsBreakdown(depositAmountSompi);
     if (vaultAmount < FEE_MIN_SOMPI) {
         throw new Error(`DEPOSIT_TOO_SMALL: need at least ${faucet + host + FEE_MIN_SOMPI} sompi`);
@@ -555,7 +558,7 @@ export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositA
         throw new Error("NO_UTXOS_AVAILABLE");
     }
 
-    const generator = new Generator({
+    const generatorSettings = {
         entries,
         changeAddress: fromAddress,
         outputs: [
@@ -565,7 +568,10 @@ export async function buyTurns({ fromAddress, privateKey, vaultAddress, depositA
         ],
         priorityFee,
         networkId: CPW_NETWORK_ID,
-    });
+    };
+    if (extraBytes) generatorSettings.payload = encodePayload(ActionType.BUY_TURNS, extraBytes);
+
+    const generator = new Generator(generatorSettings);
 
     let pendingTransaction;
     let txid;

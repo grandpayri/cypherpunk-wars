@@ -127,9 +127,10 @@
     import {
         getAddressBalance, deriveRestrictedWalletAddress, sendFromPlainWallet,
         attemptRestrictedWalletSend, buyTurns, computeBuyTurnsBreakdown, computeDepositForTurns,
+        encodeGameStateSnapshot,
     } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
-    import { renderSidebar, refreshSidebarStats } from './shared-sidebar.js';
+    import { renderSidebar, refreshSidebarStats, getPunkwBalance, getTurnCount } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
     import { txLinkHtml } from './explorer-links.js';
 
@@ -284,11 +285,19 @@
         logLine("BROADCASTING_VAULT_TOPUP...");
         try {
             const vaultAddress = deriveRestrictedWalletAddress(pubkey);
+            // $PUNKW itself doesn't change here -- still tagged with the operator's current
+            // full state (unchanged), same "state snapshot on every CPW transaction" rule
+            // Genesis/Phish already follow, so history.html can decode this as a real move.
+            const extraBytes = encodeGameStateSnapshot({
+                punkw: getPunkwBalance(bunkerId),
+                turnCount: getTurnCount(bunkerId),
+            });
             const result = await buyTurns({
                 fromAddress: bunkerId,
                 privateKey,
                 vaultAddress,
                 depositAmountSompi,
+                extraBytes,
             });
             const vaultKas = (Number(result.breakdown.vault) / 1e8).toFixed(2);
             const faucetKas = (Number(result.breakdown.faucet) / 1e8).toFixed(2);

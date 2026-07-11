@@ -60,16 +60,27 @@
         </div>
 
         <div class="verification-note">
-            <b>HOW THIS IS VERIFIED TODAY:</b> the transaction itself is covenant-enforced --
-            the network guarantees it paid the reward treasury the correct amount, in the
-            correct shape, signed by you. The $PUNKW yield number above is still computed
-            and self-reported by this client, not yet zk-proven on-chain. Verified yield
-            (proving the formula was run honestly, not just that the payment happened) is a
-            researched-but-not-yet-built future upgrade -- see the architecture page.
+            <b>HOW THIS IS VERIFIED TODAY:</b> the $PUNKW yield above is a real zero-knowledge
+            proof, not a self-reported number -- the claim transaction is only valid if it
+            carries a Groth16 proof that the yield genuinely follows from a committed seed via
+            the real formula (design-bible.md section 06), checked natively on-chain by
+            Kaspa's own <code>OpZkPrecompile</code> opcode. The seed itself comes from a
+            separate anchor transaction broadcast moments earlier, combined with that
+            transaction's accepting block hash -- a value you can't predict or choose at the
+            moment you commit to it. This doesn't make grinding cryptographically impossible
+            (Kaspa Script has no way to verify a claimed block hash on-chain, so the anchor
+            step is a client-honesty convention, not a chain-enforced rule), but it does mean
+            every attempt costs a real transaction fee and a real wait, not a free, unlimited,
+            offline retry loop.
         </div>
 
         <div class="tx-details">
-            <div>TRANSACTION_ID (verifiable on any testnet-10 explorer):</div>
+            <div>ANCHOR_TRANSACTION_ID (entropy source, verifiable on any testnet-10 explorer):</div>
+            <div class="tx-id" id="anchorTxid">...</div>
+        </div>
+
+        <div class="tx-details">
+            <div>CLAIM_TRANSACTION_ID (ZK-verified, verifiable on any testnet-10 explorer):</div>
             <div class="tx-id" id="txid">...</div>
         </div>
 
@@ -99,6 +110,9 @@
         document.getElementById('yieldAmount').innerText = result.yieldAmount;
         document.getElementById('newTotal').innerText = result.newPunkwTotal;
         document.getElementById('txid').innerHTML = txLinkHtml(result.txid);
+        if (result.anchorTxid) {
+            document.getElementById('anchorTxid').innerHTML = txLinkHtml(result.anchorTxid);
+        }
         sessionStorage.removeItem('lastPhishResult');
     }
 </script>

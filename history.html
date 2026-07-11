@@ -47,7 +47,7 @@
 <script type="module">
     import { bootBunkerEngine, getSessionPublicKey } from './wallet-gen.js';
     import {
-        ActionType, deriveRestrictedWalletAddress, fetchAddressTransactionList,
+        ActionType, deriveZkPhishAddress, fetchAddressTransactionList,
         fetchTransactionPayloadBytes, decodePayload, decodeGameStateSnapshot,
     } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
@@ -187,7 +187,7 @@
         logLine("FETCHING_YOUR_OWN_HISTORY (PLAIN_WALLET + GAMEPLAY_VAULT)...");
         try {
             const pubkey = getSessionPublicKey();
-            const vaultAddress = deriveRestrictedWalletAddress(pubkey);
+            const vaultAddress = deriveZkPhishAddress(pubkey);
             const [plainEntries, vaultEntries] = await Promise.all([
                 fetchDecodedEntries(bunkerId, 25),
                 fetchDecodedEntries(vaultAddress, 25),

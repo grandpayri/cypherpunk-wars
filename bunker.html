@@ -55,7 +55,8 @@
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
-    import { deriveRestrictedWalletAddress, spendFromRestrictedWallet, ActionType, encodeGameStateSnapshot } from './kaspa-client.js';
+    import { deriveZkPhishAddress, submitPhishAnchor, pollAcceptingBlockHash, spendZkVerifiedPhish, ActionType, encodeGameStateSnapshot, NodeSpecialization } from './kaspa-client.js';
+    import { generateLocalSecretHex, deriveSeedFromAnchor, generatePhishYieldProof } from './zk-prover.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats, getPunkwBalance, setPunkwBalance, getTurnCount, setTurnCount } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
@@ -100,20 +101,40 @@
             return;
         }
 
-        logLine("SCRAPING_BLOCKDAG...");
-        // Computed before broadcasting since the new total needs to go INTO this
-        // transaction's payload (a real state snapshot, not just an action tag) -- but
-        // only persisted locally after the network actually accepts the spend, so the
-        // local cache never gets ahead of a transaction that didn't land.
-        const yieldAmount = Math.floor(Math.random() * 40) + 10;
-        const newPunkwTotal = getPunkwBalance(bunkerId) + yieldAmount;
-        const newTurnCount = getTurnCount(bunkerId) + 1;
+        // Real ZK-proven yield (design-bible.md section 06), grinding-resistant via an
+        // anchor transaction's accepting-block hash as entropy the player can't predict at
+        // broadcast time -- see the design note above buildZkPhishRedeemScript in
+        // kaspa-client.js for exactly what this does and doesn't guarantee. sectors/nodeSpec
+        // are hardcoded until those mechanics ship (Phase 6/not built); the formula degrades
+        // to the bare base roll in that case, so no current player's yield is affected.
         try {
-            const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
-            const result = await spendFromRestrictedWallet({
-                playerAddress: restrictedAddr,
+            const vaultAddr = deriveZkPhishAddress(pubkey);
+
+            logLine("ANCHORING...");
+            const anchorTxid = await submitPhishAnchor({ playerAddress: vaultAddr, playerPrivateKey: privateKey, playerPubkeyHex: pubkey });
+
+            logLine("AWAITING_CHAIN_ACCEPTANCE...");
+            const acceptingBlockHash = await pollAcceptingBlockHash(anchorTxid);
+
+            const localSecretHex = generateLocalSecretHex();
+            const seed = await deriveSeedFromAnchor(localSecretHex, acceptingBlockHash);
+
+            logLine("COMPUTING_PROOF...");
+            const { yieldAmount, proofBundle } = await generatePhishYieldProof({
+                seed,
+                sectors: 0,
+                nodeSpec: NodeSpecialization.UNSET,
+            });
+
+            const newPunkwTotal = getPunkwBalance(bunkerId) + yieldAmount;
+            const newTurnCount = getTurnCount(bunkerId) + 1;
+
+            logLine("BROADCASTING_CLAIM...");
+            const result = await spendZkVerifiedPhish({
+                playerAddress: vaultAddr,
                 playerPrivateKey: privateKey,
                 playerPubkeyHex: pubkey,
+                proofBundle,
                 actionType: ActionType.PHISH,
                 extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, turnCount: newTurnCount }),
             });
@@ -122,6 +143,7 @@
             refreshSidebarStats();
             sessionStorage.setItem('lastPhishResult', JSON.stringify({
                 txid: result.txid,
+                anchorTxid,
                 yieldAmount,
                 newPunkwTotal,
                 rewardAmountSompi: result.outputs.reward.toString(),

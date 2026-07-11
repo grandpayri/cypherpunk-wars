@@ -30,17 +30,17 @@
 
                     <div class="term-definition">
                         <span class="term-title">Turns</span>
-                        <p>Each turn is a real Kaspa transaction, spent from your covenant-locked Gameplay Vault (see Command Center &gt; Phish). The network itself enforces what a turn can pay for -- not a client-side counter.</p>
+                        <p>Each Phish turn is two real Kaspa transactions, both spent from your covenant-locked Gameplay Vault (see Command Center &gt; Phish): a cheap anchor transaction that supplies unpredictable entropy, then a real-claim transaction carrying a zero-knowledge proof that your $PUNKW yield was computed honestly, verified natively on-chain by Kaspa's <code>OpZkPrecompile</code> opcode. The network itself enforces what a turn can pay for -- not a client-side counter.</p>
                     </div>
 
                     <div class="term-definition">
                         <span class="term-title">Plain Wallet vs. Gameplay Vault</span>
-                        <p>Your Plain Wallet holds ordinary TKAS, spendable however you like. Your Gameplay Vault is a Toccata covenant: funds there can only leave via a real CPW-tagged transaction, never a free-form send -- see the Transfer page's demo of the network rejecting a non-compliant spend.</p>
+                        <p>Your Plain Wallet holds ordinary TKAS, spendable however you like. Your Gameplay Vault is a Toccata covenant: funds there can only leave via a real CPW-tagged, ZK-verified transaction, never a free-form send -- see the Transfer page's demo of the network rejecting a non-compliant spend.</p>
                     </div>
 
                     <div class="term-definition">
                         <span class="term-title">$PUNKW (War Chest)</span>
-                        <p>Earned by Phishing. Every Genesis and Phish transaction writes your current $PUNKW total directly into that transaction's on-chain payload -- a real state snapshot, not just a log message -- so the sidebar's War Chest total reflects what's actually recorded on-chain for that action.</p>
+                        <p>Earned by Phishing. Every Genesis and Phish transaction writes your current $PUNKW total directly into that transaction's on-chain payload -- a real state snapshot, not just a log message -- so the sidebar's War Chest total reflects what's actually recorded on-chain for that action. The yield amount itself is zero-knowledge proven, not self-reported -- see Phish result screens for what that guarantees today.</p>
                     </div>
 
                     <div class="term-definition planned">

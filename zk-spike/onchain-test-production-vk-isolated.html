@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Isolate Production VK vs Branching Bug</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Isolate Production VK vs Branching Bug</h2>
+<p>Debug page: tests the NEW production zkey + a LIVE-generated proof against the SIMPLE,
+non-branched covenant shape (proven pattern from onchain-test-real-formula.html) -- no
+OpIf/OpElse at all. If this works, the bug is in the branched script. If this also fails,
+the bug is in the production zkey/proof pipeline itself.</p>
+<button id="run">RUN TEST</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey, Mnemonic, XPrv, PrivateKeyGenerator } from '../kaspa.js';
+import { CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI, NodeSpecialization } from '../kaspa-client.js';
+import { generatePhishYieldProof } from '../zk-prover.js';
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// Simple, non-branched, no-signature covenant -- ZK verify only, matching
+// onchain-test.html's already-proven shape exactly.
+function buildSimpleZkRedeemScript(vkHex) {
+    return new ScriptBuilder()
+        .addData(vkHex).addData("20").addOp(Opcodes.OpZkPrecompile);
+}
+
+function buildSimpleZkSigScript(redeemScriptHex, proofBundle) {
+    const builder = new ScriptBuilder();
+    for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
+        builder.addData(proofBundle.publicInputHexes[i]);
+    }
+    builder.addI64(BigInt(proofBundle.publicInputHexes.length));
+    builder.addData(proofBundle.proofHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run() {
+    document.getElementById('run').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        log('Generating a fresh live proof for seed=9, sectors=0, nodeSpec=UNSET...');
+        const { yieldAmount, proofBundle } = await generatePhishYieldProof({ seed: 9, sectors: 0, nodeSpec: NodeSpecialization.UNSET });
+        log(`Proof generated. yieldAmount = ${yieldAmount}`, 'ok');
+        log(`  proofHex: ${proofBundle.proofHex}`);
+        proofBundle.publicInputHexes.forEach((h, i) => log(`  publicInputHexes[${i}]: ${h}`));
+
+        // Same production VK hardcoded in kaspa-client.js -- copy-pasted here so this
+        // debug page has zero dependency on the branched-script code being debugged.
+        const vkHex = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
+
+        const redeem = buildSimpleZkRedeemScript(vkHex);
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        log('Submitting the ZK verify spend (simple, non-branched)...');
+        const SPEND_COMPUTE_BUDGET = 1850;
+        const spendPriorityFee = 30000000n;
+        const covenantTotal = covenantEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const changeAmount = covenantTotal - spendPriorityFee;
+        const spendTx = createTransaction(
+            covenantEntries,
+            [{ address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, undefined, undefined
+        );
+        spendTx.version = 1;
+        spendTx.inputs[0].sigOpCount = 0;
+        spendTx.inputs[0].computeBudget = SPEND_COMPUTE_BUDGET;
+        spendTx.inputs[0].signatureScript = buildSimpleZkSigScript(redeemHex, proofBundle).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            log(`SUCCESS: production VK + live proof verified on-chain WITHOUT branching! txid: ${JSON.stringify(spendTxid)}`, 'ok');
+            log('=> The bug is in the OpIf/OpElse branched script, not the production zkey/proof pipeline.', 'ok');
+        } catch (err) {
+            log(`REJECTED: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+            log('=> The bug is in the production zkey/proof pipeline itself, not the branching.', 'err');
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('run').disabled = false;
+    }
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>

@@ -125,7 +125,7 @@
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
     import {
-        getAddressBalance, deriveRestrictedWalletAddress, sendFromPlainWallet,
+        getAddressBalance, deriveZkPhishAddress, deriveRestrictedWalletAddress, sendFromPlainWallet,
         attemptRestrictedWalletSend, buyTurns, computeBuyTurnsBreakdown, computeDepositForTurns,
         encodeGameStateSnapshot,
     } from './kaspa-client.js';
@@ -188,8 +188,8 @@
             document.getElementById('plainBalanceLabel').innerText = `${(Number(plainBalance) / 1e8).toFixed(2)} TKAS`;
 
             const pubkey = getSessionPublicKey();
-            const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
-            const vaultBalance = await getAddressBalance(restrictedAddr);
+            const vaultAddr = deriveZkPhishAddress(pubkey);
+            const vaultBalance = await getAddressBalance(vaultAddr);
             document.getElementById('vaultBalanceLabel').innerText = `${(Number(vaultBalance) / 1e8).toFixed(2)} TKAS`;
 
             logLine("BALANCES_LOADED. SELECT_SOURCE_AND_ENTER_DESTINATION.");
@@ -246,6 +246,11 @@
         } else {
             logLine("ATTEMPTING_VAULT_TRANSFER (EXPECT_COVENANT_REJECTION)...");
             try {
+                // Demo still targets the old (pre-ZK-Phish) restricted-wallet covenant --
+                // proves the same "vault funds can't be drained by an arbitrary send" shape
+                // this covenant family enforces, without needing a ZK-proof-aware rejection
+                // demo built against the new branched script. Not the address Phish/buyTurns
+                // actually use anymore (see deriveZkPhishAddress above).
                 const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
                 const txid = await attemptRestrictedWalletSend({
                     playerAddress: restrictedAddr,
@@ -284,7 +289,7 @@
 
         logLine("BROADCASTING_VAULT_TOPUP...");
         try {
-            const vaultAddress = deriveRestrictedWalletAddress(pubkey);
+            const vaultAddress = deriveZkPhishAddress(pubkey);
             // $PUNKW itself doesn't change here -- still tagged with the operator's current
             // full state (unchanged), same "state snapshot on every CPW transaction" rule
             // Genesis/Phish already follow, so history.html can decode this as a real move.

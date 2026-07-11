@@ -8,7 +8,7 @@
  * fetching.
  *
  * Must be called AFTER bootBunkerEngine() has resolved -- it calls into kaspa-client.js
- * functions that touch the WASM engine (deriveRestrictedWalletAddress, getAddressBalance).
+ * functions that touch the WASM engine (deriveZkPhishAddress, getAddressBalance).
  *
  * Does NOT redirect if there's no saved identity -- pages that require login (bunker.html,
  * send.html, etc.) already have their own top-level redirect before this ever runs. Pages
@@ -16,7 +16,7 @@
  * consistency; it just renders a guest state (nav links work, no live balances) instead.
  */
 import { getSessionPublicKey } from './wallet-gen.js';
-import { getAddressBalance, deriveRestrictedWalletAddress, COST_PER_TURN_SOMPI } from './kaspa-client.js';
+import { getAddressBalance, deriveZkPhishAddress, COST_PER_TURN_SOMPI } from './kaspa-client.js';
 
 // Attack and Research used to be their own persistent nav destinations (separate
 // COMING_SOON pages) -- they're now options inside the Command Center's action grid
@@ -127,7 +127,7 @@ export async function refreshSidebarStats() {
         if (plainEl) plainEl.innerText = `${(Number(balanceSompi) / 1e8).toFixed(2)} TKAS`;
 
         const pubkey = getSessionPublicKey();
-        const vaultAddr = deriveRestrictedWalletAddress(pubkey);
+        const vaultAddr = deriveZkPhishAddress(pubkey);
         const vaultBalanceSompi = await getAddressBalance(vaultAddr);
         const vaultEl = document.getElementById('sidebarVaultBalance');
         if (vaultEl) vaultEl.innerText = `${(Number(vaultBalanceSompi) / 1e8).toFixed(2)} TKAS`;

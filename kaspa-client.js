@@ -8,7 +8,7 @@
  * what this uses. "vprogs" (mentioned in this game's own lore docs) are a real but
  * not-yet-live Kaspa roadmap concept -- nothing here depends on them existing.
  */
-import { RpcClient, Resolver, Generator, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey, payToAddressScript, payToScriptHashSignatureScript, SighashType } from './kaspa.js';
+import { RpcClient, Resolver, Generator, ScriptBuilder, Opcodes, createTransaction, createInputSignature, addressFromScriptPublicKey, payToAddressScript, payToScriptHashSignatureScript, SighashType } from './kaspa.js';
 
 export const CPW_NETWORK_ID = "testnet-10";
 
@@ -415,9 +415,10 @@ export function deriveRestrictedWalletAddress(playerPubkeyHex) {
 // payload's extra compute mass on top of this covenant's (now just 2-output) spend shape.
 const RESTRICTED_WALLET_PRIORITY_FEE_SOMPI = 500000n;
 
-// Exported so every page that needs to display/compute "turns available" (currently
-// bunker.html and shared-sidebar.js) shares one definition instead of recomputing it.
-export const COST_PER_TURN_SOMPI = PHISH_REWARD_AMOUNT_SOMPI + RESTRICTED_WALLET_PRIORITY_FEE_SOMPI;
+// COST_PER_TURN_SOMPI itself now lives further down, after the ZK-Phish fee constants it's
+// actually built from (PHISH_ZK_CLAIM_PRIORITY_FEE_SOMPI, PHISH_ANCHOR_PRIORITY_FEE_SOMPI)
+// -- RESTRICTED_WALLET_PRIORITY_FEE_SOMPI above is now only used by the old non-ZK demo
+// functions (attemptRestrictedWalletSend et al.), not the real Phish turn cost.
 
 // Manually signing a P2SH covenant input needs raw createTransaction() + createInputSignature()
 // (the Generator's own .sign() only knows how to do standard P2PK signing for addresses it
@@ -505,6 +506,253 @@ export async function attemptRestrictedWalletSend({ playerAddress, playerPrivate
 
     // Expected to throw here -- the RPC rejection message is the demo's actual payload.
     return await pendingTransaction.submit(rpc);
+}
+
+// --- ZK-verified Phish covenant (per-player, branched) ---
+//
+// Real Phish yield, ZK-proven per design-bible.md section 06 (baseRoll + sectorBonus +
+// specBonus), replacing bunker.html's old `Math.floor(Math.random() * 40) + 10`
+// placeholder. Built and proven live on testnet-10 across four confirmed transactions in
+// zk-spike/ before landing here -- see zk-spike/README.md for the full incident/discovery
+// log (P2SH byte-identical scripts, computeBudget units, tx version, signature length-
+// prefix, and the branched-covenant design itself) before touching anything below.
+//
+// One address, two spending branches (OpIf/OpElse/OpEndIf -- standard, pre-Toccata
+// opcodes, already named in this SDK's Opcodes export), both requiring the player's own
+// signature:
+//   - REAL CLAIM branch: pays OpZkPrecompile's real verification cost, requires exactly 2
+//     outputs (reward treasury + change), carries the CPW1 payload.
+//   - ANCHOR branch: no ZK verify, no external payout, exactly 1 output (all value minus
+//     fee returns to this same covenant) -- a deliberately cheap spend used purely to get
+//     an accepting-block hash the player couldn't predict at broadcast time, which
+//     bunker.html's executePhish() folds into the yield formula's committed seed. This is
+//     NOT cryptographically airtight grinding-resistance (Kaspa Script has no opcode to
+//     verify a claimed block hash is genuine, so nothing here is chain-enforced) -- it
+//     converts free, unlimited, offline grinding into "costs a real anchor-transaction fee
+//     and a real wait, per attempt." Stated plainly so nobody mistakes this for more than
+//     it is. Crucially, the anchor's cost draws from THIS vault, never the player's plain
+//     wallet -- "buy turns is the entire financial outlay to play" is a hard game
+//     convention, not just a UI nicety.
+//   - Skipped OpIf branches never execute, so the anchor spend never pays
+//     OpZkPrecompile's cost -- confirmed via mass measurements during zk-spike's on-chain
+//     testing (anchor-shaped spends cost mass in the same ballpark as the old non-ZK
+//     Phish spend, not the ~180k+ the ZK branch costs).
+//
+// The production verifying key below is for circuits/phishYield.circom (zk-spike/),
+// compiled from the public Hermez Powers of Tau ceremony plus a fresh local contribution
+// (NOT the self-generated, single-contributor ptau zk-spike's first pass used for initial
+// toolchain testing -- see zk-spike/README.md's trusted-setup notes). Arkworks-compressed
+// via zk-spike/kaspa-zk-convert, independently re-verified against ark-groth16's own
+// verify_proof (the same crate Kaspa's on-chain verifier uses) before being trusted here.
+//
+// IMPORTANT: this value must always be regenerated fresh from zk/phishYield.zkey (the exact
+// file the browser actually proves against), never hand-transcribed. Groth16 trusted-setup
+// contribution (`zkey contribute`) is randomized -- every re-run of the production setup
+// produces a genuinely different, but equally valid, keypair, so an old hardcoded VK silently
+// stops matching the moment the zkey is regenerated for any reason. Hit exactly this bug once
+// during development: an earlier VK value here was accidentally left over from a zkey that had
+// since been regenerated, and Kaspa's on-chain OpZkPrecompile correctly rejected every proof
+// as a result ("ZK Integrity: Groth16 verification failed") even though the same proofs passed
+// local snarkjs/ark-groth16 verification (those check proof-vs-its-own-accompanying-vk
+// internal consistency, not "is this the vk the covenant actually hardcodes"). If this class of
+// bug resurfaces, regenerate via zk-spike/kaspa-zk-convert against zk-spike/build-prod/
+// verification_key.json (re-exported from the CURRENT zk/phishYield.zkey) and diff the result
+// against this constant before assuming anything else is broken.
+const PHISH_YIELD_VERIFICATION_KEY_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
+
+function buildZkPhishRedeemScript(playerPubkeyHex) {
+    const rewardTreasurySpk = getRewardTreasurySpkHex();
+    return new ScriptBuilder()
+        .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
+        .addOp(Opcodes.OpIf)
+            .addData(PHISH_YIELD_VERIFICATION_KEY_HEX).addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual)
+        .addOp(Opcodes.OpElse)
+            .addOp(OpTxOutputCount).addI64(1n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(0n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual)
+        .addOp(Opcodes.OpEndIf);
+}
+
+export function deriveZkPhishAddress(playerPubkeyHex) {
+    const redeemScript = buildZkPhishRedeemScript(playerPubkeyHex);
+    const spk = redeemScript.createPayToScriptHashScript();
+    return addressFromScriptPublicKey(spk, CPW_NETWORK_ID).toString();
+}
+
+// Stack consumption order across the whole script (top to bottom, as opcodes actually pop
+// it): signature (OpCheckSigVerify, shared) -> branch flag (OpIf) -> (real-claim branch
+// only) proof, public-input count, public inputs (OpZkPrecompile). Push order is the
+// reverse (stack is LIFO) -- same pattern proven in zk-spike/onchain-test-phish.html,
+// extended by the branch-flag item.
+function buildZkPhishAnchorSigScript(redeemScriptHex, signatureHex) {
+    return new ScriptBuilder()
+        .addI64(0n) // branch flag: false -> OpElse (anchor)
+        .addData(signatureHex)
+        .addData(redeemScriptHex);
+}
+
+function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle) {
+    const builder = new ScriptBuilder();
+    for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
+        builder.addData(proofBundle.publicInputHexes[i]);
+    }
+    builder.addI64(BigInt(proofBundle.publicInputHexes.length));
+    builder.addData(proofBundle.proofHex);
+    builder.addI64(1n); // branch flag: true -> OpIf (real claim)
+    builder.addData(signatureHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+// createInputSignature() (the free function, used here since this covenant needs raw
+// createTransaction() rather than Generator/PendingTransaction -- see spendZkVerifiedPhish's
+// comment for why) returns a 66-byte length-prefixed blob: a leading 0x41 (=65 decimal)
+// self-describing push-length byte, then the real 65-byte payload (64-byte Schnorr
+// signature + the SIG_HASH_ALL=0x01 hash-type byte already appended).
+// ScriptBuilder.addData() adds its own correct push-length prefix, so the leading byte
+// must be stripped or the signature gets double-prefixed and rejected as "malformed
+// signature" -- confirmed the hard way in zk-spike this session, see its README.
+function stripSignatureLengthPrefix(rawSigHex) {
+    return rawSigHex.slice(2);
+}
+
+// Small, fixed fee -- the anchor branch never touches OpZkPrecompile, so it costs about
+// the same as the old non-ZK Phish spend, not the ZK-verify figure below.
+const PHISH_ANCHOR_PRIORITY_FEE_SOMPI = 500000n;
+
+// Cheap "touch the chain" spend from the player's own ZK-Phish vault: no proof, no
+// external payout, all value (minus this small fee) returns to the same covenant. Exists
+// purely so bunker.html's executePhish() can read back this transaction's
+// accepting-block hash (via pollAcceptingBlockHash below) as unpredictable-at-broadcast-
+// time entropy for the yield formula's committed seed -- see the section comment above
+// for what this does and doesn't guarantee.
+export async function submitPhishAnchor({ playerAddress, playerPrivateKey, playerPubkeyHex }) {
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    // Single sufficient UTXO, not the whole entry set -- avoids the multi-input mass/
+    // signing complications zk-spike hit when it didn't do this (see its README's "What
+    // it took" section, item 4).
+    const singleEntry = entries.reduce((a, b) => (BigInt(a.amount) >= BigInt(b.amount) ? a : b));
+    const changeAmount = BigInt(singleEntry.amount) - PHISH_ANCHOR_PRIORITY_FEE_SOMPI;
+    if (changeAmount <= 0n) {
+        throw new Error("VAULT_BALANCE_TOO_LOW_FOR_ANCHOR");
+    }
+
+    const redeemScriptHex = buildZkPhishRedeemScript(playerPubkeyHex).toString();
+    const tx = createTransaction(
+        [singleEntry],
+        [{ address: playerAddress, amount: changeAmount }],
+        PHISH_ANCHOR_PRIORITY_FEE_SOMPI, undefined, undefined
+    );
+    const sigHex = stripSignatureLengthPrefix(createInputSignature(tx, 0, playerPrivateKey, SighashType.All));
+    tx.inputs[0].signatureScript = buildZkPhishAnchorSigScript(redeemScriptHex, sigHex).toString();
+
+    // Normalized to a plain string txid -- see the matching comment in spendZkVerifiedPhish
+    // for why rpc.submitTransaction()'s raw return shape can't be trusted as-is.
+    const submitResult = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    return typeof submitResult === 'string' ? submitResult : submitResult.transactionId;
+}
+
+// Polls the REST indexer's single-transaction endpoint for the block that accepted
+// `txid` -- confirmed live this session to expose `is_accepted`/`accepting_block_hash`
+// directly (see zk-spike's plan-doc notes). Kaspa's ~1 second block times mean this
+// resolves quickly in practice, not a "come back later" wait.
+export async function pollAcceptingBlockHash(txid, { tries = 30, delayMs = 1000 } = {}) {
+    const url = `${REST_API_BASE}/transactions/${encodeURIComponent(txid)}`;
+    for (let i = 0; i < tries; i++) {
+        const resp = await fetch(url);
+        if (resp.ok) {
+            const tx = await resp.json();
+            if (tx.is_accepted && tx.accepting_block_hash) {
+                return tx.accepting_block_hash;
+            }
+        }
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_ACCEPTANCE: ${txid}`);
+}
+
+// Real floor confirmed on-chain this session: 186,866 mass at the network's ~100
+// sompi/gram fee rate is ~0.187 KAS; padded to a clean 0.2 KAS for margin (matches the
+// same ~7% padding pattern used throughout zk-spike's on-chain tests).
+const PHISH_ZK_CLAIM_PRIORITY_FEE_SOMPI = 20000000n;
+
+// computeBudget is in units of 10,000 raw script units each (u16-limited), NOT a raw
+// script-unit count -- see zk-spike/README.md's "What it took" item 2 for the exact
+// mechanism and the silent-overflow bug this session hit before getting it right. 1850
+// covers this VK's confirmed real usage with margin (the same value proven on-chain for
+// this exact verifying key in zk-spike/onchain-test-real-formula.html).
+const PHISH_ZK_COMPUTE_BUDGET = 1850;
+
+// The real per-turn cost: reward + real-claim fee + anchor fee (the anchor is a genuine
+// extra transaction now, not a free client-side step -- see the section comment above).
+// Same exported name every existing UI surface (bunker.html, shared-sidebar.js,
+// send.html) already reads -- they pick up the new, real figure automatically, no other
+// code changes needed there.
+export const COST_PER_TURN_SOMPI = PHISH_REWARD_AMOUNT_SOMPI + PHISH_ZK_CLAIM_PRIORITY_FEE_SOMPI + PHISH_ANCHOR_PRIORITY_FEE_SOMPI;
+
+// The real claim: reveals the ZK proof (proofBundle, from zk-prover.js), pays the reward
+// treasury, writes the CPW1 payload, change returns to the same ZK-Phish vault. Raw
+// createTransaction() + free-function createInputSignature(), NOT Generator/
+// PendingTransaction -- computeBudget requires transaction version >= 1, but
+// PendingTransaction.transaction returns a fresh clone on every access (the same
+// documented bug that broke payload-tagging earlier this project's life, see the "PAYLOAD
+// TAGGING HISTORY" comment above sendTaggedTransaction), so mutating computeBudget/
+// version through it wouldn't stick. This raw path is proven correct across four on-chain
+// transactions in zk-spike already.
+export async function spendZkVerifiedPhish({ playerAddress, playerPrivateKey, playerPubkeyHex, proofBundle, actionType, extraBytes }) {
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    const singleEntry = entries.reduce((a, b) => (BigInt(a.amount) >= BigInt(b.amount) ? a : b));
+    const spendAmount = BigInt(singleEntry.amount) - PHISH_REWARD_AMOUNT_SOMPI - PHISH_ZK_CLAIM_PRIORITY_FEE_SOMPI;
+    if (spendAmount <= 0n) {
+        throw new Error("VAULT_BALANCE_TOO_LOW_FOR_CLAIM");
+    }
+
+    const redeemScriptHex = buildZkPhishRedeemScript(playerPubkeyHex).toString();
+    const payload = encodePayload(actionType, extraBytes);
+    const tx = createTransaction(
+        [singleEntry],
+        [
+            { address: PRIZE_VAULT_ADDRESS, amount: PHISH_REWARD_AMOUNT_SOMPI },
+            { address: playerAddress, amount: spendAmount },
+        ],
+        PHISH_ZK_CLAIM_PRIORITY_FEE_SOMPI, payload, undefined
+    );
+    tx.version = 1;
+    tx.inputs[0].sigOpCount = 0;
+    tx.inputs[0].computeBudget = PHISH_ZK_COMPUTE_BUDGET;
+
+    const sigHex = stripSignatureLengthPrefix(createInputSignature(tx, 0, playerPrivateKey, SighashType.All));
+    tx.inputs[0].signatureScript = buildZkPhishClaimSigScript(redeemScriptHex, sigHex, proofBundle).toString();
+
+    // rpc.submitTransaction() resolves to { transactionId } here, not a bare string --
+    // confirmed via zk-spike's on-chain testing. Normalize before returning so every caller
+    // (phish-result.html's txLinkHtml() included) gets a plain string, not "[object Object]".
+    const submitResult = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    const txid = typeof submitResult === 'string' ? submitResult : submitResult.transactionId;
+    return {
+        txid,
+        outputs: {
+            reward: PHISH_REWARD_AMOUNT_SOMPI,
+            change: spendAmount,
+        },
+    };
 }
 
 // Ordinary P2PK send from the player's plain wallet address -- no covenant involved,

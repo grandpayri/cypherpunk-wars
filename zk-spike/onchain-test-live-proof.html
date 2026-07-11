@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Live Proof Generation + Branched Covenant, On-Chain</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Live Proof Generation + Branched Covenant</h2>
+<p>Tests the REAL pipeline that ships in the game: ../zk-prover.js generates a fresh proof
+in-browser (not a pre-baked one), ../kaspa-client.js's branched ZK-Phish covenant (anchor
++ real-claim), full anchor -&gt; poll -&gt; prove -&gt; claim flow. Experimental,
+disposable-keypair-only. Not part of the shipped game. See <a href="README.md" style="color:#7fffb0">README.md</a>.</p>
+<button id="run">RUN TEST</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, Mnemonic, XPrv, PrivateKeyGenerator } from '../kaspa.js';
+import {
+    CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI,
+    deriveZkPhishAddress, submitPhishAnchor, pollAcceptingBlockHash, spendZkVerifiedPhish,
+    ActionType, encodeGameStateSnapshot, NodeSpecialization,
+} from '../kaspa-client.js';
+import { generateLocalSecretHex, deriveSeedFromAnchor, generatePhishYieldProof } from '../zk-prover.js';
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run() {
+    document.getElementById('run').disabled = true;
+    const t0 = performance.now();
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        log('Generating disposable throwaway player identity...');
+        const mnemonic = Mnemonic.random(24);
+        const xprv = new XPrv(mnemonic.toSeed());
+        const generator = new PrivateKeyGenerator(xprv, false, 0n);
+        const privateKey = generator.receiveKey(0);
+        const address = privateKey.toAddress(CPW_NETWORK_ID).toString();
+        const playerPubkeyHex = privateKey.toPublicKey().toString().slice(2);
+        log(`Throwaway player address: ${address}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        const covenantAddress = deriveZkPhishAddress(playerPubkeyHex);
+        log(`ZK-Phish covenant address: ${covenantAddress}`);
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        // Reuses kaspa-client.js's own exported FAUCET_GRANT_CAP_SOMPI/FAUCET_VAULT_ADDRESS
+        // but not its faucet-spend internals (not exported) -- duplicated minimally here,
+        // matching zk-spike's established pattern for these test pages.
+        const { ScriptBuilder, Opcodes, createTransaction } = await import('../kaspa.js');
+        const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded (10 TKAS).', 'ok');
+
+        // --- Step 1: anchor ---
+        log('Submitting anchor transaction (cheap branch, no ZK verify)...');
+        const anchorTxid = await submitPhishAnchor({ playerAddress: covenantAddress, playerPrivateKey: privateKey, playerPubkeyHex });
+        log(`Anchor submitted: ${JSON.stringify(anchorTxid)}`, 'ok');
+        const anchorTxidStr = typeof anchorTxid === 'string' ? anchorTxid : anchorTxid.transactionId;
+
+        // --- Step 2: poll for accepting block hash ---
+        log('Polling for the anchor\'s accepting block hash...');
+        const acceptingBlockHash = await pollAcceptingBlockHash(anchorTxidStr);
+        log(`Accepting block hash: ${acceptingBlockHash}`, 'ok');
+
+        // --- Step 3: derive seed, generate proof ---
+        const localSecretHex = generateLocalSecretHex();
+        const seed = await deriveSeedFromAnchor(localSecretHex, acceptingBlockHash);
+        log(`Derived seed from local secret + accepting block hash: ${seed}`);
+        log('Generating ZK proof in-browser (live, not pre-baked)...');
+        const proveStart = performance.now();
+        const { yieldAmount, proofBundle } = await generatePhishYieldProof({ seed, sectors: 0, nodeSpec: NodeSpecialization.UNSET });
+        log(`Proof generated in ${((performance.now() - proveStart) / 1000).toFixed(2)}s. yieldAmount = ${yieldAmount}`, 'ok');
+        log(`  proofHex (${proofBundle.proofHex.length / 2} bytes): ${proofBundle.proofHex}`);
+        proofBundle.publicInputHexes.forEach((h, i) => log(`  publicInputHexes[${i}] (${h.length / 2} bytes): ${h}`));
+
+        // --- Step 4: real claim ---
+        log('Submitting the real claim transaction (ZK verify + reward payout + payload)...');
+        const payload = encodeGameStateSnapshot({ punkw: yieldAmount, turnCount: 1 });
+        const claimResult = await spendZkVerifiedPhish({
+            playerAddress: covenantAddress,
+            playerPrivateKey: privateKey,
+            playerPubkeyHex,
+            proofBundle,
+            actionType: ActionType.PHISH,
+            extraBytes: payload,
+        });
+        const totalSeconds = ((performance.now() - t0) / 1000).toFixed(1);
+        log(`SUCCESS: full anchor -> poll -> prove -> claim cycle complete in ${totalSeconds}s. txid: ${JSON.stringify(claimResult.txid)}`, 'ok');
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('run').disabled = false;
+    }
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>

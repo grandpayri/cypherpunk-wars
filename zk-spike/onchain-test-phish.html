@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Realistic Phish Transaction (signature + ZK proof + payload)</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Realistic Phish Transaction</h2>
+<p>Player signature + ZK proof verify + 0.2 KAS to prize vault + CPW1 payload, in one
+transaction. Experimental, disposable-keypair-only. Not part of the shipped game.
+See <a href="README.md" style="color:#7fffb0">README.md</a>.</p>
+<p style="color:#ffaa33">Uses the OLD stand-in circuit (yieldAmount = seed + 10) -- predates the
+real Phish yield formula in circuits/phishYield.circom. See README.md.</p>
+<button id="run">RUN TEST</button>
+<div id="log"></div>
+
+<script type="module">
+import init, {
+    RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey,
+    payToAddressScript, createInputSignature, SighashType, Mnemonic, XPrv, PrivateKeyGenerator,
+} from '../kaspa.js';
+import {
+    CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI, PRIZE_VAULT_ADDRESS, PHISH_REWARD_AMOUNT_SOMPI,
+    ActionType, encodePayload, encodeGameStateSnapshot,
+} from '../kaspa-client.js';
+
+// Same proof as onchain-test.html (seed=17 -> yieldAmount=27), see ../kaspa-zk-convert.
+const ONCHAIN_ENCODING = {
+  "proof_hex": "e0a06b2012a25a6da889568e7277cce0c6095d11db0a70450e3644da2c619c89353a9b1ae11809101fce714dac60a51a101e4fdbe7f1894da63e813315562005fb67d981507384835711bebc2fa35885f8cd27e8fb19a44959e30c2315e8b788384d176341bf1cc0caf60a619d50fa302cf88c03e8c6afac64013c1f36b712ad",
+  "public_input_hexes": [
+    "1b00000000000000000000000000000000000000000000000000000000000000",
+    "9c3db5a1eef53112fde60d1238f766bd3c35e7fcaae9c58760cb3b4aec6da014"
+  ],
+  "verification_key_hex": "c2158253cafb6ce41004617e05414d25984e35fcea17f1e2dd0678e9140a7020429c02ea1732e8743c76e8eb66cb8bbbd44a3dc680d9e3f5dc776dae3f8e2910576075a369dc6129ffc9b1ec92799ae4a3b14aaa57812591422fc9f568fb2ea2edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e19db40dff9a9ad8eded95e68dc5da9114d56c4eaedf19cf85d00bfb4768979281a4120f5a06134cbcf085fef40889f5f5cd061159f3cc192f7e816f604418f13ad03000000000000006db6389e35ee180d03797074ee52c9460c892e16475ca7bb381828bbea7894187fb1286349dd54a8f5763615448e013d6a4a527cb5e534750d4fca974477ac28838a359dde024df88bf37f157b8282a02c777d1984e3cb4de5ddd16d84223a2f"
+};
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// The real Phish covenant shape (buildRestrictedWalletRedeemScript in ../kaspa-client.js)
+// PLUS a ZK proof verify inserted after the signature check. OpVerify right after
+// OpZkPrecompile discards the `true` it pushes on success so the script can keep
+// chaining more checks and still end on exactly one truthy item (OpEqual, last).
+function buildZkPhishRedeemScript(playerPubkeyHex, rewardTreasurySpkHex) {
+    return new ScriptBuilder()
+        .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
+        .addData(ONCHAIN_ENCODING.verification_key_hex).addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+        .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpkHex).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+        .addI64(1n).addOp(OpTxOutputSpk)
+        .addOp(Opcodes.OpEqual);
+}
+
+// Consumption order across the whole script: signature (OpCheckSigVerify, first),
+// then proof/count/input[0]/input[1] (OpZkPrecompile). Push order is the reverse
+// (stack is LIFO) -- same public-input push pattern as onchain-test.html, with the
+// signature added on top (consumed first).
+function buildZkPhishSigScript(redeemScriptHex, signatureHex) {
+    const builder = new ScriptBuilder();
+    for (let i = ONCHAIN_ENCODING.public_input_hexes.length - 1; i >= 0; i--) {
+        builder.addData(ONCHAIN_ENCODING.public_input_hexes[i]);
+    }
+    builder.addI64(BigInt(ONCHAIN_ENCODING.public_input_hexes.length));
+    builder.addData(ONCHAIN_ENCODING.proof_hex);
+    builder.addData(signatureHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run() {
+    document.getElementById('run').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        log('Generating disposable throwaway player identity...');
+        const mnemonic = Mnemonic.random(24);
+        const xprv = new XPrv(mnemonic.toSeed());
+        const generator = new PrivateKeyGenerator(xprv, false, 0n);
+        const privateKey = generator.receiveKey(0);
+        const address = privateKey.toAddress(CPW_NETWORK_ID).toString();
+        const playerPubkeyHex = privateKey.toPublicKey().toString().slice(2); // strip parity prefix, native P2PK wants the bare x-only 32 bytes
+        log(`Throwaway player address: ${address}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Deriving this player\'s ZK-gated Phish covenant address...');
+        const rewardTreasurySpkHex = "0000" + payToAddressScript(PRIZE_VAULT_ADDRESS).script;
+        const redeem = buildZkPhishRedeemScript(playerPubkeyHex, rewardTreasurySpkHex);
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        // Fund the covenant: 5 TKAS, faucet-backed, disposable. FAUCET_GRANT_CAP_SOMPI is
+        // 10 TKAS so one grant covers this comfortably.
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const grantAmount = FAUCET_GRANT_CAP_SOMPI; // 10 TKAS -- request the full cap, more margin for the covenant spend below
+        const faucetPriorityFee = 500000n;
+        // Must be byte-identical to the real deployed faucet redeem script (see
+        // buildFaucetRedeemScript in ../kaspa-client.js) -- this is reconstructed
+        // locally since that function isn't exported, and using the WRONG cap
+        // constant here (a first attempt hardcoded 10000000000n instead of the
+        // real FAUCET_GRANT_CAP_SOMPI = 1000000000n) makes the local script hash
+        // to a different value than what FAUCET_VAULT_ADDRESS actually committed
+        // to, which surfaces as "false stack entry at end of script execution"
+        // (Kaspa's P2SH hash check is itself a script-level comparison) rather
+        // than an obvious "wrong redeem script" error.
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: grantAmount }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - grantAmount - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        log('Building the real Phish transaction: signature + ZK proof + 0.2 KAS to prize vault + CPW1 payload...');
+        const payload = encodePayload(ActionType.PHISH, encodeGameStateSnapshot({ punkw: 27, turnCount: 1 }));
+        log(`Payload: ${payload.length} bytes (CPW1 + PHISH tag + 42-byte game-state snapshot).`);
+
+        // Same budget-unit lesson as onchain-test.html: computeBudget is in units of
+        // 10,000 script units, u16-limited. This script does more than the bare verify
+        // (signature check + 5 introspection checks on top), so padded a bit above the
+        // bare-verify circuit's ~1550-1600 floor for safety margin -- still tiny relative
+        // to the u16 range.
+        const SPEND_COMPUTE_BUDGET = 1750;
+        const spendPriorityFee = 30000000n; // 0.3 KAS -- padded over the ~0.18-0.2 KAS estimated floor for this shape
+        const covenantTotal = covenantEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const changeAmount = covenantTotal - PHISH_REWARD_AMOUNT_SOMPI - spendPriorityFee;
+        if (changeAmount <= 0n) throw new Error('Covenant balance too low to cover reward + fee.');
+
+        const spendTx = createTransaction(
+            covenantEntries,
+            [{ address: PRIZE_VAULT_ADDRESS, amount: PHISH_REWARD_AMOUNT_SOMPI }, { address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, payload, undefined
+        );
+        spendTx.version = 1;
+        spendTx.inputs[0].sigOpCount = 0;
+        spendTx.inputs[0].computeBudget = SPEND_COMPUTE_BUDGET;
+
+        // Sign BEFORE filling in the final signatureScript -- SighashType.All doesn't
+        // cover the (not-yet-set) signature script itself, only the rest of the
+        // transaction, so signing first and filling the script after is the correct
+        // order (same order ../kaspa-client.js's signRestrictedWalletSpend follows via
+        // PendingTransaction's own createInputSignature/fillInput; this uses the
+        // free-function form directly since there's no PendingTransaction here).
+        log('Signing input 0 (free-function createInputSignature, on a raw createTransaction() tx)...');
+        const rawSigHex = createInputSignature(spendTx, 0, privateKey, SighashType.All);
+        log(`  raw signature: ${rawSigHex} (${rawSigHex.length} hex chars = ${rawSigHex.length / 2} bytes)`);
+        // createInputSignature() returns 66 bytes, one more than the 65 OpCheckSig
+        // expects (64-byte Schnorr sig + 1-byte hash type). The extra leading byte is
+        // 0x41 = 65 decimal -- a self-describing push-length prefix baked into the
+        // return value, not signature content. ScriptBuilder.addData() adds its own
+        // correct push-length prefix, so passing rawSigHex as-is double-prefixes it.
+        // Confirmed by two earlier failures: pushing bare rawSigHex, and rawSigHex+"01"
+        // (67 bytes) both got "malformed signature"; stripping this leading byte
+        // leaves exactly 65 bytes (130 hex chars), ending in "...01" = SIG_HASH_ALL.
+        const sigHex = rawSigHex.slice(2);
+        spendTx.inputs[0].signatureScript = buildZkPhishSigScript(redeemHex, sigHex).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            log(`SUCCESS: real Phish transaction (signature + ZK proof + payload + prize payout) accepted! txid: ${JSON.stringify(spendTxid)}`, 'ok');
+        } catch (err) {
+            log(`REJECTED: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('run').disabled = false;
+    }
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>

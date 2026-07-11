@@ -59,7 +59,7 @@
 
 <script type="module">
     import { bootBunkerEngine, forgeNewIdentity, syncBunkerIdentity, derivePublicKeyFromMnemonic } from './wallet-gen.js';
-    import { requestFaucetGrant, hasReceivedFaucetGrant, deriveRestrictedWalletAddress } from './kaspa-client.js';
+    import { requestFaucetGrant, hasReceivedFaucetGrant, deriveZkPhishAddress } from './kaspa-client.js';
     import { renderAppHeader } from './shared-header.js';
     import { renderFooter } from './shared-footer.js';
     import { createVault } from './vault.js';
@@ -154,13 +154,12 @@
             try {
                 // Two separate grants, not one: Genesis still spends from the plain address
                 // (unchanged), but ongoing gameplay (Phish) now spends from a per-player
-                // restricted-spend covenant wallet -- funds there are structurally locked to
-                // CPW-shaped transactions only (see kaspa-client.js's
-                // buildRestrictedWalletRedeemScript). A small grant funds Genesis; a larger
-                // one seeds a few Phish turns in the restricted wallet. Each is checked
-                // against hasReceivedFaucetGrant() first (see requestFaucetGrantOnce above)
-                // so our own UI can't hand out a second grant to an address that's already
-                // received one.
+                // ZK-Phish covenant vault -- funds there are structurally locked to CPW-shaped,
+                // ZK-verified transactions only (see kaspa-client.js's
+                // buildZkPhishRedeemScript). A small grant funds Genesis; a larger one seeds a
+                // dozen or so Phish turns in the vault. Each is checked against
+                // hasReceivedFaucetGrant() first (see requestFaucetGrantOnce above) so our own
+                // UI can't hand out a second grant to an address that's already received one.
                 await requestFaucetGrantOnce(bunkerId, 100000000n, 'GENESIS_GRANT'); // 1 KAS -- Genesis + fees
 
                 // The faucet vault is one shared covenant UTXO chain -- firing the second
@@ -170,8 +169,8 @@
                 await new Promise((resolve) => setTimeout(resolve, 3000));
 
                 const pubkey = derivePublicKeyFromMnemonic(currentMnemonic);
-                const restrictedAddr = deriveRestrictedWalletAddress(pubkey);
-                await requestFaucetGrantOnce(restrictedAddr, 600000000n, 'GAMEPLAY_VAULT_FUNDING'); // 6 KAS -- a few Phish turns
+                const vaultAddr = deriveZkPhishAddress(pubkey);
+                await requestFaucetGrantOnce(vaultAddr, 600000000n, 'GAMEPLAY_VAULT_FUNDING'); // 6 KAS -- a few Phish turns
             } catch (faucetErr) {
                 console.error("FAUCET_GRANT_ERROR:", faucetErr);
                 logLine("WARNING: FAUCET_GRANT_FAILED. FUND_MANUALLY_VIA_TN-10_FAUCET_IF_NEEDED.");

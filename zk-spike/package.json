@@ -1,0 +1,22 @@
+{
+  "name": "cypherpunk-wars-zk-spike",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Experimental circom+snarkjs spike for provable gameplay formulas. Not wired into the shipped game.",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "prove": "node scripts/prove.js"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.6"
+  },
+  "devDependencies": {
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "esbuild": "^0.28.1",
+    "events": "^3.3.0",
+    "process": "^0.11.10"
+  }
+}

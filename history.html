@@ -192,7 +192,18 @@
                 fetchDecodedEntries(bunkerId, 25),
                 fetchDecodedEntries(vaultAddress, 25),
             ]);
+            // Dedupe by txid before merging -- a Buy Turns transaction touches BOTH of the
+            // player's own addresses at once (plain wallet as sender, vault as a recipient
+            // output), so it legitimately appears in both lists and would otherwise render
+            // twice. Genesis/Phish don't hit this since each only ever touches one of the
+            // two addresses.
+            const seenTxids = new Set();
             const merged = [...plainEntries, ...vaultEntries]
+                .filter((entry) => {
+                    if (seenTxids.has(entry.txid)) return false;
+                    seenTxids.add(entry.txid);
+                    return true;
+                })
                 .sort((a, b) => (b.blockTime ?? 0) - (a.blockTime ?? 0))
                 .slice(0, 25);
             renderHistory(merged, `Scanned your last ${merged.length} transactions, merged from your Plain Wallet (${addressLinkHtml(bunkerId)}, Genesis lives here) and your Gameplay Vault (${addressLinkHtml(vaultAddress)}, Phish/Attack/Research live here).`);

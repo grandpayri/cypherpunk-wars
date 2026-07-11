@@ -26,10 +26,10 @@
                         <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
                     </div>
 
-                    <div class="action-card disabled">
-                        <h4>BUILD_INFRASTRUCTURE<span class="coming-soon-tag">Coming Soon</span></h4>
-                        <p>Spend $PUNKW to build Sectors, making future Phishing more efficient.</p>
-                        <button class="btn-execute" disabled>BUILD_SECTOR</button>
+                    <div class="action-card">
+                        <h4>BUILD_INFRASTRUCTURE</h4>
+                        <p>Spend 350 $PUNKW to build a Sector, growing your Infrastructure by 1.</p>
+                        <button class="btn-execute" onclick="executeBuildSector()">BUILD_SECTOR</button>
                     </div>
 
                     <div class="action-card disabled">
@@ -55,11 +55,12 @@
 
 <script type="module">
     import { bootBunkerEngine, getSessionPrivateKey, getSessionPublicKey } from './wallet-gen.js';
-    import { deriveZkPhishAddress, submitPhishAnchor, pollAcceptingBlockHash, spendZkVerifiedPhish, ActionType, encodeGameStateSnapshot, NodeSpecialization } from './kaspa-client.js';
-    import { generateLocalSecretHex, deriveSeedFromAnchor, generatePhishYieldProof } from './zk-prover.js';
+    import { deriveZkPhishAddress, submitPhishAnchor, pollAcceptingBlockHash, spendZkVerifiedPhish, spendBuildSector, ActionType, encodeGameStateSnapshot, NodeSpecialization } from './kaspa-client.js';
+    import { generateLocalSecretHex, deriveSeedFromAnchor, generatePhishYieldProof, generateBuildSectorProof } from './zk-prover.js';
     import { renderAppHeader } from './shared-header.js';
-    import { renderSidebar, refreshSidebarStats, getPunkwBalance, setPunkwBalance, getTurnCount, setTurnCount } from './shared-sidebar.js';
+    import { renderSidebar, refreshSidebarStats, getPunkwBalance, setPunkwBalance, getTurnCount, setTurnCount, getSectorCount, setSectorCount } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
+    import { txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -104,11 +105,14 @@
         // Real ZK-proven yield (design-bible.md section 06), grinding-resistant via an
         // anchor transaction's accepting-block hash as entropy the player can't predict at
         // broadcast time -- see the design note above buildZkPhishRedeemScript in
-        // kaspa-client.js for exactly what this does and doesn't guarantee. sectors/nodeSpec
-        // are hardcoded until those mechanics ship (Phase 6/not built); the formula degrades
-        // to the bare base roll in that case, so no current player's yield is affected.
+        // kaspa-client.js for exactly what this does and doesn't guarantee. sectors now
+        // feeds the real sectorBonus term now that Build Sector is live; nodeSpec stays
+        // hardcoded until that mechanic ships (Phase 6/not built) -- the formula degrades to
+        // baseRoll + sectorBonus in that case, so no current player's yield is wrongly
+        // affected.
         try {
             const vaultAddr = deriveZkPhishAddress(pubkey);
+            const currentSectors = getSectorCount(bunkerId);
 
             logLine("ANCHORING...");
             const anchorTxid = await submitPhishAnchor({ playerAddress: vaultAddr, playerPrivateKey: privateKey, playerPubkeyHex: pubkey });
@@ -122,7 +126,7 @@
             logLine("COMPUTING_PROOF...");
             const { yieldAmount, proofBundle } = await generatePhishYieldProof({
                 seed,
-                sectors: 0,
+                sectors: currentSectors,
                 nodeSpec: NodeSpecialization.UNSET,
             });
 
@@ -136,7 +140,7 @@
                 playerPubkeyHex: pubkey,
                 proofBundle,
                 actionType: ActionType.PHISH,
-                extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, turnCount: newTurnCount, provenYieldHex: proofBundle.publicInputHexes[0] }),
+                extraBytes: encodeGameStateSnapshot({ punkw: newPunkwTotal, sectors: currentSectors, turnCount: newTurnCount, provenYieldHex: proofBundle.publicInputHexes[0] }),
             });
             setPunkwBalance(bunkerId, newPunkwTotal);
             setTurnCount(bunkerId, newTurnCount);
@@ -153,6 +157,66 @@
         } catch (err) {
             console.error("PHISH_ERROR:", err);
             logLine(`ERROR: GRID_FAILURE. ${err.message || err}`);
+        }
+    };
+
+    // Build Sector: a deterministic state transition (no yield roll), so unlike Phish it
+    // doesn't need the anchor/accepting-block-hash entropy dance -- one straight ZK-verified
+    // claim transaction is enough. Stays in the command console (no dedicated result page,
+    // unlike Phish) since there's no roll outcome to show off, just a before/after state.
+    window.executeBuildSector = async function () {
+        if (!bunkerId) return;
+
+        let privateKey, pubkey;
+        try {
+            privateKey = getSessionPrivateKey();
+            pubkey = getSessionPublicKey();
+        } catch (err) {
+            logLine("ERROR: SESSION_KEY_UNAVAILABLE. REDIRECTING_TO_RESUME...");
+            setTimeout(() => { window.location.href = 'resume.html'; }, 1500);
+            return;
+        }
+
+        const oldPunkw = getPunkwBalance(bunkerId);
+        const oldSectors = getSectorCount(bunkerId);
+        const COST_PER_SECTOR = 350; // must match buildSector.circom's own COST_PER_SECTOR exactly
+
+        if (oldPunkw < COST_PER_SECTOR) {
+            logLine(`ERROR: INSUFFICIENT_PUNKW. NEED_${COST_PER_SECTOR}_HAVE_${oldPunkw}.`);
+            return;
+        }
+
+        try {
+            const vaultAddr = deriveZkPhishAddress(pubkey);
+
+            logLine("COMPUTING_PROOF...");
+            const { newPunkw, newSectors, proofBundle } = await generateBuildSectorProof({ oldPunkw, oldSectors });
+
+            const newTurnCount = getTurnCount(bunkerId) + 1;
+
+            logLine("BROADCASTING_CLAIM...");
+            const result = await spendBuildSector({
+                playerAddress: vaultAddr,
+                playerPrivateKey: privateKey,
+                playerPubkeyHex: pubkey,
+                proofBundle,
+                actionType: ActionType.BUILD_SECTOR,
+                extraBytes: encodeGameStateSnapshot({
+                    punkw: newPunkw,
+                    sectors: newSectors,
+                    turnCount: newTurnCount,
+                    provenNewPunkwHex: proofBundle.publicInputHexes[0],
+                    provenNewSectorsHex: proofBundle.publicInputHexes[1],
+                }),
+            });
+            setPunkwBalance(bunkerId, newPunkw);
+            setSectorCount(bunkerId, newSectors);
+            setTurnCount(bunkerId, newTurnCount);
+            refreshSidebarStats();
+            logLine(`DONE. SECTOR_BUILT. WAR_CHEST=${newPunkw}_$PUNKW. SECTORS=${newSectors}. TX=${txLinkHtml(result.txid, result.txid.substring(0, 16) + '...')}`);
+        } catch (err) {
+            console.error("BUILD_SECTOR_ERROR:", err);
+            logLine(`ERROR: BUILD_FAILURE. ${err.message || err}`);
         }
     };
 </script>

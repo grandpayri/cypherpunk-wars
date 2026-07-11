@@ -76,6 +76,7 @@
         [ActionType.RESEARCH]: 'RESEARCHED_HACK_TIER',
         [ActionType.HACK]: 'CAST_HACK',
         [ActionType.BUY_TURNS]: 'BOUGHT_TURNS',
+        [ActionType.BUILD_SECTOR]: 'BUILT_SECTOR',
     };
 
     function describeMove(actionType, state, prevPunkw) {
@@ -91,6 +92,12 @@
         }
         if (actionType === ActionType.BUY_TURNS) {
             return `${label} -- Funded Gameplay Vault`;
+        }
+        if (actionType === ActionType.BUILD_SECTOR) {
+            const spent = prevPunkw !== null ? prevPunkw - state.punkw : null;
+            return (spent !== null && spent >= 0)
+                ? `${label} -- Spent ${spent} $PUNKW, now ${state.sectors} Sector${state.sectors === 1 ? '' : 's'}`
+                : `${label} -- now ${state.sectors} Sector${state.sectors === 1 ? '' : 's'}`;
         }
         return `${label} (not yet implemented -- payload decoded but no move logic exists yet)`;
     }

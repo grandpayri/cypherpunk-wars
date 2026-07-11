@@ -35,6 +35,13 @@ const CIRCUIT_ZKEY_URL = new URL('phishYield.zkey', ZK_ASSET_BASE).href;
 const VERIFICATION_KEY_URL = new URL('verification_key.json', ZK_ASSET_BASE).href;
 const KASPA_ZK_CONVERT_WASM_URL = new URL('kaspa_zk_convert_bg.wasm', ZK_ASSET_BASE).href;
 
+// Build Sector's own circuit assets (see buildSector.circom / kaspa-client.js's
+// BUILD_SECTOR_VK_HEX comment for the production trusted setup this came from).
+const BUILD_SECTOR_WASM_URL = new URL('buildSector.wasm', ZK_ASSET_BASE).href;
+const BUILD_SECTOR_ZKEY_URL = new URL('buildSector.zkey', ZK_ASSET_BASE).href;
+const BUILD_SECTOR_VERIFICATION_KEY_URL = new URL('buildSector_verification_key.json', ZK_ASSET_BASE).href;
+const COST_PER_SECTOR = 350; // must match buildSector.circom's own COST_PER_SECTOR exactly
+
 // design-bible.md section 06.
 export const NODE_SPEC_INFRASTRUCTURE = 2;
 
@@ -62,6 +69,17 @@ function getVerificationKeyJson() {
         });
     }
     return verificationKeyJsonPromise;
+}
+
+let buildSectorVerificationKeyJsonPromise = null;
+function getBuildSectorVerificationKeyJson() {
+    if (!buildSectorVerificationKeyJsonPromise) {
+        buildSectorVerificationKeyJsonPromise = fetch(BUILD_SECTOR_VERIFICATION_KEY_URL).then((r) => {
+            if (!r.ok) throw new Error(`BUILD_SECTOR_VERIFICATION_KEY_FETCH_FAILED: ${r.status}`);
+            return r.text();
+        });
+    }
+    return buildSectorVerificationKeyJsonPromise;
 }
 
 function bytesToHex(bytes) {
@@ -124,6 +142,43 @@ export async function generatePhishYieldProof({ seed, sectors, nodeSpec }) {
 
     return {
         yieldAmount,
+        proofBundle: {
+            proofHex: result.proof_hex,
+            publicInputHexes: result.public_input_hexes,
+        },
+    };
+}
+
+// Generates a real Groth16 proof for Build Sector's state transition (buildSector.circom:
+// newSectors = oldSectors + 1, newPunkw = oldPunkw - COST_PER_SECTOR) and converts it to the
+// same on-chain byte encoding as generatePhishYieldProof. oldPunkw/oldSectors are the
+// caller's self-reported current state (same trust tier as Phish's sectors/nodeSpec inputs --
+// see buildSector.circom's own header comment and design-bible.md section 07). Returns
+// { newPunkw, newSectors, proofBundle: { proofHex, publicInputHexes } } --
+// publicInputHexes is ordered [newPunkw, newSectors, oldPunkw, oldSectors] (circom's
+// outputs-first-then-public-inputs convention), matching what kaspa-client.js's
+// spendBuildSector()/buildBuildSectorClaimSigScript() expect directly.
+export async function generateBuildSectorProof({ oldPunkw, oldSectors }) {
+    if (oldPunkw < COST_PER_SECTOR) throw new Error(`INSUFFICIENT_PUNKW_FOR_BUILD: ${oldPunkw}`);
+
+    const input = {
+        oldPunkw: String(oldPunkw),
+        oldSectors: String(oldSectors),
+    };
+
+    const { proof, publicSignals } = await groth16.fullProve(input, BUILD_SECTOR_WASM_URL, BUILD_SECTOR_ZKEY_URL);
+
+    const vkJson = await getBuildSectorVerificationKeyJson();
+    const localOk = await groth16.verify(JSON.parse(vkJson), publicSignals, proof);
+    if (!localOk) throw new Error('LOCAL_PROOF_VERIFICATION_FAILED');
+
+    await ensureKaspaZkConvertReady();
+    const resultJson = convertToKaspaBytes(JSON.stringify(proof), vkJson, JSON.stringify(publicSignals));
+    const result = JSON.parse(resultJson);
+
+    return {
+        newPunkw: Number(publicSignals[0]),
+        newSectors: Number(publicSignals[1]),
         proofBundle: {
             proofHex: result.proof_hex,
             publicInputHexes: result.public_input_hexes,

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Build Sector Covenant Branch (Nested OpIf + Dual Payload-Binding)</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; margin-right: 10px; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Build Sector Covenant Branch</h2>
+<p>Tests the two NEW mechanics Build Sector adds on top of already-proven pieces (VK-hash
+pattern, single payload-binding): a nested OpIf (this branch sits one level inside an outer
+selector, matching how it'll nest inside the live Phish/anchor covenant) and TWO
+payload-binding checks in sequence (newPunkw then newSectors, both proof outputs bound to
+the payload), using buildSector.circom's real production VK.</p>
+<p><b>RUN_HONEST</b> supplies a payload whose provenNewPunkwHex/provenNewSectorsHex genuinely
+match the proof -- expect SUCCESS. <b>RUN_TAMPERED</b> supplies a mismatched newSectors value
+-- expect REJECTION.</p>
+<button id="runHonest">RUN_HONEST (expect success)</button>
+<button id="runTampered">RUN_TAMPERED (expect rejection)</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from '../kaspa.js';
+import {
+    CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI, ActionType,
+    encodePayload, encodeGameStateSnapshot,
+} from '../kaspa-client.js';
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+const OpTxPayloadSubstr = 0xb8;
+
+// Real production VK for buildSector.circom + its blake2b(32) hash, computed the same way
+// as PHISH_YIELD_VERIFICATION_KEY_HASH_HEX in kaspa-client.js.
+const BUILD_SECTOR_VK_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e191ca633c4800865e7054de14e09ce9a23fa3ab3011874f0dba55cf159b68b1819a07b397d9a8a84337b3a65bc71152a17ed1ddbff47b1cc5d2f549f26e60606850500000000000000db9ba7af0eb69802886f7c26b9c935454d1858b81e34289f6896085106a63c93852cdb9792546731a1bf6425f88eb6b085522d903ab5c6d96d8cc4a50534399b8a7ba67fdb84cdba40306a5233ec9abe3eabf0f97cae21778cbcf8d626967993193177a3db6abee4129216fa4dbb1585b345b4184f80b38e298acc3dc8c2fd2e564aed7df6e124adc6ee7e87ed05f01e99072e64e384dc9fcea9820d335984a8";
+const BUILD_SECTOR_VK_HASH_HEX = "b65f80c18f78b1160d94f6232d56cd08db32fe236e111c97061c6c1f362ec409";
+
+// Fixed test proof: oldPunkw=1000, oldSectors=0 -> newPunkw=650, newSectors=1. Public
+// signals confirmed via `snarkjs groth16 prove` this session: [650, 1, 1000, 0]
+// (circom's own order: outputs first, then public inputs, both in declaration order).
+const PROOF_HEX = "b8c02d3ddaf85d81a679252ae3fd73bdbcbb0c28467f0e75e71938a7ff62fe20f9e19ab07c68c7303c808a3434a86e9c44541a0c3f34c485de116b9a3e04a106d442e2333f0062513c47426521c663ceb3fa83c70d7d82099480f256421b7a171435ea2a57ff0a2a893142e4e625ffdcf955b4c62cf1e56c58971d13f3d744a1";
+const PUBLIC_INPUT_HEXES = [
+    "8a02000000000000000000000000000000000000000000000000000000000000", // newPunkw = 650
+    "0100000000000000000000000000000000000000000000000000000000000000", // newSectors = 1
+    "e803000000000000000000000000000000000000000000000000000000000000", // oldPunkw = 1000
+    "0000000000000000000000000000000000000000000000000000000000000000", // oldSectors = 0
+];
+
+// Payload offsets: provenNewPunkwHex reuses the same [47,79) range Phish's provenYieldHex
+// uses (mutually exclusive per transaction), provenNewSectorsHex follows immediately after
+// at [79,111).
+const NEWPUNKW_START = 47n, NEWPUNKW_END = 79n;
+const NEWSECTORS_START = 79n, NEWSECTORS_END = 111n;
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// Outer OpIf (dummy selector, mirrors nesting one level inside the real claim-family branch)
+// -> inner OpIf's TRUE side is the Build branch under test; FALSE side is an intentionally
+// trivial reject-everything stub (the real covenant's Phish branch goes there instead).
+function buildNestedRedeemScript() {
+    return new ScriptBuilder()
+        .addOp(Opcodes.OpIf) // outer: always taken with flag=1 in this isolated test
+            .addOp(Opcodes.OpIf) // inner: 1 = Build branch under test
+                .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(BUILD_SECTOR_VK_HASH_HEX).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+                .addI64(NEWPUNKW_START).addI64(NEWPUNKW_END).addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(NEWSECTORS_START).addI64(NEWSECTORS_END).addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addOp(OpTxOutputCount).addI64(1n).addOp(Opcodes.OpEqual)
+            .addOp(Opcodes.OpElse)
+                .addI64(0n) // stub: inner-false always fails
+            .addOp(Opcodes.OpEndIf)
+        .addOp(Opcodes.OpElse)
+            .addI64(0n) // stub: outer-false always fails
+        .addOp(Opcodes.OpEndIf);
+}
+
+function buildNestedSigScript(redeemScriptHex) {
+    const builder = new ScriptBuilder();
+    // Extra copies for the two payload-binding checks -- ALWAYS the real proof outputs
+    // (PUBLIC_INPUT_HEXES), never whatever the payload happens to claim. This is the whole
+    // point of the check: the payload's declared value is compared against what the proof
+    // actually backs, so this side must not be influenced by the payload/tamper scenario at
+    // all. Pushed deepest-first so they survive OpZkPrecompile's consumption in the order
+    // the redeem script consumes them: newPunkw's check runs first (consumes the shallower
+    // extra copy), newSectors' check runs second.
+    builder.addData(PUBLIC_INPUT_HEXES[1]); // real newSectors
+    builder.addData(PUBLIC_INPUT_HEXES[0]); // real newPunkw
+    for (let i = PUBLIC_INPUT_HEXES.length - 1; i >= 0; i--) {
+        builder.addData(PUBLIC_INPUT_HEXES[i]);
+    }
+    builder.addI64(BigInt(PUBLIC_INPUT_HEXES.length));
+    builder.addData(PROOF_HEX);
+    builder.addData(BUILD_SECTOR_VK_HEX);
+    builder.addI64(1n); // inner flag: 1 -> Build branch
+    builder.addI64(1n); // outer flag: 1 -> claim-family
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run(useTampered) {
+    document.getElementById('runHonest').disabled = true;
+    document.getElementById('runTampered').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        const provenNewPunkwHex = PUBLIC_INPUT_HEXES[0];
+        const provenNewSectorsHex = useTampered
+            ? "0500000000000000000000000000000000000000000000000000000000000000" // claims newSectors=5, proof only backs 1
+            : PUBLIC_INPUT_HEXES[1];
+        if (useTampered) log('Payload will declare newSectors=5, but the proof only backs newSectors=1 -- expect rejection.', 'err');
+
+        const payload = encodePayload(ActionType.BUILD_SECTOR, encodeGameStateSnapshot({
+            punkw: 650, sectors: 1, turnCount: 1,
+            provenNewPunkwHex, provenNewSectorsHex,
+        }));
+        log(`Payload built: ${payload.length} bytes (expect 47 core + 64 provenBuild = 111).`);
+
+        const redeem = buildNestedRedeemScript();
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        log(`Submitting the ${useTampered ? 'TAMPERED' : 'honest'} nested Build-branch spend...`);
+        const SPEND_COMPUTE_BUDGET = 1850;
+        const spendPriorityFee = 30000000n;
+        // Single sufficient UTXO, not the whole entry set -- see zk-spike/README.md's "What
+        // it took" item 4. This covenant address may already carry a leftover change UTXO
+        // from an earlier run on top of this fresh faucet grant; passing all entries as
+        // inputs while only setting sigOpCount/computeBudget on inputs[0] leaves the OTHER
+        // inputs inconsistent with the tx's version -- hit exactly this on the first
+        // (buggy) attempt at this fix, surfaced as "sig_op_count is inconsistent with
+        // transaction version 1", not a script-verification failure at all.
+        const singleEntry = covenantEntries.reduce((a, b) => (BigInt(a.amount) >= BigInt(b.amount) ? a : b));
+        const changeAmount = BigInt(singleEntry.amount) - spendPriorityFee;
+        const spendTx = createTransaction(
+            [singleEntry],
+            [{ address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, payload, undefined
+        );
+        spendTx.version = 1;
+        spendTx.inputs[0].sigOpCount = 0;
+        spendTx.inputs[0].computeBudget = SPEND_COMPUTE_BUDGET;
+        spendTx.inputs[0].signatureScript = buildNestedSigScript(redeemHex).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            if (useTampered) {
+                log(`UNEXPECTED SUCCESS: tampered newSectors was ACCEPTED! txid: ${JSON.stringify(spendTxid)}`, 'err');
+                log('=> Do not port this to the live game.', 'err');
+            } else {
+                log(`SUCCESS: nested Build branch verified on-chain! txid: ${JSON.stringify(spendTxid)}`, 'ok');
+                log('=> Nested OpIf + dual payload-binding both work correctly. Safe to port into the live covenant.', 'ok');
+            }
+        } catch (err) {
+            if (useTampered) {
+                log(`REJECTED (expected): ${err && err.message ? err.message : JSON.stringify(err)}`, 'ok');
+                log('=> The second payload-binding check (newSectors) correctly rejects a mismatch.', 'ok');
+            } else {
+                log(`UNEXPECTED REJECTION: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+                log('=> Something in the nesting or dual-binding stack ordering is wrong -- debug before proceeding.', 'err');
+            }
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('runHonest').disabled = false;
+        document.getElementById('runTampered').disabled = false;
+    }
+}
+
+document.getElementById('runHonest').addEventListener('click', () => run(false));
+document.getElementById('runTampered').addEventListener('click', () => run(true));
+</script>
+</body>
+</html>

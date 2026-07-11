@@ -1,6 +1,7 @@
 node_modules/
 build/
 build-prod/
+build-sector/
 bin/
 *.log
 kaspa-zk-convert/target/

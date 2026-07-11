@@ -117,10 +117,11 @@ const MAGIC = "CPW1";
 export const ActionType = Object.freeze({
     GENESIS: 0x01,
     PHISH: 0x02,
-    ATTACK: 0x03,     // reserved, Phase 7 -- not wired up yet
-    RESEARCH: 0x04,   // reserved, Phase 6 -- not wired up yet
-    HACK: 0x05,       // reserved, Phase 7 (includes Armageddon casts) -- not wired up yet
-    BUY_TURNS: 0x06,  // wired up -- see buyTurns()'s extraBytes param
+    ATTACK: 0x03,       // reserved, Phase 7 -- not wired up yet
+    RESEARCH: 0x04,     // reserved, Phase 6 -- not wired up yet
+    HACK: 0x05,         // reserved, Phase 7 (includes Armageddon casts) -- not wired up yet
+    BUY_TURNS: 0x06,    // wired up -- see buyTurns()'s extraBytes param
+    BUILD_SECTOR: 0x07, // wired up -- see spendBuildSector() and buildZkPhishRedeemScript's Build branch
 });
 
 export function encodePayload(actionType, extraBytes = new Uint8Array(0)) {
@@ -160,6 +161,16 @@ export const GAME_STATE_BODY_BYTES = 42;
 // the proof actually verified (see design-bible.md's state-continuity notes).
 export const PROVEN_YIELD_BYTES = 32;
 
+// Same pattern as PROVEN_YIELD_BYTES, for Build Sector transactions instead of Phish:
+// two 32-byte Arkworks-compressed public outputs (newPunkwHex then newSectorsHex,
+// concatenated -- circom's own publicSignals order, outputs before public inputs)
+// from buildSector.circom, appended after the core 42 bytes verbatim. Mutually
+// exclusive with provenYieldHex in practice (a transaction is either a Phish claim or
+// a Build claim, never both), but both are just optional trailers on the same core
+// struct -- nothing stops a payload from carrying neither (Genesis/BuyTurns) or,
+// structurally, both, though no code path ever constructs that today.
+export const PROVEN_BUILD_BYTES = 64;
+
 export const NodeSpecialization = Object.freeze({
     UNSET: 0,
     CONSENSUS: 1,
@@ -180,7 +191,10 @@ export const ITEM_TYPES = [
 
 export function encodeGameStateSnapshot(state = {}) {
     const hasProvenYield = typeof state.provenYieldHex === 'string';
-    const totalBytes = GAME_STATE_BODY_BYTES + (hasProvenYield ? PROVEN_YIELD_BYTES : 0);
+    const hasProvenBuild = typeof state.provenNewPunkwHex === 'string' && typeof state.provenNewSectorsHex === 'string';
+    const totalBytes = GAME_STATE_BODY_BYTES
+        + (hasProvenYield ? PROVEN_YIELD_BYTES : 0)
+        + (hasProvenBuild ? PROVEN_BUILD_BYTES : 0);
     const buf = new ArrayBuffer(totalBytes);
     const view = new DataView(buf);
     let o = 0;
@@ -198,15 +212,25 @@ export function encodeGameStateSnapshot(state = {}) {
         view.setUint8(o, state.items?.[key] ?? 0); o += 1;
     }
     // remaining core bytes (reserved trailer) left zeroed by ArrayBuffer's default init
+    const bytes = new Uint8Array(buf);
     if (hasProvenYield) {
-        const bytes = new Uint8Array(buf);
         const provenYieldBytes = hexToBytes(state.provenYieldHex);
         if (provenYieldBytes.length !== PROVEN_YIELD_BYTES) {
             throw new Error(`INVALID_PROVEN_YIELD_LENGTH: expected ${PROVEN_YIELD_BYTES} bytes, got ${provenYieldBytes.length}`);
         }
         bytes.set(provenYieldBytes, GAME_STATE_BODY_BYTES);
     }
-    return new Uint8Array(buf);
+    if (hasProvenBuild) {
+        const newPunkwBytes = hexToBytes(state.provenNewPunkwHex);
+        const newSectorsBytes = hexToBytes(state.provenNewSectorsHex);
+        if (newPunkwBytes.length !== PROVEN_BUILD_BYTES / 2 || newSectorsBytes.length !== PROVEN_BUILD_BYTES / 2) {
+            throw new Error(`INVALID_PROVEN_BUILD_LENGTH: expected ${PROVEN_BUILD_BYTES / 2} bytes each, got ${newPunkwBytes.length} and ${newSectorsBytes.length}`);
+        }
+        const buildOffset = GAME_STATE_BODY_BYTES + (hasProvenYield ? PROVEN_YIELD_BYTES : 0);
+        bytes.set(newPunkwBytes, buildOffset);
+        bytes.set(newSectorsBytes, buildOffset + PROVEN_BUILD_BYTES / 2);
+    }
+    return bytes;
 }
 
 export function decodeGameStateSnapshot(extraBytes) {
@@ -225,15 +249,25 @@ export function decodeGameStateSnapshot(extraBytes) {
     for (const key of UNIT_TYPES) { units[key] = view.getUint16(o, true); o += 2; }
     const items = {};
     for (const key of ITEM_TYPES) { items[key] = view.getUint8(o); o += 1; }
-    // provenYieldHex is only present on Phish transactions built after the payload-binding
-    // fix landed -- older Phish/Genesis/BuyTurns payloads simply don't have it (undefined,
-    // not an error), matching the same "not every field applies to every action" convention
-    // already used for sectors/nodeSpec before those mechanics existed.
-    let provenYieldHex;
-    if (extraBytes.length >= GAME_STATE_BODY_BYTES + PROVEN_YIELD_BYTES) {
-        provenYieldHex = bytesToHexString(extraBytes.slice(GAME_STATE_BODY_BYTES, GAME_STATE_BODY_BYTES + PROVEN_YIELD_BYTES));
+    // provenYieldHex (Phish)/provenNewPunkwHex+provenNewSectorsHex (Build Sector) are only
+    // present on transactions built after their respective payload-binding fixes landed --
+    // older payloads simply don't have them (undefined, not an error), same convention
+    // already used for sectors/nodeSpec before those mechanics existed. Distinguished purely
+    // by trailer length -- PROVEN_YIELD_BYTES(32) and PROVEN_BUILD_BYTES(64) never collide,
+    // so the remaining byte count after the core body unambiguously says which trailer(s), if
+    // any, are present (0, 32, 64, or 96 for both, though no code path produces both today).
+    const remaining = extraBytes.length - GAME_STATE_BODY_BYTES;
+    let provenYieldHex, provenNewPunkwHex, provenNewSectorsHex;
+    let cursor = GAME_STATE_BODY_BYTES;
+    if (remaining === PROVEN_YIELD_BYTES || remaining === PROVEN_YIELD_BYTES + PROVEN_BUILD_BYTES) {
+        provenYieldHex = bytesToHexString(extraBytes.slice(cursor, cursor + PROVEN_YIELD_BYTES));
+        cursor += PROVEN_YIELD_BYTES;
     }
-    return { schemaVersion, punkw, sectors, nodeSpec, researchTier, turnCount, season, units, items, provenYieldHex };
+    if (remaining === PROVEN_BUILD_BYTES || remaining === PROVEN_YIELD_BYTES + PROVEN_BUILD_BYTES) {
+        provenNewPunkwHex = bytesToHexString(extraBytes.slice(cursor, cursor + PROVEN_BUILD_BYTES / 2));
+        provenNewSectorsHex = bytesToHexString(extraBytes.slice(cursor + PROVEN_BUILD_BYTES / 2, cursor + PROVEN_BUILD_BYTES));
+    }
+    return { schemaVersion, punkw, sectors, nodeSpec, researchTier, turnCount, season, units, items, provenYieldHex, provenNewPunkwHex, provenNewSectorsHex };
 }
 
 let rpcClient = null;
@@ -623,35 +657,81 @@ const PHISH_YIELD_VERIFICATION_KEY_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d94
 // Full on-chain payload byte offsets of the provenYieldHex trailer written by
 // encodeGameStateSnapshot: magicBytes(4) + actionType(1) + core body(GAME_STATE_BODY_BYTES=42)
 // = 47, through +PROVEN_YIELD_BYTES(32) = 79. Must track those constants' layout exactly.
+// Reused verbatim for Build Sector's provenNewPunkwHex (same [47,79) range) since a
+// transaction only ever carries ONE of these two trailers, never both -- see
+// PROVEN_BUILD_BYTES's comment.
 const PROVEN_YIELD_PAYLOAD_START = 47n;
 const PROVEN_YIELD_PAYLOAD_END = 79n;
 
+// Build Sector's second bound output (provenNewSectorsHex) follows immediately after the
+// [47,79) range above.
+const PROVEN_BUILD_NEWSECTORS_PAYLOAD_START = 79n;
+const PROVEN_BUILD_NEWSECTORS_PAYLOAD_END = 111n;
+
+// buildSector.circom's production VK/hash, same trusted-setup and VK-hash-pattern discipline
+// as Phish's above (fresh Hermez-based contribution, independently ark-groth16-reverified,
+// hash confirmed via the same blake2b(32)-matches-OpBlake2b cross-check). Confirmed on-chain
+// (nested OpIf + dual payload-binding, both honest-accept and tampered-reject) via
+// zk-spike/onchain-test-build-sector.html before landing here.
+const BUILD_SECTOR_VK_HASH_HEX = "b65f80c18f78b1160d94f6232d56cd08db32fe236e111c97061c6c1f362ec409";
+const BUILD_SECTOR_VK_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e191ca633c4800865e7054de14e09ce9a23fa3ab3011874f0dba55cf159b68b1819a07b397d9a8a84337b3a65bc71152a17ed1ddbff47b1cc5d2f549f26e60606850500000000000000db9ba7af0eb69802886f7c26b9c935454d1858b81e34289f6896085106a63c93852cdb9792546731a1bf6425f88eb6b085522d903ab5c6d96d8cc4a50534399b8a7ba67fdb84cdba40306a5233ec9abe3eabf0f97cae21778cbcf8d626967993193177a3db6abee4129216fa4dbb1585b345b4184f80b38e298acc3dc8c2fd2e564aed7df6e124adc6ee7e87ed05f01e99072e64e384dc9fcea9820d335984a8";
+
+// Small, fixed courtesy fee to the prize vault, same "every gameplay action feeds the
+// season pot a little" structural pattern as Phish's reward -- decided explicitly (not just
+// defaulted) since Build Sector is a pure spend with no yield of its own to pay out. First
+// pass, not playtested -- see design-bible.md.
+export const BUILD_SECTOR_FEE_SOMPI = 5000000n; // 0.05 KAS
+
+// This covenant now serves more than Phish (the name/derive-address function below predate
+// Build Sector and haven't been renamed to avoid an unrelated cascading rename across every
+// call site -- see design-bible.md's covenant-scalability notes for why a rename is a
+// deferred cleanup, not a functional requirement).
 function buildZkPhishRedeemScript(playerPubkeyHex) {
     const rewardTreasurySpk = getRewardTreasurySpkHex();
     return new ScriptBuilder()
         .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
-        .addOp(Opcodes.OpIf)
-            // VK-hash pattern: the caller's sig script supplies the full VK (see
-            // buildZkPhishClaimSigScript); OpDup keeps one copy for the hash check below
-            // while the other survives for OpZkPrecompile's own use right after.
-            .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(PHISH_YIELD_VERIFICATION_KEY_HASH_HEX).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-            .addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
-            // Binds the payload's declared provenYieldHex to the SAME yieldAmount public
-            // input OpZkPrecompile just verified above -- closes the gap where a modified
-            // client could write any punkw/yield value into the payload regardless of what
-            // was actually proven. Confirmed on-chain (both accept-honest and
-            // reject-tampered) via zk-spike/onchain-test-payload-binding.html before landing
-            // here. Consumes the EXTRA yieldAmount copy buildZkPhishClaimSigScript pushes
-            // beneath everything else specifically for this comparison (OpZkPrecompile's own
-            // copy, pushed above it, is already consumed by this point).
-            .addI64(PROVEN_YIELD_PAYLOAD_START).addI64(PROVEN_YIELD_PAYLOAD_END)
-            .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-            .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-            .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
-            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
-            .addI64(1n).addOp(OpTxOutputSpk)
-            .addOp(Opcodes.OpEqual)
+        .addOp(Opcodes.OpIf) // outer: claim-family (Phish or Build) vs anchor
+            .addOp(Opcodes.OpIf) // inner: Phish (true) vs Build (false) -- only evaluated within claim-family
+                // VK-hash pattern: the caller's sig script supplies the full VK (see
+                // buildZkPhishClaimSigScript); OpDup keeps one copy for the hash check below
+                // while the other survives for OpZkPrecompile's own use right after.
+                .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(PHISH_YIELD_VERIFICATION_KEY_HASH_HEX).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+                // Binds the payload's declared provenYieldHex to the SAME yieldAmount public
+                // input OpZkPrecompile just verified above -- closes the gap where a modified
+                // client could write any punkw/yield value into the payload regardless of what
+                // was actually proven. Confirmed on-chain (both accept-honest and
+                // reject-tampered) via zk-spike/onchain-test-payload-binding.html before landing
+                // here. Consumes the EXTRA yieldAmount copy buildZkPhishClaimSigScript pushes
+                // beneath everything else specifically for this comparison (OpZkPrecompile's own
+                // copy, pushed above it, is already consumed by this point).
+                .addI64(PROVEN_YIELD_PAYLOAD_START).addI64(PROVEN_YIELD_PAYLOAD_END)
+                .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(0n).addOp(OpTxOutputAmount).addI64(PHISH_REWARD_AMOUNT_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+                .addI64(1n).addOp(OpTxOutputSpk)
+                .addOp(Opcodes.OpEqual)
+            .addOp(Opcodes.OpElse)
+                // Build Sector: same VK-hash + OpZkPrecompile pattern, but binds TWO proof
+                // outputs (newPunkw then newSectors -- see buildSector.circom) instead of one,
+                // and pays BUILD_SECTOR_FEE_SOMPI instead of the Phish reward. Confirmed
+                // on-chain (nested OpIf, dual payload-binding, both directions) via
+                // zk-spike/onchain-test-build-sector.html before landing here.
+                .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(BUILD_SECTOR_VK_HASH_HEX).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+                .addI64(PROVEN_YIELD_PAYLOAD_START).addI64(PROVEN_YIELD_PAYLOAD_END)
+                .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(PROVEN_BUILD_NEWSECTORS_PAYLOAD_START).addI64(PROVEN_BUILD_NEWSECTORS_PAYLOAD_END)
+                .addOp(OpTxPayloadSubstr).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(0n).addOp(OpTxOutputSpk).addData(rewardTreasurySpk).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addI64(0n).addOp(OpTxOutputAmount).addI64(BUILD_SECTOR_FEE_SOMPI).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+                .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+                .addI64(1n).addOp(OpTxOutputSpk)
+                .addOp(Opcodes.OpEqual)
+            .addOp(Opcodes.OpEndIf)
         .addOp(Opcodes.OpElse)
             .addOp(OpTxOutputCount).addI64(1n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
             .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
@@ -673,7 +753,7 @@ export function deriveZkPhishAddress(playerPubkeyHex) {
 // extended by the branch-flag item.
 function buildZkPhishAnchorSigScript(redeemScriptHex, signatureHex) {
     return new ScriptBuilder()
-        .addI64(0n) // branch flag: false -> OpElse (anchor)
+        .addI64(0n) // outer flag: false -> OpElse (anchor) -- inner OpIf is never reached
         .addData(signatureHex)
         .addData(redeemScriptHex);
 }
@@ -697,7 +777,31 @@ function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle, 
     // the surviving copy. See PHISH_YIELD_VERIFICATION_KEY_HASH_HEX's comment for why the
     // redeem script only stores the hash, not the full VK.
     builder.addData(vkHex);
-    builder.addI64(1n); // branch flag: true -> OpIf (real claim)
+    builder.addI64(1n); // inner flag: true -> OpIf (Phish, within the claim-family branch)
+    builder.addI64(1n); // outer flag: true -> OpIf (claim-family, not anchor)
+    builder.addData(signatureHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+// Build Sector's claim sig script: same shape as buildZkPhishClaimSigScript, but pushes TWO
+// extra copies (newSectors then newPunkw, deepest-first so newPunkw -- checked FIRST by the
+// redeem script's [47,79) binding -- ends up nearer the top, consumed before newSectors'
+// [79,111) binding) instead of one, and selects the Build branch via innerFlag=0 (OpElse)
+// under outerFlag=1 (claim-family). Directly modeled on the confirmed-on-chain
+// buildNestedSigScript() in zk-spike/onchain-test-build-sector.html.
+function buildBuildSectorClaimSigScript(redeemScriptHex, signatureHex, proofBundle, vkHex) {
+    const builder = new ScriptBuilder();
+    builder.addData(proofBundle.publicInputHexes[1]); // extra copy: newSectors (deepest, consumed last)
+    builder.addData(proofBundle.publicInputHexes[0]); // extra copy: newPunkw (consumed first)
+    for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
+        builder.addData(proofBundle.publicInputHexes[i]);
+    }
+    builder.addI64(BigInt(proofBundle.publicInputHexes.length));
+    builder.addData(proofBundle.proofHex);
+    builder.addData(vkHex);
+    builder.addI64(0n); // inner flag: false -> OpElse (Build, within the claim-family branch)
+    builder.addI64(1n); // outer flag: true -> OpIf (claim-family, not anchor)
     builder.addData(signatureHex);
     builder.addData(redeemScriptHex);
     return builder;
@@ -842,6 +946,62 @@ export async function spendZkVerifiedPhish({ playerAddress, playerPrivateKey, pl
         txid,
         outputs: {
             reward: PHISH_REWARD_AMOUNT_SOMPI,
+            change: spendAmount,
+        },
+    };
+}
+
+// Proven on-chain in zk-spike/onchain-test-build-sector.html for the nested-branch + dual-
+// payload-binding script shape (1-output test variant). The live Build claim adds the
+// reward-treasury output that Phish's own branch already carries under its own 1850 budget,
+// so this pads above the test's proven 1850/30,000,000n floor as a first-pass safety margin
+// -- compute budget headroom costs nothing extra (only under-provisioning fails), but the
+// exact live figures haven't been re-measured on-chain yet (see Task 32's required
+// end-to-end reverification once bunker.html/zk-prover.js wiring exists).
+const BUILD_SECTOR_COMPUTE_BUDGET = 2200;
+const BUILD_SECTOR_CLAIM_PRIORITY_FEE_SOMPI = 40000000n; // 0.4 KAS, first-pass estimate
+
+// The Build claim: reveals the buildSector.circom proof, pays BUILD_SECTOR_FEE_SOMPI to the
+// prize vault, writes the CPW1 payload's provenNewPunkwHex/provenNewSectorsHex trailer,
+// change returns to the same ZK-Phish/Build vault. Same raw-createTransaction() signing path
+// as spendZkVerifiedPhish, for the same reason (computeBudget needs version>=1, and
+// PendingTransaction.transaction can't hold that mutation -- see that function's comment).
+export async function spendBuildSector({ playerAddress, playerPrivateKey, playerPubkeyHex, proofBundle, actionType, extraBytes }) {
+    const rpc = await connectRpc();
+    const { entries } = await rpc.getUtxosByAddresses([playerAddress]);
+    if (!entries || entries.length === 0) {
+        throw new Error("NO_UTXOS_AVAILABLE");
+    }
+
+    const singleEntry = entries.reduce((a, b) => (BigInt(a.amount) >= BigInt(b.amount) ? a : b));
+    const spendAmount = BigInt(singleEntry.amount) - BUILD_SECTOR_FEE_SOMPI - BUILD_SECTOR_CLAIM_PRIORITY_FEE_SOMPI;
+    if (spendAmount <= 0n) {
+        throw new Error("VAULT_BALANCE_TOO_LOW_FOR_CLAIM");
+    }
+
+    const redeemScriptHex = buildZkPhishRedeemScript(playerPubkeyHex).toString();
+    const payload = encodePayload(actionType, extraBytes);
+    const tx = createTransaction(
+        [singleEntry],
+        [
+            { address: PRIZE_VAULT_ADDRESS, amount: BUILD_SECTOR_FEE_SOMPI },
+            { address: playerAddress, amount: spendAmount },
+        ],
+        BUILD_SECTOR_CLAIM_PRIORITY_FEE_SOMPI, payload, undefined
+    );
+    tx.version = 1;
+    tx.inputs[0].sigOpCount = 0;
+    tx.inputs[0].computeBudget = BUILD_SECTOR_COMPUTE_BUDGET;
+
+    const sigHex = stripSignatureLengthPrefix(createInputSignature(tx, 0, playerPrivateKey, SighashType.All));
+    tx.inputs[0].signatureScript = buildBuildSectorClaimSigScript(redeemScriptHex, sigHex, proofBundle, BUILD_SECTOR_VK_HEX).toString();
+
+    const submitResult = await rpc.submitTransaction({ transaction: tx, allowOrphan: false });
+    const txid = typeof submitResult === 'string' ? submitResult : submitResult.transactionId;
+    return {
+        txid,
+        outputs: {
+            fee: BUILD_SECTOR_FEE_SOMPI,
             change: spendAmount,
         },
     };

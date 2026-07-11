@@ -66,6 +66,22 @@ export function setTurnCount(bunkerId, value) {
     localStorage.setItem(turnCountStorageKey(bunkerId), String(value));
 }
 
+// Sectors are now a real, buildable mechanic (Phase 6) -- same local-cache-kept-in-sync-
+// with-the-on-chain-payload pattern as punkw/turnCount above, starting at 0 (no player has
+// built one yet) rather than the old fixed "1 SECTOR" sidebar placeholder.
+function sectorCountStorageKey(bunkerId) {
+    return `sector_count_${bunkerId}`;
+}
+
+export function getSectorCount(bunkerId) {
+    const raw = localStorage.getItem(sectorCountStorageKey(bunkerId));
+    return raw ? parseInt(raw, 10) : 0;
+}
+
+export function setSectorCount(bunkerId, value) {
+    localStorage.setItem(sectorCountStorageKey(bunkerId), String(value));
+}
+
 export async function renderSidebar(containerId, activePageId) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -100,8 +116,8 @@ export async function renderSidebar(containerId, activePageId) {
         <span class="stat-val" id="sidebarTurns">...</span>
         <div class="stat-label">War Chest</div>
         <span class="stat-val" id="sidebarPunkw">${getPunkwBalance(bunkerId)} $PUNKW</span>
-        <div class="stat-label">Infrastructure (Sectors -- planned, not yet buildable)</div>
-        <span class="stat-val">1 SECTOR</span>
+        <div class="stat-label">Infrastructure</div>
+        <span class="stat-val" id="sidebarSectors">${getSectorCount(bunkerId)} SECTOR${getSectorCount(bunkerId) === 1 ? '' : 'S'}</span>
 
         <hr class="sidebar-divider">
 
@@ -120,6 +136,12 @@ export async function refreshSidebarStats() {
 
     const punkwEl = document.getElementById('sidebarPunkw');
     if (punkwEl) punkwEl.innerText = `${getPunkwBalance(currentBunkerId)} $PUNKW`;
+
+    const sectorsEl = document.getElementById('sidebarSectors');
+    if (sectorsEl) {
+        const sectorCount = getSectorCount(currentBunkerId);
+        sectorsEl.innerText = `${sectorCount} SECTOR${sectorCount === 1 ? '' : 'S'}`;
+    }
 
     try {
         const balanceSompi = await getAddressBalance(currentBunkerId);

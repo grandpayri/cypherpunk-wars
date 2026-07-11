@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: Confirm JS blake2b Matches Kaspa's OpBlake2b</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: Confirm JS blake2b(32) Matches Kaspa's On-Chain OpBlake2b</h2>
+<p>Minimal, cheap test: a tiny covenant that pushes a fixed piece of data, hashes it with
+OpBlake2b, and compares against a hash pre-computed in JS via the `blake2b` npm package
+(32-byte output, no key -- matching Kaspa's `Params::new().hash_length(32)`). If this
+succeeds, the VK-hash covenant pattern is safe to build on top of. No ZK proof involved --
+this isolates JUST the hash-matching question.</p>
+<button id="run">RUN TEST</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from '../kaspa.js';
+import { CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI } from '../kaspa-client.js';
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// Fixed test data + its blake2b(32) hash, computed in Node via the `blake2b` npm package:
+// node -e "const blake2b=require('blake2b'); const out=Buffer.alloc(32);
+//   blake2b(32).update(Buffer.from('ab'.repeat(16),'hex')).digest(out); console.log(out.toString('hex'));"
+const TEST_DATA_HEX = "ab".repeat(16); // 16 bytes of 0xab, arbitrary
+const EXPECTED_HASH_HEX = "42fbd83f3e1ad8aadafbde1d04618514720c0f6a85db38fbfcdad505da61a9d6"; // blake2b(32) of TEST_DATA_HEX via the 'blake2b' npm package
+
+function buildHashCheckRedeemScript(expectedHashHex) {
+    return new ScriptBuilder()
+        .addData(TEST_DATA_HEX).addOp(Opcodes.OpBlake2b).addData(expectedHashHex).addOp(Opcodes.OpEqual);
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run() {
+    document.getElementById('run').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        log(`Test data: ${TEST_DATA_HEX}`);
+        log(`Expected blake2b(32) hash (computed in Node via 'blake2b' package): ${EXPECTED_HASH_HEX}`);
+
+        const redeem = buildHashCheckRedeemScript(EXPECTED_HASH_HEX);
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        log('Submitting the hash-check spend (no signature needed, script is fully deterministic)...');
+        const spendPriorityFee = 500000n;
+        const covenantTotal = covenantEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const changeAmount = covenantTotal - spendPriorityFee;
+        const spendTx = createTransaction(
+            covenantEntries,
+            [{ address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, undefined, undefined
+        );
+        spendTx.inputs[0].signatureScript = new ScriptBuilder().addData(redeemHex).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            log(`SUCCESS: on-chain OpBlake2b matches the JS-computed hash! txid: ${JSON.stringify(spendTxid)}`, 'ok');
+            log('=> Safe to build the VK-hash covenant pattern on this basis.', 'ok');
+        } catch (err) {
+            log(`REJECTED: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+            log('=> JS blake2b params do NOT match Kaspa on-chain OpBlake2b -- do not proceed with the VK-hash pattern until this is resolved.', 'err');
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('run').disabled = false;
+    }
+}
+
+document.getElementById('run').addEventListener('click', run);
+</script>
+</body>
+</html>

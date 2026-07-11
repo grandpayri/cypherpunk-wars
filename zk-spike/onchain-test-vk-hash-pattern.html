@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ZK Spike: VK-Hash Pattern (Scalable Covenant Design)</title>
+<style>
+  body { background:#0a0e0a; color:#33ff66; font-family:"Courier New",monospace; padding:20px; }
+  button { background:#111; color:#33ff66; border:1px solid #33ff66; padding:10px 20px; font-family:inherit; cursor:pointer; margin-right: 10px; }
+  button:disabled { opacity:0.5; cursor:default; }
+  #log { white-space:pre-wrap; margin-top:20px; border:1px solid #244; padding:10px; max-height:70vh; overflow-y:auto; }
+  .err { color:#ff5555; }
+  .ok { color:#7fffb0; }
+</style>
+</head>
+<body>
+<h2>ZK Spike: VK-Hash Pattern (Scalable Covenant Design)</h2>
+<p>Tests storing only a 32-byte OpBlake2b hash of the verifying key in the redeem script,
+instead of the full ~392-byte VK -- the full VK is supplied via the sig script at spend
+time and OpDup'd so one copy can be hash-checked while the other feeds OpZkPrecompile.
+Keeps per-action script growth constant (~40 bytes) instead of linear in VK size as more
+action types get added to the shared Gameplay Vault covenant. See the session conversation
+("is this pattern scalable") for the full reasoning.</p>
+<p><b>RUN_HONEST</b> supplies the real VK matching the stored hash -- expect SUCCESS.
+<b>RUN_TAMPERED</b> supplies a DIFFERENT (but still validly-formatted) VK that doesn't match
+the stored hash -- expect REJECTION.</p>
+<button id="runHonest">RUN_HONEST (expect success)</button>
+<button id="runTampered">RUN_TAMPERED (expect rejection)</button>
+<div id="log"></div>
+
+<script type="module">
+import init, { RpcClient, Resolver, ScriptBuilder, Opcodes, createTransaction, addressFromScriptPublicKey } from '../kaspa.js';
+import { CPW_NETWORK_ID, FAUCET_VAULT_ADDRESS, FAUCET_GRANT_CAP_SOMPI, NodeSpecialization } from '../kaspa-client.js';
+import { generatePhishYieldProof } from '../zk-prover.js';
+
+const OpTxOutputCount = 0xb4, OpTxOutputAmount = 0xc2, OpTxInputIndex = 0xb9, OpTxInputSpk = 0xbf, OpTxOutputSpk = 0xc3;
+
+// The real production VK (same one already live in kaspa-client.js) and its precomputed
+// blake2b(32) hash -- computed via: node -e "const blake2b=require('blake2b');
+// const out=Buffer.alloc(32); blake2b(32).update(Buffer.from(VK_HEX,'hex')).digest(out);
+// console.log(out.toString('hex'));" -- confirmed matching Kaspa's on-chain OpBlake2b via
+// onchain-test-blake2b-check.html before trusting this value here.
+const REAL_VK_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
+const EXPECTED_VK_HASH_HEX = "c89d9d5b7fd6cf5925da48e6e5c59e80b993bdcb82ff7fcb66e16007c26b1893";
+
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = `> ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(msg);
+}
+
+// Redeem script stores only the 32-byte VK hash, not the full VK. Stack at entry (top to
+// bottom, after P2SH consumes redeemScriptHex): vk, proof, count, publicInputs...
+function buildVkHashRedeemScript(expectedVkHashHex) {
+    return new ScriptBuilder()
+        .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(expectedVkHashHex).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+        .addData("20").addOp(Opcodes.OpZkPrecompile);
+}
+
+function buildVkHashSigScript(redeemScriptHex, vkHex, proofBundle) {
+    const builder = new ScriptBuilder();
+    for (let i = proofBundle.publicInputHexes.length - 1; i >= 0; i--) {
+        builder.addData(proofBundle.publicInputHexes[i]);
+    }
+    builder.addI64(BigInt(proofBundle.publicInputHexes.length));
+    builder.addData(proofBundle.proofHex);
+    builder.addData(vkHex);
+    builder.addData(redeemScriptHex);
+    return builder;
+}
+
+async function connectRpc() {
+    const rpc = new RpcClient({ resolver: new Resolver(), networkId: CPW_NETWORK_ID });
+    await rpc.connect();
+    return rpc;
+}
+
+async function waitForUtxo(rpc, address, minCount = 1, tries = 30, delayMs = 2000) {
+    for (let i = 0; i < tries; i++) {
+        const { entries } = await rpc.getUtxosByAddresses([address]);
+        if (entries && entries.length >= minCount) return entries;
+        log(`  waiting for UTXO at ${address.slice(0, 20)}... (${i + 1}/${tries})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+    throw new Error(`TIMED_OUT_WAITING_FOR_UTXO: ${address}`);
+}
+
+async function run(useTamperedVk) {
+    document.getElementById('runHonest').disabled = true;
+    document.getElementById('runTampered').disabled = true;
+    try {
+        log('Booting Kaspa WASM engine...');
+        await init();
+        log('Engine online.', 'ok');
+
+        const seed = useTamperedVk ? 14 : 13;
+        log(`Generating a fresh live proof for seed=${seed}, sectors=0, nodeSpec=UNSET...`);
+        const { yieldAmount, proofBundle } = await generatePhishYieldProof({ seed, sectors: 0, nodeSpec: NodeSpecialization.UNSET });
+        log(`Proof generated. yieldAmount = ${yieldAmount}`, 'ok');
+
+        // Redeem script always stores the hash of the REAL VK. The tampered run supplies a
+        // DIFFERENT byte string (still 392 bytes, still "VK-shaped") via the sig script --
+        // if the covenant only checked "is this the right SIZE" it would wrongly accept it;
+        // the hash check must reject it.
+        const suppliedVkHex = useTamperedVk
+            ? REAL_VK_HEX.slice(0, -2) + (REAL_VK_HEX.slice(-2) === "00" ? "01" : "00") // flip the last byte
+            : REAL_VK_HEX;
+        if (useTamperedVk) log(`Supplying a VK with its last byte flipped (still 392 bytes, still won't verify against the real proof either) -- expect the HASH check to reject it before OpZkPrecompile even runs.`, 'err');
+
+        const redeem = buildVkHashRedeemScript(EXPECTED_VK_HASH_HEX);
+        const redeemHex = redeem.toString();
+        const covenantSpk = redeem.createPayToScriptHashScript();
+        const covenantAddress = addressFromScriptPublicKey(covenantSpk, CPW_NETWORK_ID).toString();
+        log(`Covenant address: ${covenantAddress}`);
+
+        const rpc = await connectRpc();
+        log('RPC connected.', 'ok');
+
+        log('Requesting a faucet grant straight into the covenant address...');
+        const { entries: faucetEntries } = await rpc.getUtxosByAddresses([FAUCET_VAULT_ADDRESS]);
+        if (!faucetEntries || faucetEntries.length === 0) throw new Error('FAUCET_VAULT_EMPTY');
+        const faucetRedeem = new ScriptBuilder()
+            .addOp(OpTxOutputCount).addI64(2n).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addI64(0n).addOp(OpTxOutputAmount).addI64(FAUCET_GRANT_CAP_SOMPI).addOp(Opcodes.OpLessThanOrEqual).addOp(Opcodes.OpVerify)
+            .addOp(OpTxInputIndex).addOp(OpTxInputSpk)
+            .addI64(1n).addOp(OpTxOutputSpk)
+            .addOp(Opcodes.OpEqual);
+        const faucetPriorityFee = 500000n;
+        const faucetTotalInput = faucetEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const faucetTx = createTransaction(
+            faucetEntries,
+            [{ address: covenantAddress, amount: FAUCET_GRANT_CAP_SOMPI }, { address: FAUCET_VAULT_ADDRESS, amount: faucetTotalInput - FAUCET_GRANT_CAP_SOMPI - faucetPriorityFee }],
+            faucetPriorityFee, undefined, undefined
+        );
+        const faucetSigScript = new ScriptBuilder().addData(faucetRedeem.toString()).toString();
+        for (let i = 0; i < faucetTx.inputs.length; i++) faucetTx.inputs[i].signatureScript = faucetSigScript;
+        const faucetTxid = await rpc.submitTransaction({ transaction: faucetTx, allowOrphan: false });
+        log(`Faucet grant submitted: ${JSON.stringify(faucetTxid)}`, 'ok');
+        const covenantEntries = await waitForUtxo(rpc, covenantAddress);
+        log('Covenant funded.', 'ok');
+
+        log(`Submitting the ${useTamperedVk ? 'TAMPERED' : 'honest'} VK-hash + ZK verify spend...`);
+        const SPEND_COMPUTE_BUDGET = 1850;
+        const spendPriorityFee = 30000000n;
+        const covenantTotal = covenantEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+        const changeAmount = covenantTotal - spendPriorityFee;
+        const spendTx = createTransaction(
+            covenantEntries,
+            [{ address: covenantAddress, amount: changeAmount }],
+            spendPriorityFee, undefined, undefined
+        );
+        spendTx.version = 1;
+        spendTx.inputs[0].sigOpCount = 0;
+        spendTx.inputs[0].computeBudget = SPEND_COMPUTE_BUDGET;
+        spendTx.inputs[0].signatureScript = buildVkHashSigScript(redeemHex, suppliedVkHex, proofBundle).toString();
+
+        try {
+            const spendTxid = await rpc.submitTransaction({ transaction: spendTx, allowOrphan: false });
+            if (useTamperedVk) {
+                log(`UNEXPECTED SUCCESS: tampered VK was ACCEPTED! txid: ${JSON.stringify(spendTxid)}`, 'err');
+                log('=> The VK-hash check is NOT working -- do not port this to the live game.', 'err');
+            } else {
+                log(`SUCCESS: honest VK-hash pattern verified on-chain! txid: ${JSON.stringify(spendTxid)}`, 'ok');
+                log('=> OpDup + OpBlake2b + hash-check + OpZkPrecompile all chain together correctly.', 'ok');
+            }
+        } catch (err) {
+            if (useTamperedVk) {
+                log(`REJECTED (expected): ${err && err.message ? err.message : JSON.stringify(err)}`, 'ok');
+                log('=> The VK-hash check correctly rejects a VK that does not match the stored hash.', 'ok');
+            } else {
+                log(`UNEXPECTED REJECTION: ${err && err.message ? err.message : JSON.stringify(err)}`, 'err');
+                log('=> Something in the OpDup/OpBlake2b/OpZkPrecompile chaining is wrong -- debug before proceeding.', 'err');
+            }
+        }
+    } catch (err) {
+        log(`FAILED: ${err && err.stack ? err.stack : err}`, 'err');
+    } finally {
+        document.getElementById('runHonest').disabled = false;
+        document.getElementById('runTampered').disabled = false;
+    }
+}
+
+document.getElementById('runHonest').addEventListener('click', () => run(false));
+document.getElementById('runTampered').addEventListener('click', () => run(true));
+</script>
+</body>
+</html>

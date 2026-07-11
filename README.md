@@ -32,7 +32,7 @@ also enforces that the transaction's declared yield matches what that proof actu
 modified client cannot claim a different number than the one it proved. **What isn't yet enforced:**
 whether a player's *cumulative* running total was built from a genuine history of such transactions, and
 whether that history stays independently checkable once Kaspa's default block pruning kicks in
-(~3 days). See `design-bible.md` section 08 ("Trust Model") for the full, honest breakdown of what's
+(~3 days). See `design-bible.md` section 07 ("Trust Model") for the full, honest breakdown of what's
 cryptographically guaranteed today versus what still relies on trusting the official client. **This
 project stays on testnet-10 (TKAS, no real value) until those gaps are closed — never point it at
 mainnet or real funds.**

@@ -58,7 +58,27 @@ debugging process (see "What it took," below), not as the current state.
    client-side-only check. Confirmed again once ported into the live branched covenant via the
    actual game UI (forge → bunker → Phish), with the on-chain payload bytes independently
    fetched and decoded afterward to confirm `punkw`/`provenYieldHex` matched exactly. See
-   `design-bible.md` section 08 for what this does and doesn't close.
+   `design-bible.md` section 07 for what this does and doesn't close.
+
+6. **VK-hash pattern for a scalable shared covenant** — the redeem script previously baked in
+   the full ~392-byte verifying key directly; since a P2SH covenant's entire redeem script has
+   to be pushed on every spend regardless of which branch executes, adding future ZK-proven
+   actions (Build Sector, Attack, Research, Hack) to the same Gameplay Vault would have grown
+   *every* spend's cost linearly with the number of action types ever added, not just the ones
+   actually used. Fixed: the redeem script now stores only a 32-byte `OpBlake2b` hash of the
+   VK; the real VK is supplied by the sig script at spend time and `OpDup`'d so one copy is
+   hash-checked while the other feeds `OpZkPrecompile`. Two things confirmed on-chain before
+   trusting this: first, that a JS-side `blake2b(32)` computation (via the `blake2b` npm
+   package, no key) produces byte-identical output to Kaspa's on-chain `OpBlake2b` —
+   [confirmed](https://tn10.kaspa.stream/transactions/a696e8346ee08d3dc61544172f4edd17a34310c60df186a252407cc2780b9a9c)
+   via `onchain-test-blake2b-check.html`, since different blake2b libraries/configs are not
+   guaranteed to agree. Second, the full pattern (`OpDup`+`OpBlake2b`+hash-check+
+   `OpZkPrecompile`) chaining correctly with a real proof, both directions, via
+   `onchain-test-vk-hash-pattern.html`: an
+   [honest VK matching the stored hash accepted](https://tn10.kaspa.stream/transactions/2357aca06c3dad42ca2aabbd273de85949568f1ee1a392b21671c4b0db12b5d4),
+   a tampered VK (single flipped byte, still 392 bytes) rejected with "script ran, but
+   verification failed." Ported into the live branched covenant and re-confirmed end-to-end
+   through the actual game UI afterward.
 
 ## Incident: stale hardcoded verifying key (found and fixed 2026-07-11)
 

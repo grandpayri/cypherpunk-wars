@@ -144,7 +144,7 @@ is unsolved -- this formula proves "yield Z follows correctly *from* these secto
 pieces -- see "Trust model: what's enforced and what isn't" below for the full picture, since one piece
 was actually closed on 2026-07-11 and one deliberately wasn't.
 
-## 08. Trust Model: What's Enforced On-Chain and What Isn't (2026-07-11)
+## 07. Trust Model: What's Enforced On-Chain and What Isn't (2026-07-11)
 
 A long conversation this session pushed on "the chain needs to verify your gamestate," not just "can a
 player recover their own cached number." Worth a dedicated section since it's the honest answer to "is
@@ -189,7 +189,7 @@ independently auditable today, and **this app must not be pointed at mainnet or 
 both open items above are closed.** Testnet-10 (TKAS) only, no exceptions, until this section says
 otherwise.
 
-## 07. Turns Model (decided 2026-07-11)
+## 08. Turns Model (decided 2026-07-11)
 
 `gameplay-balance.md` (a full GDD for the unbuilt combat/spellbook/Armageddon systems) proposed Turns as
 a free, passive resource that auto-accumulates over real-world time (+1 every 10 minutes, capped at 200).
@@ -219,6 +219,48 @@ rejected outright ("Storage mass exceeds maximum") -- confirmed live, twice, bef
 deposit target instead of a computed "whatever's left" one. See the caution comment above `buyTurns()`
 in `kaspa-client.js`: any future caller that tries to drain a wallet down to a small, imprecise leftover
 risks hitting this same rejection.
+
+## 09. Covenant Scalability: the VK-Hash Pattern (decided 2026-07-11)
+
+Raised directly: does the branched-covenant pattern (one Gameplay Vault, one `OpIf`/`OpElse` per
+action type) scale to the full mapped roadmap -- Build Sector, Attack, Research, Hack/Armageddon,
+each with their own ZK circuit? As originally built, **no** -- concretely fixable, but worth recording
+why and what was changed.
+
+**The problem:** a P2SH covenant's entire redeem script must be pushed on-chain on every spend,
+regardless of which branch actually executes -- skipped branches cost no *mass* to run, but the
+*script itself* still has to be there for the hash check. The original Phish covenant baked the full
+~392-byte verifying key directly into the redeem script. Every additional ZK-proven action type would
+add its own ~300-400 byte VK to that same shared script, meaning even a cheap anchor spend -- which
+never touches any of those branches -- would get steadily more expensive as unrelated features shipped.
+Directly at odds with "keep turn costs as low as possible."
+
+**The fix:** the redeem script now stores only a 32-byte `OpBlake2b` hash of the VK
+(`PHISH_YIELD_VERIFICATION_KEY_HASH_HEX` in `kaspa-client.js`), not the VK itself. The real VK is
+supplied by the sig script at spend time and `OpDup`'d so one copy is hash-checked against the stored
+hash while the surviving copy feeds `OpZkPrecompile` exactly as before. Each new action type now adds
+a small, constant-size hash comparison (~32-40 bytes) to the shared script instead of a few hundred
+bytes -- turn cost stays roughly flat as the game grows, rather than climbing with every feature ever
+added, whether or not a given turn uses it. Confirmed on-chain in two steps before touching the live
+covenant: first, that a JS-computed `blake2b(32)` hash (via the `blake2b` npm package) matches Kaspa's
+on-chain `OpBlake2b` byte-for-byte (different blake2b library configs aren't guaranteed to agree);
+second, that the full `OpDup`+`OpBlake2b`+hash-check+`OpZkPrecompile` chain works correctly both ways
+(honest VK accepted, tampered VK rejected) -- see `zk-spike/README.md` for the transaction record.
+
+**What this does NOT fix, on purpose -- three separate, still-open concerns:**
+- **Nesting/audit complexity still grows with each branch added.** The hash trick keeps the *script
+  small*; it doesn't make reasoning about a 5-6-level-deep nested `OpIf`/`OpElse` tree easier, or
+  guarantee that adding branch N+1 doesn't silently corrupt branch N's stack assumptions. Two real bugs
+  were hit this session adding just *one* payload check to an *already-working* covenant -- each new
+  action still needs its own careful, on-chain-verified accept/reject testing, hash trick or not.
+- **Every covenant script change still orphans existing funded vaults.** The address *is* a hash of the
+  script; adding even a small hash-checked branch for a new action produces a new address. Fine
+  repeatedly on testnet (the established convention all session); a real, unresolved liability for ever
+  moving past it, since the hash pattern doesn't touch this at all.
+- **State-continuity (section 07) is completely orthogonal.** A smaller, more scalable script doesn't
+  make a player's self-reported *previous* total any more verifiable. Every new action built this way
+  inherits section 07's open item independently -- covenant scalability and state trustlessness are two
+  different problems that happen to both live in the same script.
 
 ## Open questions for implementation (not yet decided)
 

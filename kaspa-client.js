@@ -580,26 +580,44 @@ export async function attemptRestrictedWalletSend({ playerAddress, playerPrivate
 //     testing (anchor-shaped spends cost mass in the same ballpark as the old non-ZK
 //     Phish spend, not the ~180k+ the ZK branch costs).
 //
-// The production verifying key below is for circuits/phishYield.circom (zk-spike/),
-// compiled from the public Hermez Powers of Tau ceremony plus a fresh local contribution
-// (NOT the self-generated, single-contributor ptau zk-spike's first pass used for initial
-// toolchain testing -- see zk-spike/README.md's trusted-setup notes). Arkworks-compressed
-// via zk-spike/kaspa-zk-convert, independently re-verified against ark-groth16's own
-// verify_proof (the same crate Kaspa's on-chain verifier uses) before being trusted here.
+// The production verifying key is for circuits/phishYield.circom (zk-spike/), compiled from
+// the public Hermez Powers of Tau ceremony plus a fresh local contribution (NOT the
+// self-generated, single-contributor ptau zk-spike's first pass used for initial toolchain
+// testing -- see zk-spike/README.md's trusted-setup notes). Arkworks-compressed via
+// zk-spike/kaspa-zk-convert, independently re-verified against ark-groth16's own verify_proof
+// (the same crate Kaspa's on-chain verifier uses) before being trusted here.
 //
-// IMPORTANT: this value must always be regenerated fresh from zk/phishYield.zkey (the exact
-// file the browser actually proves against), never hand-transcribed. Groth16 trusted-setup
-// contribution (`zkey contribute`) is randomized -- every re-run of the production setup
-// produces a genuinely different, but equally valid, keypair, so an old hardcoded VK silently
-// stops matching the moment the zkey is regenerated for any reason. Hit exactly this bug once
-// during development: an earlier VK value here was accidentally left over from a zkey that had
-// since been regenerated, and Kaspa's on-chain OpZkPrecompile correctly rejected every proof
-// as a result ("ZK Integrity: Groth16 verification failed") even though the same proofs passed
-// local snarkjs/ark-groth16 verification (those check proof-vs-its-own-accompanying-vk
-// internal consistency, not "is this the vk the covenant actually hardcodes"). If this class of
-// bug resurfaces, regenerate via zk-spike/kaspa-zk-convert against zk-spike/build-prod/
-// verification_key.json (re-exported from the CURRENT zk/phishYield.zkey) and diff the result
-// against this constant before assuming anything else is broken.
+// The redeem script stores only this 32-byte OpBlake2b hash of the VK, not the ~392-byte VK
+// itself -- the full VK is supplied by the caller's sig script at spend time (see
+// buildZkPhishClaimSigScript) and OpDup'd so one copy can be hash-checked while the other
+// feeds OpZkPrecompile. This keeps the redeem script's size constant as more ZK-proven action
+// types (Build Sector, Attack, ...) get added to this same covenant, instead of growing
+// linearly with each action's own ~300-400 byte VK -- every spend from this vault would
+// otherwise carry the full weight of every OTHER action's VK too, since a P2SH covenant's
+// entire redeem script must be pushed on every spend regardless of which branch executes.
+// Confirmed on-chain (OpDup+OpBlake2b+hash-check+OpZkPrecompile chaining correctly, both
+// honest-accept and tampered-VK-reject) via zk-spike/onchain-test-vk-hash-pattern.html before
+// landing here. The JS-side hash was computed via the 'blake2b' npm package (32-byte output,
+// no key) and independently confirmed to match Kaspa's on-chain OpBlake2b byte-for-byte via
+// zk-spike/onchain-test-blake2b-check.html -- don't assume any other blake2b library/config
+// produces the same bytes without that same cross-check.
+//
+// IMPORTANT: this hash must always be regenerated fresh from zk/phishYield.zkey (the exact
+// file the browser actually proves against), never hand-transcribed -- same caution that
+// applied when the full VK was hardcoded here: Groth16 trusted-setup contribution is
+// randomized, so a regenerated zkey silently produces a different (but equally valid) VK, and
+// an old hash here would then reject every proof with no obvious cause. If this class of bug
+// resurfaces, recompute via `node -e "const blake2b=require('blake2b'); ..."` (see
+// onchain-test-vk-hash-pattern.html's own comment) against the CURRENT VK from
+// zk-spike/kaspa-zk-convert, and diff the result against this constant first.
+const PHISH_YIELD_VERIFICATION_KEY_HASH_HEX = "c89d9d5b7fd6cf5925da48e6e5c59e80b993bdcb82ff7fcb66e16007c26b1893";
+
+// The actual VK bytes, needed to supply via the sig script at spend time (the redeem script
+// above only ever sees/checks its hash) -- must hash to PHISH_YIELD_VERIFICATION_KEY_HASH_HEX
+// exactly, or every real-claim spend fails at the hash-check before ever reaching
+// OpZkPrecompile. No confidentiality requirement here (it's broadcast in every claim
+// transaction's sig script anyway, fully public on-chain) -- keeping it as its own constant
+// is purely so the hash and the preimage can't silently drift apart if only one gets updated.
 const PHISH_YIELD_VERIFICATION_KEY_HEX = "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e197b44dbfdb4f00402ca92671212663f6a07fed0f7ce11c14d1bb66cdff4580601b6eb2549d7a49d9489d4e99b7995320821f04797bf80a1849ff5fcba0a80a029050000000000000020bb357e6cf4debe3cc900e60de0d51ee468270931de8e616611d594b01d44a6dab0b0ffbeba6e3da82ca9afd50a94e65451bd1a2211c915bad1e76833875788050613838f97e8d5d412e3d34002e3e509bae0caf2d9c274d78d0a1fa5fd5b13b653c032df0b4bbac6cf096fcef6b95260048b44f43b09d30d973654b00a4dab6a56ecc3db62b4a15f2733a3e6521e160502f1526c88d1821cd0c3b4efebd393";
 
 // Full on-chain payload byte offsets of the provenYieldHex trailer written by
@@ -613,7 +631,11 @@ function buildZkPhishRedeemScript(playerPubkeyHex) {
     return new ScriptBuilder()
         .addData(playerPubkeyHex).addOp(Opcodes.OpCheckSigVerify)
         .addOp(Opcodes.OpIf)
-            .addData(PHISH_YIELD_VERIFICATION_KEY_HEX).addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
+            // VK-hash pattern: the caller's sig script supplies the full VK (see
+            // buildZkPhishClaimSigScript); OpDup keeps one copy for the hash check below
+            // while the other survives for OpZkPrecompile's own use right after.
+            .addOp(Opcodes.OpDup).addOp(Opcodes.OpBlake2b).addData(PHISH_YIELD_VERIFICATION_KEY_HASH_HEX).addOp(Opcodes.OpEqual).addOp(Opcodes.OpVerify)
+            .addData("20").addOp(Opcodes.OpZkPrecompile).addOp(Opcodes.OpVerify)
             // Binds the payload's declared provenYieldHex to the SAME yieldAmount public
             // input OpZkPrecompile just verified above -- closes the gap where a modified
             // client could write any punkw/yield value into the payload regardless of what
@@ -656,7 +678,7 @@ function buildZkPhishAnchorSigScript(redeemScriptHex, signatureHex) {
         .addData(redeemScriptHex);
 }
 
-function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle) {
+function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle, vkHex) {
     const builder = new ScriptBuilder();
     // Extra copy of publicInputHexes[0] (yieldAmount), pushed FIRST (deepest in the stack) so
     // it survives OpCheckSigVerify/OpIf/OpZkPrecompile's own consumption of everything pushed
@@ -669,6 +691,12 @@ function buildZkPhishClaimSigScript(redeemScriptHex, signatureHex, proofBundle) 
     }
     builder.addI64(BigInt(proofBundle.publicInputHexes.length));
     builder.addData(proofBundle.proofHex);
+    // Full VK, pushed right above the proof/count/publicInputs group so it's the new
+    // top-of-stack once OpCheckSigVerify/OpIf consume the signature/branch-flag above it --
+    // the redeem script's own OpDup+OpBlake2b hash-checks this before OpZkPrecompile uses
+    // the surviving copy. See PHISH_YIELD_VERIFICATION_KEY_HASH_HEX's comment for why the
+    // redeem script only stores the hash, not the full VK.
+    builder.addData(vkHex);
     builder.addI64(1n); // branch flag: true -> OpIf (real claim)
     builder.addData(signatureHex);
     builder.addData(redeemScriptHex);
@@ -803,7 +831,7 @@ export async function spendZkVerifiedPhish({ playerAddress, playerPrivateKey, pl
     tx.inputs[0].computeBudget = PHISH_ZK_COMPUTE_BUDGET;
 
     const sigHex = stripSignatureLengthPrefix(createInputSignature(tx, 0, playerPrivateKey, SighashType.All));
-    tx.inputs[0].signatureScript = buildZkPhishClaimSigScript(redeemScriptHex, sigHex, proofBundle).toString();
+    tx.inputs[0].signatureScript = buildZkPhishClaimSigScript(redeemScriptHex, sigHex, proofBundle, PHISH_YIELD_VERIFICATION_KEY_HEX).toString();
 
     // rpc.submitTransaction() resolves to { transactionId } here, not a bare string --
     // confirmed via zk-spike's on-chain testing. Normalize before returning so every caller

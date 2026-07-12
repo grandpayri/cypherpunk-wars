@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYPHERPUNK WARS | Build Result</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .yield-display {
+            text-align: center;
+            padding: 30px 20px;
+            border: 1px dashed var(--kaspa-teal);
+            margin: 20px 0;
+        }
+        .yield-amount {
+            font-size: 3rem;
+            color: var(--kaspa-bright);
+            font-weight: bold;
+            display: block;
+        }
+        .yield-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .tx-details {
+            font-size: 0.75rem;
+            color: #888;
+            border-top: 1px dashed rgba(0, 255, 159, 0.2);
+            margin-top: 25px;
+            padding-top: 15px;
+        }
+        .tx-details .tx-id {
+            color: var(--kaspa-teal);
+            word-break: break-all;
+        }
+        .verification-note {
+            font-size: 0.75rem;
+            color: var(--hazard-yellow);
+            border: 1px dashed var(--hazard-yellow);
+            padding: 12px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body class="bunker-frame">
+
+<div class="central-gate">
+    <div id="app-header" class="app-header"></div>
+
+    <div class="forge-container">
+        <h2 style="margin-top: 0; color: var(--kaspa-bright);">SECTOR_BUILD_COMPLETE</h2>
+        <p style="font-size: 0.85rem;">Compiling nodes finished wiring the new Sector into your Infrastructure.</p>
+
+        <div class="yield-display">
+            <span class="yield-label">Infrastructure</span>
+            <span class="yield-amount" id="sectorCount">0</span>
+            <span class="yield-label" style="margin-top: 10px; display: block;">New War Chest Total: <span id="newTotal" style="color: var(--kaspa-teal);">0</span> $PUNKW</span>
+        </div>
+
+        <div class="verification-note">
+            <b>HOW THIS IS VERIFIED TODAY:</b> the state transition above is a real
+            zero-knowledge proof, not a self-reported number -- the claim transaction is only
+            valid if it carries a Groth16 proof that <code>newSectors = oldSectors + 1</code>
+            and <code>newPunkw = oldPunkw - 350</code> genuinely hold, checked natively
+            on-chain by Kaspa's own <code>OpZkPrecompile</code> opcode, with both proven
+            outputs bound to this exact transaction's payload. What it does <i>not</i> prove:
+            that the <code>oldPunkw</code>/<code>oldSectors</code> this proof started from are
+            themselves your true prior totals -- those are still self-reported client state,
+            same trust tier as Phish's cumulative $PUNKW total (see design-bible.md section 07).
+        </div>
+
+        <div class="tx-details">
+            <div>CLAIM_TRANSACTION_ID (ZK-verified, verifiable on any testnet-10 explorer):</div>
+            <div class="tx-id" id="txid">...</div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn-execute btn-highlight" onclick="window.location.href='bunker.html'">RETURN_TO_COMMAND_CENTER</button>
+        </div>
+    </div>
+
+    <div id="docs-footer" class="docs-footer"></div>
+</div>
+
+<script type="module">
+    import { renderAppHeader } from './shared-header.js';
+    import { renderFooter } from './shared-footer.js';
+    import { txLinkHtml } from './explorer-links.js';
+
+    renderAppHeader();
+    renderFooter();
+
+    const raw = sessionStorage.getItem('lastBuildResult');
+    if (!raw) {
+        // No stashed result -- someone navigated here directly rather than via a real Build
+        // Sector action. Nothing to show, so send them back to where results come from.
+        window.location.href = 'bunker.html';
+    } else {
+        const result = JSON.parse(raw);
+        document.getElementById('sectorCount').innerText = `${result.newSectors} SECTOR${result.newSectors === 1 ? '' : 'S'}`;
+        document.getElementById('newTotal').innerText = result.newPunkw;
+        document.getElementById('txid').innerHTML = txLinkHtml(result.txid);
+        sessionStorage.removeItem('lastBuildResult');
+    }
+</script>
+
+</body>
+</html>

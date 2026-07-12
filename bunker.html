@@ -23,13 +23,13 @@
                     <div class="action-card">
                         <h4>PHISH</h4>
                         <p>Scrape the BlockDAG for $PUNKW fragments. Spends one Turn.</p>
-                        <button class="btn-execute" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
+                        <button class="btn-execute" id="phishBtn" onclick="executePhish()">INITIATE_PHISH_SEQUENCE</button>
                     </div>
 
                     <div class="action-card">
                         <h4>BUILD_INFRASTRUCTURE</h4>
                         <p>Spend 350 $PUNKW to build a Sector, growing your Infrastructure by 1.</p>
-                        <button class="btn-execute" onclick="executeBuildSector()">BUILD_SECTOR</button>
+                        <button class="btn-execute" id="buildSectorBtn" onclick="executeBuildSector()">BUILD_SECTOR</button>
                     </div>
 
                     <div class="action-card disabled">
@@ -60,7 +60,6 @@
     import { renderAppHeader } from './shared-header.js';
     import { renderSidebar, refreshSidebarStats, getPunkwBalance, setPunkwBalance, getTurnCount, setTurnCount, getSectorCount, setSectorCount } from './shared-sidebar.js';
     import { renderFooter } from './shared-footer.js';
-    import { txLinkHtml } from './explorer-links.js';
 
     renderAppHeader();
     renderFooter();
@@ -69,6 +68,21 @@
         const log = document.getElementById('log');
         log.innerHTML += `<br>> ${msg}`;
         log.scrollTop = log.scrollHeight;
+    }
+
+    // Both Phish and Build Sector spend from the SAME covenant-locked vault and take several
+    // real seconds (proof generation + broadcast, plus Phish's anchor/poll round trip) with
+    // no other visual feedback in between -- without this lock, a second click before the
+    // first finishes reads the same stale oldPunkw/oldSectors (self-reported proof inputs,
+    // same trust tier as everything else in this covenant -- see design-bible.md section 07)
+    // and broadcasts a second real transaction targeting the SAME "new" state instead of
+    // building on the first one's result. Locking both buttons together (not just the one
+    // clicked) also avoids both actions racing to select the same UTXO.
+    const phishBtn = document.getElementById('phishBtn');
+    const buildSectorBtn = document.getElementById('buildSectorBtn');
+    function setActionsLocked(locked) {
+        phishBtn.disabled = locked;
+        buildSectorBtn.disabled = locked;
     }
 
     const bunkerId = localStorage.getItem('bunker_id');
@@ -110,6 +124,7 @@
         // hardcoded until that mechanic ships (Phase 6/not built) -- the formula degrades to
         // baseRoll + sectorBonus in that case, so no current player's yield is wrongly
         // affected.
+        setActionsLocked(true);
         try {
             const vaultAddr = deriveZkPhishAddress(pubkey);
             const currentSectors = getSectorCount(bunkerId);
@@ -157,13 +172,15 @@
         } catch (err) {
             console.error("PHISH_ERROR:", err);
             logLine(`ERROR: GRID_FAILURE. ${err.message || err}`);
+            setActionsLocked(false);
         }
     };
 
     // Build Sector: a deterministic state transition (no yield roll), so unlike Phish it
     // doesn't need the anchor/accepting-block-hash entropy dance -- one straight ZK-verified
-    // claim transaction is enough. Stays in the command console (no dedicated result page,
-    // unlike Phish) since there's no roll outcome to show off, just a before/after state.
+    // claim transaction is enough. Still lands on its own results page (build-result.html)
+    // on success, same as Phish, for a consistent "action leaves the command console"
+    // pattern rather than logging its outcome inline.
     window.executeBuildSector = async function () {
         if (!bunkerId) return;
 
@@ -186,6 +203,7 @@
             return;
         }
 
+        setActionsLocked(true);
         try {
             const vaultAddr = deriveZkPhishAddress(pubkey);
 
@@ -213,10 +231,19 @@
             setSectorCount(bunkerId, newSectors);
             setTurnCount(bunkerId, newTurnCount);
             refreshSidebarStats();
-            logLine(`DONE. SECTOR_BUILT. WAR_CHEST=${newPunkw}_$PUNKW. SECTORS=${newSectors}. TX=${txLinkHtml(result.txid, result.txid.substring(0, 16) + '...')}`);
+            sessionStorage.setItem('lastBuildResult', JSON.stringify({
+                txid: result.txid,
+                newPunkw,
+                newSectors,
+                spentAmount: oldPunkw - newPunkw,
+                feeSompi: result.outputs.fee.toString(),
+                changeSompi: result.outputs.change.toString(),
+            }));
+            window.location.href = 'build-result.html';
         } catch (err) {
             console.error("BUILD_SECTOR_ERROR:", err);
             logLine(`ERROR: BUILD_FAILURE. ${err.message || err}`);
+            setActionsLocked(false);
         }
     };
 </script>
